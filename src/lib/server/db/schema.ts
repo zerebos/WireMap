@@ -44,8 +44,13 @@ export const floors = sqliteTable('floors', {
 	level: integer('level').notNull().default(0),
 	// Height of the floor's base above ground, for a 3D view.
 	elevation: real('elevation'),
-	// Optional background image (e.g. a scanned floor plan) and its real-world scale.
+	// Optional background image (e.g. a scanned floor plan), stored under the data folder.
 	planImage: text('plan_image'),
+	// Size of the floor's drawing area in plan units. Room outlines and device positions use
+	// the same units; the plan image, if any, is stretched over the whole area.
+	planWidth: real('plan_width').notNull().default(2000),
+	planHeight: real('plan_height').notNull().default(1500),
+	// Real-world scale. The default of 0.01 makes one unit a centimetre.
 	metersPerUnit: real('meters_per_unit')
 });
 
@@ -67,7 +72,8 @@ export const devices = sqliteTable(
 		kind: text('kind', { enum: DEVICE_KINDS }).notNull().default('outlet'),
 		name: text('name').notNull(),
 		notes: text('notes'),
-		// Position on the room's floor plan (x, y) and height off the floor (z), all optional.
+		// Position on the floor plan in the floor's plan units (x, y) and height above the floor
+		// in metres (z), all optional. The floor comes from the device's room.
 		posX: real('pos_x'),
 		posY: real('pos_y'),
 		posZ: real('pos_z')

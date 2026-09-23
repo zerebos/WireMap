@@ -48,7 +48,10 @@
 						{d.name}
 						<span class="muted small">{DEVICE_KIND_INFO[d.kind].label}</span>
 					</td>
-					<td>{d.room ?? '—'}{#if d.floor}<span class="muted small"> {d.floor}</span>{/if}</td>
+					<td>
+						{d.room ?? '—'}{#if d.floor}<span class="muted small"> {d.floor}</span>{/if}
+						{#if d.placed}<a class="small" href="/map?d={d.id}">Map</a>{/if}
+					</td>
 					<td>
 						{#if d.breakerId}
 							<a href="/panels/{d.panelId}?b={d.breakerId}">

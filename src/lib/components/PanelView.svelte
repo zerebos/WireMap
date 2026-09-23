@@ -19,6 +19,7 @@
 		breakers,
 		selectedId = null,
 		selectedSlot = null,
+		compact = false,
 		hrefFor,
 		hrefForSlot
 	}: {
@@ -27,6 +28,8 @@
 		breakers: PanelBreaker[];
 		selectedId?: number | null;
 		selectedSlot?: number | null;
+		/** Smaller version for sidebars: shorter slots, no item counts. */
+		compact?: boolean;
 		hrefFor: (b: PanelBreaker) => string;
 		hrefForSlot: (slot: number) => string;
 	} = $props();
@@ -41,7 +44,7 @@
 		`grid-row: ${slotRow(slot) + 1} / span ${span}; grid-column: ${slotColumn(slot) === 'left' ? 2 : 4};`;
 </script>
 
-<div class="panel" aria-label="Breaker panel">
+<div class="panel" class:compact aria-label="Breaker panel">
 	<div class="main">
 		<span class="handle"></span>
 		<span>MAIN {mainAmps ? `${mainAmps}A` : ''}</span>
@@ -79,12 +82,12 @@
 			>
 				<span class="label">
 					<span class="text">{b.label || 'Unlabeled'}</span>
-					<span class="meta">
+					{#if !compact}<span class="meta">
 						{b.devices.length} item{b.devices.length === 1 ? '' : 's'}
 						{#if b.kind !== 'standard'}
 							<span class="badge" title={BREAKER_KIND_LABELS[b.kind]}>{b.kind.toUpperCase()}</span>
 						{/if}
-					</span>
+					</span>{/if}
 				</span>
 				<span class="toggle">
 					<span class="lever"></span>
@@ -251,6 +254,36 @@
 		font-size: 0.7rem;
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
+	}
+
+	.panel.compact {
+		--slot-h: 1.9rem;
+		padding: 0.6rem;
+	}
+	.compact .main {
+		margin-bottom: 0.5rem;
+		padding: 0.3rem;
+		font-size: 0.75rem;
+	}
+	.compact .grid {
+		grid-template-columns: 1.1rem minmax(0, 1fr) 0.5rem minmax(0, 1fr) 1.1rem;
+	}
+	.compact .text {
+		font-size: 0.78rem;
+	}
+	.compact .label,
+	.compact.panel .right .label {
+		padding-inline: 0.45rem 0.35rem;
+	}
+	.compact .toggle {
+		width: 1.8rem;
+	}
+	.compact .lever {
+		width: 1.2rem;
+		height: 0.5rem;
+	}
+	.compact .double .lever {
+		height: 2rem;
 	}
 
 	@media (max-width: 520px) {

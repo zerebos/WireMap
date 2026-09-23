@@ -1,6 +1,14 @@
 import { db } from './db';
 import { panels, breakers, floors, rooms, devices } from './db/schema';
 
+const rect = (x1: number, y1: number, x2: number, y2: number): [number, number][] => [
+	[x1, y1],
+	[x2, y1],
+	[x2, y2],
+	[x1, y2]
+];
+const at = (posX: number, posY: number, posZ: number | null = null) => ({ posX, posY, posZ });
+
 /** Fills an empty database with a small example house so there's something to click on. */
 export function seedIfEmpty() {
 	if (db.select({ id: panels.id }).from(panels).limit(1).all().length) return;
@@ -15,8 +23,9 @@ export function seedIfEmpty() {
 		const [main, upstairs] = tx
 			.insert(floors)
 			.values([
-				{ name: 'Main floor', level: 0 },
-				{ name: 'Upstairs', level: 1 }
+				// 14 m × 10 m at the default scale of 1 unit = 1 cm.
+				{ name: 'Main floor', level: 0, planWidth: 1400, planHeight: 1000 },
+				{ name: 'Upstairs', level: 1, planWidth: 1400, planHeight: 1000 }
 			])
 			.returning()
 			.all();
@@ -24,10 +33,14 @@ export function seedIfEmpty() {
 		const [kitchen, living, garage, bedroom] = tx
 			.insert(rooms)
 			.values([
-				{ name: 'Kitchen', floorId: main.id },
-				{ name: 'Living room', floorId: main.id },
-				{ name: 'Garage', floorId: main.id },
-				{ name: 'Primary bedroom', floorId: upstairs.id }
+				{ name: 'Kitchen', floorId: main.id, outline: rect(600, 0, 1100, 450) },
+				{
+					name: 'Living room',
+					floorId: main.id,
+					outline: [[1100, 0], [1400, 0], [1400, 1000], [600, 1000], [600, 450], [1100, 450]]
+				},
+				{ name: 'Garage', floorId: main.id, outline: rect(0, 0, 600, 700) },
+				{ name: 'Primary bedroom', floorId: upstairs.id, outline: rect(600, 0, 1100, 500) }
 			])
 			.returning()
 			.all();
@@ -50,18 +63,19 @@ export function seedIfEmpty() {
 
 		tx.insert(devices)
 			.values([
-				{ name: 'Left of sink', kind: 'outlet', breakerId: byLabel['Kitchen counter'], roomId: kitchen.id },
-				{ name: 'By fridge', kind: 'outlet', breakerId: byLabel['Kitchen counter'], roomId: kitchen.id },
-				{ name: 'Island', kind: 'outlet', breakerId: byLabel['Kitchen island'], roomId: kitchen.id },
-				{ name: 'Range', kind: 'appliance', breakerId: byLabel['Range'], roomId: kitchen.id },
-				{ name: 'Ceiling light', kind: 'light', breakerId: byLabel['Living room'], roomId: living.id },
-				{ name: 'Light switch by door', kind: 'switch', breakerId: byLabel['Living room'], roomId: living.id },
-				{ name: 'TV wall', kind: 'outlet', breakerId: byLabel['Living room'], roomId: living.id },
-				{ name: 'Bedside left', kind: 'outlet', breakerId: byLabel['Primary bedroom'], roomId: bedroom.id },
-				{ name: 'Workbench', kind: 'outlet', breakerId: byLabel['Garage'], roomId: garage.id },
+				{ name: 'Left of sink', kind: 'outlet', breakerId: byLabel['Kitchen counter'], roomId: kitchen.id, ...at(820, 15, 1.1) },
+				{ name: 'By fridge', kind: 'outlet', breakerId: byLabel['Kitchen counter'], roomId: kitchen.id, ...at(1085, 220, 1.1) },
+				{ name: 'Island', kind: 'outlet', breakerId: byLabel['Kitchen island'], roomId: kitchen.id, ...at(850, 260, 0.9) },
+				{ name: 'Range', kind: 'appliance', breakerId: byLabel['Range'], roomId: kitchen.id, ...at(680, 30) },
+				{ name: 'Ceiling light', kind: 'light', breakerId: byLabel['Living room'], roomId: living.id, ...at(1000, 720, 2.4) },
+				{ name: 'Light switch by door', kind: 'switch', breakerId: byLabel['Living room'], roomId: living.id, ...at(640, 980, 1.2) },
+				{ name: 'TV wall', kind: 'outlet', breakerId: byLabel['Living room'], roomId: living.id, ...at(1385, 600, 0.3) },
+				{ name: 'Bedside left', kind: 'outlet', breakerId: byLabel['Primary bedroom'], roomId: bedroom.id, ...at(615, 250, 0.3) },
+				{ name: 'Workbench', kind: 'outlet', breakerId: byLabel['Garage'], roomId: garage.id, ...at(15, 350, 1.1) },
+				// Left off the map so the "not on the map yet" list has something in it.
 				{ name: 'Door opener', kind: 'hardwired', breakerId: byLabel['Garage'], roomId: garage.id },
-				{ name: 'Dryer', kind: 'appliance', breakerId: byLabel['Dryer'], roomId: garage.id },
-				{ name: 'Water heater', kind: 'appliance', breakerId: byLabel['Water heater'], roomId: garage.id }
+				{ name: 'Dryer', kind: 'appliance', breakerId: byLabel['Dryer'], roomId: garage.id, ...at(560, 80) },
+				{ name: 'Water heater', kind: 'appliance', breakerId: byLabel['Water heater'], roomId: garage.id, ...at(560, 640) }
 			])
 			.run();
 	});

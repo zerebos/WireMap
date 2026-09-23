@@ -7,7 +7,9 @@ import { env } from '$env/dynamic/private';
 import * as schema from './schema';
 
 const url = env.DATABASE_URL || 'data/breaker-box.db';
-mkdirSync(dirname(url), { recursive: true });
+// Uploaded files (floor plan images) live next to the database so one volume holds everything.
+export const dataDir = dirname(url);
+mkdirSync(dataDir, { recursive: true });
 
 const client = new Database(url, { create: true });
 client.exec('PRAGMA journal_mode = WAL;');

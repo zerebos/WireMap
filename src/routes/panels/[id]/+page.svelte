@@ -91,7 +91,12 @@
 				</header>
 
 				<section>
-					<h3>On this circuit</h3>
+					<div class="section-head">
+						<h3>On this circuit</h3>
+						{#if selected.devices.some((d) => d.posX !== null)}
+							<a href="/map?b={selected.id}">Show on map</a>
+						{/if}
+					</div>
 					{#if selected.devices.length === 0}
 						<p class="muted">Nothing mapped yet. Add the outlets, switches and appliances this breaker feeds.</p>
 					{:else}
@@ -282,6 +287,13 @@
 	.icon {
 		width: 1.4rem;
 		text-align: center;
+	}
+
+	.section-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 0.5rem;
 	}
 
 	.add-device {

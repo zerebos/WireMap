@@ -7,6 +7,7 @@
 
 	const links = [
 		{ href: '/', label: 'Panels', match: (p: string) => p === '/' || p.startsWith('/panels') },
+		{ href: '/map', label: 'Map', match: (p: string) => p.startsWith('/map') },
 		{ href: '/devices', label: 'Devices', match: (p: string) => p.startsWith('/devices') },
 		{ href: '/rooms', label: 'Rooms', match: (p: string) => p.startsWith('/rooms') }
 	];
@@ -28,7 +29,8 @@
 	</nav>
 </header>
 
-<main>
+<!-- The map wants the full width of the window. -->
+<main class:wide={page.url.pathname.startsWith('/map')}>
 	{@render children()}
 </main>
 
@@ -65,5 +67,8 @@
 		padding: 1.25rem;
 		max-width: 1200px;
 		margin: 0 auto;
+	}
+	main.wide {
+		max-width: 1600px;
 	}
 </style>

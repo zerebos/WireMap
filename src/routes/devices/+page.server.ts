@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { breakers, devices, floors, panels, rooms } from '$lib/server/db/schema';
 
@@ -9,6 +9,7 @@ export const load = () => ({
 			name: devices.name,
 			kind: devices.kind,
 			notes: devices.notes,
+			placed: sql<boolean>`${devices.posX} is not null and ${rooms.floorId} is not null`.mapWith(Boolean),
 			room: rooms.name,
 			floor: floors.name,
 			breakerId: breakers.id,

@@ -2,6 +2,7 @@ import { asc, count, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { devices, floors, rooms } from '$lib/server/db/schema';
 import { invalid, reader } from '$lib/server/form';
+import { deletePlan } from '$lib/server/plans';
 
 export const load = () => {
 	const counts = new Map(
@@ -32,7 +33,9 @@ export const actions = {
 	},
 	deleteFloor: async ({ request }) => {
 		const id = reader(await request.formData()).int('id');
-		if (id) db.delete(floors).where(eq(floors.id, id)).run();
+		if (!id) return;
+		const [floor] = db.delete(floors).where(eq(floors.id, id)).returning().all();
+		deletePlan(floor?.planImage ?? null);
 	},
 	addRoom: async ({ request }) => {
 		const f = reader(await request.formData());
