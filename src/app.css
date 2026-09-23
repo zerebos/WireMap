@@ -1,0 +1,162 @@
+:root {
+	color-scheme: light dark;
+	--bg: #f4f5f7;
+	--surface: #ffffff;
+	--surface-2: #eceef1;
+	--border: #d5d9df;
+	--text: #1c2026;
+	--muted: #5e6672;
+	--accent: #2f6fd6;
+	--danger: #c23b3b;
+	--metal: #c9ced6;
+	--metal-dark: #9aa2ad;
+	--breaker: #2a2e35;
+	--breaker-text: #f1f3f5;
+	--radius: 8px;
+	font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	font-size: 15px;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #15181c;
+		--surface: #1e2227;
+		--surface-2: #272c33;
+		--border: #353b44;
+		--text: #e6e9ed;
+		--muted: #97a0ab;
+		--accent: #6aa0ff;
+		--danger: #ff6b6b;
+		--metal: #3a4049;
+		--metal-dark: #2b3037;
+		--breaker: #0f1114;
+		--breaker-text: #e6e9ed;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+}
+
+a {
+	color: var(--accent);
+}
+
+h1,
+h2,
+h3 {
+	margin: 0 0 0.5rem;
+	line-height: 1.2;
+}
+
+input,
+select,
+textarea,
+button {
+	font: inherit;
+	color: inherit;
+}
+
+input,
+select,
+textarea {
+	width: 100%;
+	padding: 0.4rem 0.55rem;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background: var(--surface);
+}
+
+textarea {
+	resize: vertical;
+	min-height: 3.5rem;
+}
+
+label {
+	display: grid;
+	gap: 0.2rem;
+	font-size: 0.85rem;
+	color: var(--muted);
+}
+
+button,
+.button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.4rem 0.8rem;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background: var(--surface-2);
+	cursor: pointer;
+	text-decoration: none;
+	color: var(--text);
+}
+
+button.primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #fff;
+}
+
+button.danger {
+	color: var(--danger);
+}
+
+.card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 1rem;
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.error {
+	color: var(--danger);
+	margin: 0.25rem 0;
+}
+
+.row {
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	align-items: end;
+}
+
+.grid-2 {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.6rem;
+}
+
+.stack {
+	display: grid;
+	gap: 0.6rem;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+th,
+td {
+	text-align: left;
+	padding: 0.45rem 0.5rem;
+	border-bottom: 1px solid var(--border);
+}
+
+th {
+	font-size: 0.8rem;
+	color: var(--muted);
+	font-weight: 600;
+}
