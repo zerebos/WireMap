@@ -51,3 +51,10 @@ built-in, resolved at runtime.
 
 Edit `src/lib/server/db/schema.ts`, then `bun run db:generate` to write a new migration into
 `drizzle/`. It's applied on the next start.
+
+## Docker
+
+```sh
+docker build -t breaker-box .
+docker run -p 3000:3000 -v breaker-data:/data -e ORIGIN=http://localhost:3000 breaker-box
+```
