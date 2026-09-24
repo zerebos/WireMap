@@ -1,10 +1,10 @@
 // Shared logic for the Map screen (docs/design/DESIGN.md §5.2).
-import type { Breaker, Room } from '$lib/db/schema';
+import type { Breaker, Floor, Room } from '$lib/db/schema';
 import type { HouseIndex, HouseItem } from '$lib/house';
 import { mutate, plural } from '$lib/house';
 import { setFloorPlan } from '$lib/db/ops';
 import { PROTECTION_LABELS } from '$lib/constants';
-import { parseOutline, type Point } from '$lib/geometry';
+import { parseShape, type Shape } from '$lib/shape';
 
 /** One selection at a time; priority item > circuit > room. */
 export type Sel = { kind: 'none' } | { kind: 'circuit' | 'item' | 'room'; id: number };
@@ -15,32 +15,13 @@ export type Tool = 'select' | 'room' | 'place';
 /** "20A · GFCI", or "50A · 2-pole". */
 export const specOf = (b: Breaker) => `${b.amps}A · ${b.poles === 2 ? '2-pole' : PROTECTION_LABELS[b.kind]}`;
 
-/** A room's outline, or null when it isn't drawn. */
-export const outlineOf = (r: Room): Point[] | null => parseOutline(r.outline);
-
-/** The rectangle an outline describes, when it's an axis-aligned rectangle. */
-export function rectOf(pts: Point[]): { x: number; y: number; w: number; h: number } | null {
-	if (pts.length !== 4) return null;
-	const xs = [...new Set(pts.map((p) => p[0]))];
-	const ys = [...new Set(pts.map((p) => p[1]))];
-	if (xs.length !== 2 || ys.length !== 2) return null;
-	// Each corner must pair the two xs with the two ys, going around the edge.
-	for (let i = 0; i < 4; i++) {
-		const a = pts[i];
-		const b = pts[(i + 1) % 4];
-		if (a[0] !== b[0] && a[1] !== b[1]) return null;
-	}
-	const x = Math.min(...xs);
-	const y = Math.min(...ys);
-	return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+/** Where a floor's plan image sits, in map units, before its rotation about its centre. */
+export function planBox(f: Floor) {
+	return { x: f.planOffsetX, y: f.planOffsetY, w: f.planWidth * f.planScale, h: f.planHeight * f.planScale, rot: f.planRotation };
 }
 
-export const rectOutline = (x: number, y: number, w: number, h: number): Point[] => [
-	[x, y],
-	[x + w, y],
-	[x + w, y + h],
-	[x, y + h]
-];
+/** A room's shape, or null when it isn't drawn. */
+export const shapeOfRoom = (r: Room): Shape | null => parseShape(r.shape);
 
 /** "16", or "14 + 21" for an item on several breakers, or "?" for none. */
 export function slotsText(ix: HouseIndex, bs: Breaker[], sep = ' + ') {

@@ -1,10 +1,11 @@
 // Every change the UI makes to the data, in one place. Pages call these through `mutate` from
 // $lib/house so the house reloads afterwards.
-import { and, eq, inArray, max } from 'drizzle-orm';
+import { and, eq, inArray, max, notInArray, sql } from 'drizzle-orm';
 import { db } from './index';
 import * as t from './schema';
 import type { Breaker, Floor, Item, Panel, Room, Settings } from './schema';
 import { savePlan, deletePlan } from '../plans';
+import { roomAt, type Shape } from '../shape';
 
 // ---- Settings and panels
 
@@ -179,17 +180,95 @@ export async function removeFloorPlan(id: number) {
 	await deletePlan(floor.planImage);
 }
 
-// ---- Rooms
+// ---- Rooms and map layout
+
+/** The room an item at (x, y) on a floor is in: derived from the rooms' shapes. */
+async function roomFor(floorId: number, x: number, y: number): Promise<number | null> {
+	const rs = await db.select().from(t.rooms).where(eq(t.rooms.floorId, floorId)).all();
+	return roomAt([x, y], rs)?.id ?? null;
+}
+
+/** Re-derives the room of every placed item on a floor, after rooms change. */
+export async function rederiveRooms(floorId: number) {
+	const [rs, its] = await Promise.all([
+		db.select().from(t.rooms).where(eq(t.rooms.floorId, floorId)).all(),
+		db.select().from(t.items).where(eq(t.items.floorId, floorId)).all()
+	]);
+	const ops = its.flatMap((i) => {
+		if (i.x === null || i.y === null) return [];
+		const roomId = roomAt([i.x, i.y], rs)?.id ?? null;
+		return roomId === i.roomId ? [] : [db.update(t.items).set({ roomId }).where(eq(t.items.id, i.id))];
+	});
+	if (ops.length) await db.batch(ops as [(typeof ops)[number], ...typeof ops]);
+}
 
 export async function createRoom(values: typeof t.rooms.$inferInsert): Promise<number> {
 	const [row] = await db.insert(t.rooms).values(values).returning({ id: t.rooms.id }).all();
+	if (values.floorId != null && values.shape) await rederiveRooms(values.floorId);
 	return row.id;
 }
 
 export async function updateRoom(id: number, patch: Partial<Omit<Room, 'id'>>) {
 	await db.update(t.rooms).set(patch).where(eq(t.rooms.id, id));
+	if ('shape' in patch || 'floorId' in patch) {
+		const room = await db.select().from(t.rooms).where(eq(t.rooms.id, id)).get();
+		if (room?.floorId != null) await rederiveRooms(room.floorId);
+	}
 }
 
+/** Moves or reshapes a room; `carry` moves those items by the same offset. */
+export async function setRoomShape(id: number, shape: Shape, carry?: { itemIds: number[]; dx: number; dy: number }) {
+	const ops = [db.update(t.rooms).set({ shape }).where(eq(t.rooms.id, id))];
+	if (carry && carry.itemIds.length && (carry.dx || carry.dy)) {
+		ops.push(
+			db
+				.update(t.items)
+				.set({ x: sql`${t.items.x} + ${carry.dx}`, y: sql`${t.items.y} + ${carry.dy}` })
+				.where(inArray(t.items.id, carry.itemIds)) as unknown as (typeof ops)[number]
+		);
+	}
+	await db.batch(ops as [(typeof ops)[number], ...typeof ops]);
+	const room = await db.select().from(t.rooms).where(eq(t.rooms.id, id)).get();
+	if (room?.floorId != null) await rederiveRooms(room.floorId);
+}
+
+/** Deletes a room. Its items stay where they are and show as "Not in a room". */
 export async function deleteRoom(id: number) {
+	const room = await db.select().from(t.rooms).where(eq(t.rooms.id, id)).get();
 	await db.delete(t.rooms).where(eq(t.rooms.id, id));
+	if (room?.floorId != null) await rederiveRooms(room.floorId);
+}
+
+/** Puts an item on the map at (x, y) on a floor; its room comes from where it sits. */
+export async function placeItem(id: number, floorId: number, x: number, y: number) {
+	await db.update(t.items).set({ floorId, x, y, roomId: await roomFor(floorId, x, y) }).where(eq(t.items.id, id));
+}
+
+/** Takes an item off the map. It keeps its floor and room, and shows under "Not placed". */
+export async function unplaceItem(id: number) {
+	await db.update(t.items).set({ x: null, y: null }).where(eq(t.items.id, id));
+}
+
+/** A floor's layout, for undo: its rooms, where its items are, and the plan image transform. */
+export type LayoutSnapshot = {
+	floorId: number;
+	rooms: Room[];
+	items: Pick<Item, 'id' | 'x' | 'y' | 'roomId'>[];
+	floor: Pick<Floor, 'planOffsetX' | 'planOffsetY' | 'planScale' | 'planRotation' | 'planLocked' | 'planOpacity' | 'unitsPerFt'>;
+};
+
+/** Puts a floor's layout back the way a snapshot has it. */
+export async function restoreLayout(s: LayoutSnapshot) {
+	const keep = s.rooms.map((r) => r.id);
+	const ops = [
+		db
+			.delete(t.rooms)
+			.where(and(eq(t.rooms.floorId, s.floorId), keep.length ? notInArray(t.rooms.id, keep) : undefined)),
+		...s.rooms.map((r) =>
+			db.insert(t.rooms).values(r).onConflictDoUpdate({ target: t.rooms.id, set: { floorId: r.floorId, name: r.name, kind: r.kind, shape: r.shape } })
+		),
+		...s.items.map((i) => db.update(t.items).set({ x: i.x, y: i.y, roomId: i.roomId }).where(eq(t.items.id, i.id))),
+		db.update(t.floors).set(s.floor).where(eq(t.floors.id, s.floorId))
+	];
+	await db.batch(ops as unknown as [(typeof ops)[0], ...(typeof ops)[0][]]);
 }

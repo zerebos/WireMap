@@ -241,6 +241,97 @@ Bulk entry of the paper label inside the panel door. App header (Panel active).
 - **Items, none yet**: no filters or table header. Centered: the four type icons as tiles, "No items yet", explanation that tracing is the quickest way, buttons Trace a breaker (primary) · Add item · Import CSV…, mono hint "CSV columns: name, type, floor, room, breaker". Export CSV disabled.
 - Existing smaller empty states (breaker with no items, search with no results, floor with no plan image, "Nothing on this floor") are described with their screens above.
 
+### 5.10 Editing the map layout [`MapEditRoom.dc.html`, `MapEditScale.dc.html`]
+Viewing and editing are separate modes so a stray drag never moves a wall. The Map toolbar gets an **"Edit layout"** button; edit mode replaces the circuits list and inspector and hides all circuit highlighting.
+
+- **Toolbar**: amber pill "Editing Main floor" · tools segmented: Select · Room (rectangle) · Polygon · Scale · "Floor plan" toggle · Undo (icon) · primary "Done editing" (back to view mode).
+- **Left panel "Layout"**: *Rooms* list (click selects; shows size once a scale is set) and *Not placed*: items on this floor with no position (from tracing, Items page, or "Remove from map"), each with a **Place** button. Place → ghost marker follows the pointer, banner "Click where it really is. Esc cancels.", click drops it snapped to the grid.
+- **Rooms**: click to select (amber outline + 8 square handles: corners and edge midpoints); drag the body to move, drag a handle to resize (min 60 map units). Exterior areas draw with a dashed wall. Selected room shows amber size labels on the top and right edges when a scale is set; a live "17′ × 15′" tooltip follows the pointer while dragging.
+- **Snapping**: to a 10-unit grid by default; room edges snap to other rooms' edges within 8 units and show an amber dashed guide line across the canvas. Holding **Shift** disables snapping.
+- **Moving a room carries its items** (checkbox in the inspector, on by default).
+- **Draw room (rectangle)**: drag on empty canvas; dashed amber draft rectangle with the same snapping; on release it becomes "New room", selected, name field focused. **Polygon**: click to add corners, click the first corner to close; rectangles can be converted to polygons ("Convert to polygon (add corners)"), after which each corner is a handle and double-clicking an edge adds a corner.
+- **Items**: drag to reposition (grid snap, Shift = free). While dragging into a different room a dark tooltip "→ Dining room" follows. The item's room is **derived from its position**; its breakers never change from a move. Inspector shows "Room (from where it sits)" + "Was Half bath" when changed, and "Remove from map" (returns it to Not placed).
+- **Keyboard**: rooms and items are focusable buttons; arrow keys nudge one grid step (Shift = 1 unit), Esc deselects. Clicking empty canvas deselects.
+- **Room inspector**: name, Kind (Interior / Exterior area), Size (read-only, feet), Shape, "Set a scale to see sizes in feet" (when no scale), Convert to polygon, "Move the N items inside with the room", Delete room (warn; items stay and become "Not in a room").
+- **Floor plan**: the "Floor plan" toggle selects the image: dashed amber frame you drag to line it up (rooms don't move), inspector with Opacity, Size (50–150%), Rotate ±90°, "Lock the plan", Replace, Remove. While selected its opacity is raised to at least 55% so it's easy to align.
+- **Set scale** (`MapEditScale`): an amber measuring line with two draggable round endpoints; inspector "Measure one wall": Feet + Inches, live readout "1 ft = 20.0 px" and a sanity check ("Kitchen would be 17′ × 15′"), "Apply scale". Once set, sizes show everywhere (room list, labels, inspector). Stored per floor.
+- **Undo** covers every layout change in the session (moves, resizes, placements, deletes).
+
+### 5.11 Items on more than one breaker [`MultiBreaker.dc.html`]
+A pattern sheet, not a screen. Rule: wherever one breaker is shown, show all of them joined with "+"; anything that turns power off counts the item under **every** breaker it's on.
+- **Map item inspector**: "Fed by N breakers": one row per breaker (amber slot chip, label, spec, remove ×; remove hidden when only one is left), "Add another breaker" select. With 2+: "**Turn off both 14 and 21** before opening this box." plus a checkbox "These share a neutral (multi-wire circuit). They should be handle-tied." When checked, the Panel draws those breakers with a tie bar and warns if one is moved away from the other.
+- **Items table**: chips "14 + 21" and "2 breakers" instead of the label. Sort by lowest slot; breaker filter matches any.
+- **Room circuit cards / Panel "Powers" lists**: the item appears under each breaker with a small "+21" tag naming the others. Room totals count it once; per-circuit counts count it on each.
+- **Shutoff**: a shared item pulls every breaker it's on into the list; row meta explains ("3 items here · 1 shared with 21"). A handle-tied pair is one row: "14 + 16 · turn off together".
+- **Trace**: marking an item that's on a different breaker offers a segmented choice: **Move to 21** (default) / **On both 14 + 21**. Summary tags it "+14".
+
+### 5.12 Phone views [`PhonePanel.dc.html`, `PhoneMap.dc.html`]
+Below ~700px wide the desktop layouts are replaced, not squeezed.
+- **Shell**: 56px dark header (breaker glyph, page title, mono subtitle, Settings gear) and a 64px **bottom tab bar**: Panel · Map · Items · Trace (active tab: ink label, amber icon). No top nav.
+- **Panel**: search field under the header, then the enclosure at full width. Keep the physical two-column layout (odd left, even right) with a 16px leg strip; each breaker is a 46px cell (2-pole 94px): mono "16 · 20A" + tag on the first line, label in condensed 13px, up to two lines. A 5px dark handle strip sits on the inner edge. Open slots are dashed. Search dims non-matches like desktop.
+- **Breaker sheet**: tapping a breaker opens a bottom sheet (scrim, grabber, max 78% height): amber slot chip, "Right, row 8 · Leg L2", label as title, spec line; three actions in a row: Show on map · Shut off · Edit; then "Powers · N" list (icon, name, room · floor). Close button top-right.
+- **Map**: floor segmented control (amber dot on floors with items of the selected circuit) and a **native `<select>` circuit picker** above a fixed-height (360px) map scaled to fit the width; item markers stay 24px regardless of scale; pinch to zoom. Below the map an inline panel (not a sheet) shows the selection: circuit (chip, label, "3 of 9 items on this floor", "6 more on Upstairs →", amber "Shut off breaker 16", item rows), room (tap a room: "Room · Main floor", counts, "Shut off this room · N breakers", items sorted by breaker with slot chips), or item (Fed by + its circuit). Empty: one-line hint.
+- Editing layouts (§5.10) is desktop-only; the phone Map is for finding things.
+
+### 5.13 Read-only guest view [`PhonePanelGuest.dc.html`]
+When Settings → Access → "Read-only guest view" is on, anyone on the network can open the app without signing in (e.g. a tablet mounted by the panel). Same screens and layouts, with:
+- header shows an amber outlined **READ-ONLY** tag and a "Sign in" button instead of Settings;
+- every edit control is removed (not disabled): no Edit, Add, Move, Remove, label inputs, Trace tab, Edit layout, Settings;
+- Shut off and Show on map stay (they don't change data; shutoff progress is kept locally on the device).
+Desktop guest view follows the same rules on the desktop layouts.
+
+### 5.14 Sign in [`SignIn.dc.html`]
+Split screen: left, a 400px column (wordmark, "Sign in", home name, Username, Password, "Stay signed in on this device" checked by default, primary Sign in); right, a 520px enclosure-colored panel with an abstract mini panel graphic (one amber breaker). Error: warn-outlined alert above the fields "That username and password don’t match." (`role="alert"`), cleared on typing. When guest view is on, a divider and "View the panel without signing in" + "Read-only guest view is on for this home." Footer: "Forgot your password? Reset it from the server’s command line — see the docs." (provide that CLI command). On phones the right panel is dropped.
+
+### 5.15 Tandem breakers [`TandemPanel.dc.html`, `TandemPattern.dc.html`]
+Two half-width breakers in one space. Each half is a full breaker record (own label, amps, protection, items) with `half: 'A' | 'B'`. Both halves are on the slot's leg.
+- **Naming**: the half letter is part of the number everywhere — "17A", "17B" (A = upper, B = lower). Position text: "Left, row 9 · lower half". Sort 17A, 17B, 18.
+- **Panel cell**: the slot keeps its column position; the cell is 46px tall (the whole panel row grows to match, so the leg strip stays aligned) and holds two stacked 20px half-buttons: mono "17A", condensed label, amps, small handle. Each half selects independently (same selected style as a breaker). The panel grid is row-based (CSS grid, 3 columns: left · leg strip · right; 2-pole spans two rows).
+- **Detail pane**: overline "Slot 17 · Tandem half B · Leg L1"; Size segmented control: 1-pole · 2-pole · **Tandem A+B**. Choosing Tandem on a 1-pole breaker makes it half A and adds an empty, unlabeled half B (selected). Back to 1-pole is only possible when the other half is gone (reason shown). A neutral card "Shares slot 17 with 17A · Primary bedroom · both halves are on leg L1" + "Select 17A".
+- **Tandem-rated slots**: Settings → Panels gets "Tandem slots" (free text range like "17–28", blank = unknown). Header legend shows it. A tandem outside the range gets a dashed warn outline on the Panel and a warn note in the detail ("Slot 29 isn’t rated for tandems… worth checking with an electrician"). It's a warning, not a block. The new-breaker form disables "Tandem A+B" outside the range with that reason.
+- **New-breaker form**: Size segmented (1-pole / 2-pole / Tandem A+B); tandem shows two rows (17A, 17B) each with label + amps.
+- **Copy the directory**: a "Tandem" checkbox column next to 2-pole; ticking it splits the row into 17A / 17B rows in place.
+- **Phone cell**: same 46px height, split into two 20px halves with one line of label each.
+- **Counts**: header reads "29 of 40 spaces · 31 breakers" (spaces and breakers differ once tandems exist).
+- Quad breakers: see §5.18.
+
+### 5.16 Desktop versions of guest, shutoff and trace
+No separate designs needed:
+- **Guest view on desktop**: the desktop screens with the §5.13 rules (READ-ONLY tag + Sign in in the header, edit controls removed).
+- **Shut off on desktop**: the same component as §5.5 in a 420px right-hand drawer over the Map (from the room inspector's button) or the Panel (from a breaker). Footer and banners unchanged.
+- **Trace on desktop**: tracing needs you walking the house, so desktop "Trace" shows a card: QR code + `[server]/trace`, "Open this on your phone", plus the step-1 breaker list (checked / not checked) read-only so progress is visible. Picking a breaker there is allowed and hands off to the phone.
+
+### 5.17 Subpanels [`SubMain.dc.html`, `SubGarage.dc.html`, `SubPattern.dc.html`]
+A second panel fed from a breaker in the main panel (e.g. a 60A 2-pole feeding a detached garage).
+- **Short code**: each subpanel has a 1–3 letter code that prefixes its breaker numbers everywhere: "G1", "G3/5". The main panel has no prefix.
+- **Panel page**: a row of panel tabs above the enclosure (name + "60A · 7/12 spaces"; subpanels show a small branch icon) plus a dashed "+ Subpanel" button. Subpanel pages show "MAIN LUGS" instead of MAIN, meta "Fed by Main 30/32 · 60A · 7 of 12 spaces · {location}", and a "↑ Fed by Main · 30/32" button that jumps to the feeder.
+- **Feeder breaker**: label is "→ {subpanel name}", 1.5px `--tag-fg` border and a "SUB" tag. Its detail pane replaces "Powers" with a card "Feeds the Garage subpanel" (Open Garage →, "60A 2-pole feeder · 6 breakers · 9 items", grid of its breakers with item counts) and an amber note "Turning this off kills the whole Garage subpanel — 6 breakers and 9 items, including {critical items}."
+- **Power path**: every breaker detail shows a path row: chips "Main 200A › 30/32 · 60A › Garage › G6" (current one amber). Subpanel breakers add "This breaker is also dead whenever Main 30/32 is off."
+- **Header**: the panel name at the right of the header becomes a menu listing panels as a tree when there's more than one.
+- **Add subpanel**: Name, Short code, Fed by (2-pole breakers in any panel, or "New breaker in an open slot…"), Spaces, main amps (optional; usually main lugs), Location. The feeder's label is set to the subpanel name.
+- **Settings → Panels**: panels listed as a tree (subpanels indented with the branch icon). Deleting a subpanel confirms; its breakers are removed and their items become "No breaker".
+- **Everywhere else**: chips use the prefixed number; circuit lists and trace lists group by panel; the map inspector "Fed by" adds the power path. **Shutoff** rows name the panel ("Garage panel · Left, row 1"); when every breaker in a shutoff list is in one subpanel, offer the feeder as a dashed one-flip alternative listing what else it cuts. **Trace**: feeders aren't traceable (they show "Flipping this kills the whole Garage panel. Trace its breakers from the Garage panel instead."); the flip sheet's mini diagram shows the right panel.
+- Nesting deeper than one level (a subpanel fed from a subpanel) works the same way: the path just gets longer.
+
+### 5.18 Quad breakers [`QuadPanel.dc.html`]
+Two 2-pole breakers in one two-space-high body (four half handles), e.g. two 240V circuits in slots 21 and 23. Mixed quads are also common: one 2-pole plus two 1-poles.
+- **Numbering**: "21A/23B" (outer pair: top handle of 21 + bottom handle of 23) and "21B/23A" (inner pair: the middle two). A = upper half, B = lower, as with tandems.
+- **Panel cell**: spans the two rows. Inside, four 20px half-rows in physical order (21A, 21B, 23A, 23B). The **inner pair** is one button spanning the middle two rows. The **outer pair** shows its label on the top row and a muted "↳ same breaker · 21A/23B" on the bottom row; both rows select the same breaker. **Tie bars** (3px, `--tie`) run over the handles joining each pair: the outer bar spans top to bottom row, the inner bar the middle two, slightly offset so both are visible. The selected breaker's bar turns ink (light) / amber (dark), and every row of it is amber.
+- **Detail pane**: overline "Slots 21A + 23B · Legs L1 + L2 · Quad, outer pair"; Size segmented control gains **Quad**. A card shows a mini 4-row diagram of the quad with the current breaker's halves highlighted, "The outer pair of a quad in slots 21–23", "Shares the quad with 21B/23A Heat pump. Both slots are one physical breaker; replacing it affects all of them." and a "Select …" button per mate. Note under it: brands differ on which handles pair up; Edit can swap outer/inner.
+- **New-breaker form / directory**: Size gets a 4th option "Quad (2 × 2-pole)"; it asks for the outer and inner pair (label + amps each), or "one 2-pole + two 1-poles". Only offered where s and s+2 are both free and within tandem slots. In Copy the panel directory, a "Quad" tick on slot s turns rows s and s+2 into the four half-rows.
+- **Elsewhere**: the display number carries everything ("21A/23B"); shutoff/trace position text: "Left, rows 11–12 · outer pair".
+
+### 5.19 Printable panel directory [`PrintSetup.dc.html`, `PrintSheet.dc.html`]
+A fresh label for the inside of the panel door, generated from the data.
+- **Entry**: "Print" button next to "Trace" on the Panel page header (and per panel on subpanel tabs).
+- **Print page** (desktop): left 380px options column, right a scaled live preview on the page background with a shadow and caption "Letter · 8.5 × 11 in · preview at 76%".
+  - Panel (select: every panel, e.g. Main · Garage subpanel)
+  - Paper: Letter · A4 · **Door card** (5 × 8 in; fits the clear sleeve many panel doors have)
+  - Include: Amps · GFCI/AFCI tags · **Write-in lines** (open and unlabeled slots print as dotted blank lines for handwriting) · QR code to the live map (only useful on the home network) · Printed date · **Large text** (for reading with a flashlight)
+  - Footer: primary Print, Download PDF, note "Print at 100% scale (“Actual size”), not “Fit to page”."
+- **The sheet** is always light and ink-only regardless of app theme (white stock, near-black ink, ≥1px rules, no fills except a light grey center gutter; must read in grayscale). Layout mirrors the panel: odd slots left, even right, numbers on the outer edges (left column number at left, right column number at right), rows sized to fill the page (`repeat(N, 1fr)`), 2-pole breakers span two rows with a thick 4px ink edge on the outer side. Row: slot number (mono 16px bold), label (15px/600, ellipsis), meta (mono 12px: "20A GF"). Header: "PANEL DIRECTORY" overline, panel name + amps (26px/800), location line, printed date, optional QR box; 2px ink rule under it. Footer: legend ("GF GFCI · AF AFCI · DF Dual function · Thick edge = 2-pole") and **"Test before you touch. Labels can be wrong."** Minimum text 12px (9pt). Door card: 28px margins and smaller type (13/12px); Large text: 19/18/14px. Tandems/quads/subpanels print their display numbers ("17A", "21A/23B", "G6").
+- Implement as a print route rendering the sheet at the paper's size with `@page { size: …; margin: 0 }` and the sheet's own padding as the margin; Download PDF uses the same route through a headless browser on the server.
+
 ---
 
 ## 6. Rules the UI depends on
@@ -266,10 +357,9 @@ Bulk entry of the paper label inside the panel door. App header (Panel active).
 
 ## 8. Not designed yet (decide with the owner before building)
 
-1. **Items on more than one breaker** (switch boxes with two circuits, multi-wire branch circuits). The data model supports it (`DATA-MODEL.md`). UI proposal: "Fed by" shows stacked slot chips ("14 + 21"); room cards list the item under each breaker; shutoff counts it under every breaker it touches.
-2. **Exterior areas**: rooms with `kind: exterior`, drawn outside the walls with a dashed outline; selectable like rooms. Detached buildings (shed) are an extra floor tab.
-3. **Phone layouts of Panel and Map**: likely a single-column stacked panel. Later.
-4. **Subpanels**: the model supports a panel fed by a breaker; UI beyond "Add subpanel" isn't designed.
+Everything in scope is designed. Notes:
+1. **Exterior areas**: covered by rooms with `kind: exterior` (§5.10); detached buildings are an extra floor tab.
+2. Anything not described in this document: ask before inventing it.
 
 ---
 

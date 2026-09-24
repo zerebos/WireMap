@@ -5,6 +5,7 @@
 	import CircuitList from '$lib/components/map/CircuitList.svelte';
 	import Inspector from '$lib/components/map/Inspector.svelte';
 	import MapView from '$lib/components/map/MapView.svelte';
+	import MapEditor from '$lib/components/map/edit/MapEditor.svelte';
 	import { NONE, defaultFloor, floorOfCircuit, floorSteps, litBreakers, type Sel, type Tool } from '$lib/components/map/model';
 	import type { Breaker, Room } from '$lib/db/schema';
 	import { index, type HouseItem } from '$lib/house';
@@ -45,14 +46,12 @@
 		if (floor !== null) q.set('floor', String(floor));
 		if (next.kind !== 'none') q.set(next.kind, String(next.id));
 		hovB = null;
-		if (next.kind !== 'room' || next.id !== shaping) shaping = null;
 		if (next.kind !== 'item' || next.id !== moving) moving = null;
 		goto(`${resolve('/map')}?${q}`, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	let tool = $state<Tool>('select');
 	let hovB = $state<number | null>(null);
-	let shaping = $state<number | null>(null);
 	let moving = $state<number | null>(null);
 
 	const steps = $derived(floorSteps(ix, floorId));
@@ -64,16 +63,30 @@
 		moving = moving === i.id ? null : i.id;
 		if (moving !== null) tool = 'select';
 	}
-	function startShape(r: Room) {
-		shaping = shaping === r.id ? null : r.id;
-		if (shaping !== null) tool = 'select';
+	/** Layout editing (DESIGN.md §5.10): ?edit=1, optionally opening on a room. */
+	const editing = $derived(params.get('edit') === '1' && floorId !== null);
+	function edit(room: Room | null = null) {
+		const q = new URLSearchParams({ edit: '1', floor: String(room?.floorId ?? floorId) });
+		if (room) q.set('room', String(room.id));
+		moving = null;
+		tool = 'select';
+		goto(`${resolve('/map')}?${q}`, { replaceState: false, keepFocus: true, noScroll: true });
+	}
+	function doneEditing() {
+		go(NONE);
 	}
 </script>
 
 <div class="map">
-	<CircuitList {ix} q={query()} {lit} onpick={pickCircuit} empty={floorId !== null && !steps.placed} />
-	<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:tool bind:hovB bind:shaping bind:moving {go} />
-	<Inspector {ix} {sel} {floorId} bind:hovB {shaping} {moving} {go} onmove={startMove} onshape={startShape} />
+	{#if editing && floorId !== null}
+		{#key floorId}
+			<MapEditor {ix} {floorId} initialRoom={sel.kind === 'room' ? sel.id : null} ondone={doneEditing} />
+		{/key}
+	{:else}
+		<CircuitList {ix} q={query()} {lit} onpick={pickCircuit} empty={floorId !== null && !steps.placed} />
+		<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:tool bind:hovB bind:moving {go} onedit={() => edit()} />
+		<Inspector {ix} {sel} {floorId} bind:hovB {moving} {go} onmove={startMove} onshape={(r) => edit(r)} />
+	{/if}
 </div>
 
 <style>

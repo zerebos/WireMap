@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer, real, index, primaryKey, customType } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
+import type { Shape } from '../shape';
 import { PROTECTIONS, ITEM_TYPES, NUMBERINGS, START_PAGES, THEMES } from '../constants';
 
 export { PROTECTIONS, ITEM_TYPES };
@@ -37,7 +38,10 @@ export const breakers = sqliteTable(
 		// When a trace of this breaker was last saved (ms since epoch).
 		lastCheckedAt: integer('last_checked_at'),
 		// Traced and nothing went dark.
-		isSpare: integer('is_spare', { mode: 'boolean' }).notNull().default(false)
+		isSpare: integer('is_spare', { mode: 'boolean' }).notNull().default(false),
+		// Breakers sharing a value are handle-tied (a multi-wire circuit): kept next to each other
+		// and shut off as one.
+		tieGroup: integer('tie_group')
 	},
 	(t) => [index('breakers_panel_idx').on(t.panelId)]
 );
@@ -53,12 +57,19 @@ export const floors = sqliteTable('floors', {
 	// Optional background image (e.g. a scanned floor plan): the name of a row in plan_images.
 	planImage: text('plan_image'),
 	planOpacity: real('plan_opacity').notNull().default(0.35),
-	// Size of the floor's drawing area in plan units. Room outlines and item positions use
-	// the same units; the plan image, if any, is stretched over the whole area.
+	// Size of the floor's drawing area in map units. Room shapes and item positions use the same
+	// units. The plan image, if any, is drawn over that area, then moved, sized and turned by
+	// the plan_* transform below.
 	planWidth: real('plan_width').notNull().default(2000),
 	planHeight: real('plan_height').notNull().default(1500),
-	// Real-world scale. The default of 0.01 makes one unit a centimetre.
-	metersPerUnit: real('meters_per_unit')
+	planOffsetX: real('plan_offset_x').notNull().default(0),
+	planOffsetY: real('plan_offset_y').notNull().default(0),
+	planScale: real('plan_scale').notNull().default(1),
+	// 0, 90, 180 or 270 degrees, clockwise, about the image's centre.
+	planRotation: integer('plan_rotation').notNull().default(0),
+	planLocked: integer('plan_locked', { mode: 'boolean' }).notNull().default(false),
+	// Real-world scale from Set scale. Null hides sizes.
+	unitsPerFt: real('units_per_ft')
 });
 
 // Uploaded floor plan images. They live in the database so a backup is one file. Each upload
@@ -77,8 +88,8 @@ export const rooms = sqliteTable('rooms', {
 	floorId: integer('floor_id').references(() => floors.id, { onDelete: 'set null' }),
 	name: text('name').notNull(),
 	kind: text('kind', { enum: ['interior', 'exterior'] }).notNull().default('interior'),
-	// JSON array of [x, y] points outlining the room on its floor plan. Null = not drawn yet.
-	outline: text('outline', { mode: 'json' }).$type<[number, number][]>()
+	// Where the room is on its floor, in map units. Null = not drawn yet.
+	shape: text('shape', { mode: 'json' }).$type<Shape>()
 });
 
 // Anything on a circuit: outlets, lights, switches, appliances.

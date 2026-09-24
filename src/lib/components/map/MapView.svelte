@@ -3,20 +3,19 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import PlanPopover from './PlanPopover.svelte';
 	import { mutate, plural, type HouseIndex, type HouseItem } from '$lib/house';
-	import { createItem, createRoom, updateItem, updateRoom } from '$lib/db/ops';
+	import { createItem, createRoom, placeItem } from '$lib/db/ops';
 	import type { Room } from '$lib/db/schema';
 	import { planUrl } from '$lib/plans';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
-	import { dist, roomAt, type Point } from '$lib/geometry';
+	import { pointsOf, roomAt, type Point, type Rect } from '$lib/shape';
 	import {
 		NONE,
 		PLAN_ACCEPT,
 		itemsOn,
 		litBreakers,
 		midSentence,
-		outlineOf,
-		rectOf,
-		rectOutline,
+		planBox,
+		shapeOfRoom,
 		roomBreakerCount,
 		roomGroups,
 		slotsText,
@@ -32,9 +31,9 @@
 		fade,
 		tool = $bindable('select'),
 		hovB = $bindable(null),
-		shaping = $bindable(null),
 		moving = $bindable(null),
-		go
+		go,
+		onedit
 	}: {
 		ix: HouseIndex;
 		sel: Sel;
@@ -43,9 +42,10 @@
 		fade: boolean;
 		tool?: Tool;
 		hovB?: number | null;
-		shaping?: number | null;
 		moving?: number | null;
 		go: (sel: Sel, floor?: number | null) => void;
+		/** Switches to layout editing (DESIGN.md §5.10); absent when the viewer can't edit. */
+		onedit?: () => void;
 	} = $props();
 
 	const floor = $derived(floorId === null ? null : (ix.floorById.get(floorId) ?? null));
@@ -133,24 +133,8 @@
 	}
 	const clamp = (p: Point): Point =>
 		floor ? [Math.min(Math.max(p[0], 0), floor.planWidth), Math.min(Math.max(p[1], 0), floor.planHeight)] : p;
-	/** Snaps to a nearby room corner, else to a 10-unit grid. */
-	function snap(p: Point, skip?: { roomId: number; index: number }): Point {
-		let best: Point | null = null;
-		let bestD = 8 / z;
-		for (const r of floorRooms) {
-			const pts = shapeOf(r);
-			pts?.forEach((q, i) => {
-				if (skip && skip.roomId === r.id && skip.index === i) return;
-				const d = dist(p, q);
-				if (d < bestD) {
-					best = q;
-					bestD = d;
-				}
-			});
-		}
-		if (best) return [best[0], best[1]];
-		return clamp([Math.round(p[0] / 10) * 10, Math.round(p[1] / 10) * 10]);
-	}
+	/** Snaps to a 10-unit grid. */
+	const snap = (p: Point): Point => clamp([Math.round(p[0] / 10) * 10, Math.round(p[1] / 10) * 10]);
 
 	// ---- Plan image
 	let planSrc = $state<string | null>(null);
@@ -168,25 +152,22 @@
 		opacity = floor?.planOpacity ?? 0.35;
 	});
 
-	// ---- Rooms, with any shape being edited
-	let shapeDraft = $state<{ roomId: number; pts: Point[] } | null>(null);
-	const shapeOf = (r: Room): Point[] | null => (shapeDraft?.roomId === r.id ? shapeDraft.pts : outlineOf(r));
-	const shapingRoom = $derived(shaping !== null && selRoom?.id === shaping && selRoom.floorId === floorId ? selRoom : null);
+	// ---- Rooms
 	const movingItem = $derived(moving !== null && selItem?.id === moving ? selItem : null);
 	/** Clicks on the map place something rather than select. */
 	const placing = $derived(tool !== 'select' || movingItem !== null);
 
-	type Drawn = { room: Room; pts: Point[]; rect: { x: number; y: number; w: number; h: number } | null };
+	type Drawn = { room: Room; pts: Point[]; rect: Rect | null };
 	const drawn: Drawn[] = $derived(
 		floorRooms.flatMap((room) => {
-			const pts = shapeOf(room);
-			return pts ? [{ room, pts, rect: rectOf(pts) }] : [];
+			const shape = shapeOfRoom(room);
+			return shape ? [{ room, pts: pointsOf(shape), rect: shape.type === 'rect' ? shape : null }] : [];
 		})
 	);
 	const roomAria = (r: Room) => `${r.name}, ${plural(ix.itemsInRoom(r.id).length, 'item')}`;
 
 	function pickRoom(r: Room) {
-		if (placing || shapingRoom) return;
+		if (placing) return;
 		go(selRoom?.id === r.id ? NONE : { kind: 'room', id: r.id });
 	}
 	function pickItem(i: HouseItem) {
@@ -198,15 +179,12 @@
 		return `${i.name}, ${ix.typeLabel(i)}, ${ix.roomName(i.roomId)}, ${bs.length ? `breaker ${slotsText(ix, bs)}` : 'no breaker'}`;
 	};
 
-	// ---- Pointer: pan on empty grid (or rooms), drag rectangles, drag corners
-	type Drag =
-		| { kind: 'pan'; x0: number; y0: number; px0: number; py0: number; moved: boolean }
-		| { kind: 'draw'; a: Point; b: Point }
-		| { kind: 'vertex'; roomId: number; index: number; pts: Point[]; moved: boolean };
+	// ---- Pointer: pan on empty grid (or rooms), drag rectangles
+	type Drag = { kind: 'pan'; x0: number; y0: number; px0: number; py0: number; moved: boolean } | { kind: 'draw'; a: Point; b: Point };
 	let drag = $state<Drag | null>(null);
 	let suppressClick = false;
 	let hover = $state<Point | null>(null);
-	let pendingRect = $state<Point[] | null>(null);
+	let pendingRect = $state<Rect | null>(null);
 	let newName = $state('');
 	let nameError = $state('');
 	let nameInput: HTMLInputElement | undefined = $state();
@@ -216,7 +194,7 @@
 	function onpointerdown(e: PointerEvent) {
 		if (e.button !== 0 || inOverlay(e) || !floor) return;
 		suppressClick = false;
-		if ((e.target as Element).closest('.it, .vx')) return;
+		if ((e.target as Element).closest('.it')) return;
 		if (tool === 'room' && !pendingRect) {
 			const a = snap(toPlan(e));
 			drag = { kind: 'draw', a, b: a };
@@ -238,10 +216,6 @@
 			d.moved = true;
 			px = d.px0 + e.clientX - d.x0;
 			py = d.py0 + e.clientY - d.y0;
-		} else if (d.kind === 'vertex') {
-			d.moved = true;
-			d.pts[d.index] = snap(toPlan(e), { roomId: d.roomId, index: d.index });
-			shapeDraft = { roomId: d.roomId, pts: [...d.pts] };
 		}
 	}
 	async function onpointerup() {
@@ -256,39 +230,12 @@
 			const w = Math.abs(d.a[0] - d.b[0]);
 			const h = Math.abs(d.a[1] - d.b[1]);
 			if (w < 20 || h < 20) return;
-			pendingRect = rectOutline(x, y, w, h);
+			pendingRect = { x, y, w, h };
 			newName = '';
 			nameError = '';
 			await tick();
 			nameInput?.focus();
-		} else if (d.kind === 'vertex' && d.moved) {
-			await saveShape(d.roomId, d.pts);
 		}
-	}
-	async function saveShape(roomId: number, pts: Point[]) {
-		shapeDraft = { roomId, pts: [...pts] };
-		try {
-			await mutate(() => updateRoom(roomId, { outline: pts }));
-		} finally {
-			shapeDraft = null;
-		}
-	}
-	function vertexDown(e: PointerEvent, room: Room, index: number) {
-		if (e.button !== 0) return;
-		e.stopPropagation();
-		const pts = (shapeOf(room) ?? []).map((p) => [p[0], p[1]] as Point);
-		drag = { kind: 'vertex', roomId: room.id, index, pts, moved: false };
-		grid!.setPointerCapture(e.pointerId);
-	}
-	function vertexKey(e: KeyboardEvent, room: Room, index: number) {
-		const step = e.shiftKey ? 50 : 10;
-		const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
-		const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
-		if (!dx && !dy) return;
-		e.preventDefault();
-		const pts = (shapeOf(room) ?? []).map((p) => [p[0], p[1]] as Point);
-		pts[index] = clamp([pts[index][0] + dx, pts[index][1] + dy]);
-		saveShape(room.id, pts);
 	}
 
 	async function onclick(e: MouseEvent) {
@@ -299,13 +246,12 @@
 		}
 		const p = clamp(toPlan(e));
 		const at: Point = [Math.round(p[0]), Math.round(p[1])];
-		const withShapes = floorRooms.map((r) => ({ ...r, outline: outlineOf(r) }));
-		const inside = roomAt(at, withShapes);
+		const inside = roomAt(at, floorRooms);
 		if (movingItem) {
 			const it = movingItem;
-			const keep = it.roomId !== null && ix.roomById.get(it.roomId)?.floorId === floor.id ? it.roomId : null;
+			const f = floor.id;
 			moving = null;
-			await mutate(() => updateItem(it.id, { x: at[0], y: at[1], floorId: floor.id, roomId: inside?.id ?? keep }));
+			await mutate(() => placeItem(it.id, f, at[0], at[1]));
 		} else if (tool === 'place') {
 			const type = placeType;
 			const f = floor.id;
@@ -324,10 +270,10 @@
 			nameError = `There's already a ${name} on this floor.`;
 			return;
 		}
-		const outline = pendingRect;
+		const shape = { type: 'rect' as const, ...pendingRect };
 		const f = floor.id;
 		pendingRect = null;
-		await mutate(() => createRoom({ floorId: f, name, kind: 'interior', outline }));
+		await mutate(() => createRoom({ floorId: f, name, kind: 'interior', shape }));
 	}
 	function nameKey(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
@@ -345,7 +291,6 @@
 		tool = t;
 		pendingRect = null;
 		moving = null;
-		shaping = null;
 	}
 	function onkeydown(e: KeyboardEvent) {
 		if (e.key !== 'Escape' || e.defaultPrevented) return;
@@ -353,22 +298,18 @@
 		if (drag?.kind === 'draw') drag = null;
 		else if (pendingRect) pendingRect = null;
 		else if (moving !== null) moving = null;
-		else if (shaping !== null) shaping = null;
 		else if (tool !== 'select') setTool('select');
 		else if (planOpen) planOpen = false;
 	}
 
-	const ghostRect = $derived.by(() => {
-		const pts = drag?.kind === 'draw' ? [drag.a, drag.b] : pendingRect;
-		if (!pts) return null;
-		const xs = pts.map((p) => p[0]);
-		const ys = pts.map((p) => p[1]);
-		const x = Math.min(...xs);
-		const y = Math.min(...ys);
-		return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+	const ghostRect = $derived.by((): Rect | null => {
+		if (drag?.kind !== 'draw') return pendingRect;
+		const x = Math.min(drag.a[0], drag.b[0]);
+		const y = Math.min(drag.a[1], drag.b[1]);
+		return { x, y, w: Math.abs(drag.a[0] - drag.b[0]), h: Math.abs(drag.a[1] - drag.b[1]) };
 	});
 	const ghostType = $derived<ItemType | null>(movingItem ? movingItem.type : tool === 'place' ? placeType : null);
-	const traced = $derived(floorRooms.filter((r) => outlineOf(r)).length);
+	const traced = $derived(floorRooms.filter((r) => shapeOfRoom(r)).length);
 	const zoomText = $derived(`${Math.round(z * 100)}%`);
 
 	// ---- Empty floor (DESIGN.md §5.9): no rooms yet.
@@ -403,7 +344,6 @@
 
 	function pickFloor(id: number) {
 		hovB = null;
-		shaping = null;
 		pendingRect = null;
 		go(sel.kind === 'room' ? NONE : sel, id);
 	}
@@ -423,18 +363,21 @@
 		<div class="grow"></div>
 		<div class="seg" role="group" aria-label="Tool">
 			<button type="button" class="sb" class:is-on={tool === 'select'} aria-pressed={tool === 'select'} onclick={() => setTool('select')}
-				><Icon name="cursor" size={16} />Select</button
+				><Icon name="cursor" size={16} /><span class="tl">Select</span></button
 			>
 			<button type="button" class="sb" class:is-on={tool === 'room'} aria-pressed={tool === 'room'} disabled={!floor} onclick={() => setTool('room')}
-				><Icon name="room" size={16} />Draw room</button
+				><Icon name="room" size={16} /><span class="tl">Draw room</span></button
 			>
 			<button type="button" class="sb" class:is-on={tool === 'place'} aria-pressed={tool === 'place'} disabled={!floor} onclick={() => setTool('place')}
-				><Icon name="pin" size={16} />Place item</button
+				><Icon name="pin" size={16} /><span class="tl">Place item</span></button
 			>
 		</div>
 		<button type="button" class="sb planbtn" class:is-on={planOpen} aria-expanded={planOpen} disabled={!floor} onclick={() => (planOpen = !planOpen)}
-			><Icon name="image" size={16} />Floor plan</button
+			><Icon name="image" size={16} /><span class="tl">Floor plan</span></button
 		>
+		{#if onedit}
+			<button type="button" class="btn editbtn" disabled={!floor} onclick={onedit}><Icon name="pencil" size={14} stroke={2.2} />Edit layout</button>
+		{/if}
 	</div>
 
 	<!-- Pointer handling for pan and drawing; every action here also has a keyboard path
@@ -458,15 +401,17 @@
 	>
 		{#if floor}
 			{#if planSrc}
+				{@const pb = planBox(floor)}
 				<img
 					class="plan"
 					src={planSrc}
 					alt=""
 					draggable="false"
-					style:left="{px}px"
-					style:top="{py}px"
-					style:width="{floor.planWidth * z}px"
-					style:height="{floor.planHeight * z}px"
+					style:left="{sx(pb.x)}px"
+					style:top="{sy(pb.y)}px"
+					style:width="{pb.w * z}px"
+					style:height="{pb.h * z}px"
+					style:transform="rotate({pb.rot}deg)"
 					style:opacity={opacity}
 				/>
 			{/if}
@@ -605,21 +550,6 @@
 				</button>
 			{/each}
 
-			{#if shapingRoom}
-				{@const pts = shapeOf(shapingRoom) ?? []}
-				{#each pts as p, n (n)}
-					<button
-						type="button"
-						class="vx"
-						style:left="{sx(p[0]) - 7}px"
-						style:top="{sy(p[1]) - 7}px"
-						aria-label="Corner {n + 1} of {shapingRoom.name}. Drag, or use the arrow keys, to move it."
-						onpointerdown={(e) => vertexDown(e, shapingRoom, n)}
-						onkeydown={(e) => vertexKey(e, shapingRoom, n)}
-					></button>
-				{/each}
-			{/if}
-
 			{#if ghostType && hover && !drag}
 				<div class="ghost" style:left="{sx(hover[0]) - 16}px" style:top="{sy(hover[1]) - 16}px">
 					<div class="gm"><Icon name={ghostType} size={16} /></div>
@@ -672,12 +602,6 @@
 					<button type="button" class="btn h36" onclick={() => (moving = null)}>Cancel</button>
 				</div>
 			{/if}
-			{#if shapingRoom}
-				<div class="banner">
-					<span class="bt"><strong>Drag the corners</strong> to reshape {shapingRoom.name}.</span>
-					<button type="button" class="btn h36" onclick={() => (shaping = null)}>Done</button>
-				</div>
-			{/if}
 			{#if planOpen && floor}
 				<PlanPopover {floor} src={planSrc} {traced} bind:opacity onclose={() => (planOpen = false)} />
 			{/if}
@@ -711,6 +635,7 @@
 
 <style>
 	.mapcol {
+		container-type: inline-size;
 		flex: 1 1 0;
 		min-width: 0;
 		display: flex;
@@ -735,6 +660,25 @@
 	}
 	.grow {
 		flex-grow: 1;
+	}
+	/* The toolbar holds floors, tools, Floor plan and Edit layout; when the canvas is narrow
+	   (the 1440 reference leaves it 820px) the tool labels give way to their icons. */
+	@container (max-width: 960px) {
+		.bar .tl {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip: rect(0 0 0 0);
+			white-space: nowrap;
+		}
+		.bar .sb:has(.tl) {
+			padding: 0 11px;
+		}
+	}
+	.editbtn {
+		height: 38px;
+		padding: 0 12px;
 	}
 	.planbtn {
 		border: 1px solid var(--field);
@@ -1103,21 +1047,6 @@
 	.bdg.warn {
 		background: var(--warn);
 		color: var(--surface);
-	}
-
-	.vx {
-		position: absolute;
-		width: 14px;
-		height: 14px;
-		padding: 0;
-		border: 2px solid var(--ink);
-		border-radius: 2px;
-		background: var(--surface);
-		cursor: move;
-		z-index: 4;
-	}
-	.vx:hover {
-		background: var(--amber);
 	}
 
 	.ghost {

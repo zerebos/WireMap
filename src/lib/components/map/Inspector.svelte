@@ -6,14 +6,13 @@
 	import { deleteItems, swapItemBreaker, updateRoom } from '$lib/db/ops';
 	import type { Breaker, Room } from '$lib/db/schema';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS } from '$lib/constants';
-	import { NONE, floorSteps, itemsOn, outlineOf, roomBreakerCount, roomGroups, slotsText, specOf, type Sel } from './model';
+	import { NONE, floorSteps, itemsOn, shapeOfRoom, roomBreakerCount, roomGroups, slotsText, specOf, type Sel } from './model';
 
 	let {
 		ix,
 		sel,
 		floorId,
 		hovB = $bindable(null),
-		shaping,
 		moving,
 		go,
 		onmove,
@@ -24,13 +23,12 @@
 		floorId: number | null;
 		/** Circuit card being hovered or focused in room mode. */
 		hovB?: number | null;
-		/** Room whose shape is being edited. */
-		shaping: number | null;
 		/** Item waiting for a click on the map. */
 		moving: number | null;
 		go: (sel: Sel, floor?: number | null) => void;
 		onmove: (item: HouseItem) => void;
-		onshape: (room: Room) => void;
+		/** Opens layout editing on this room; absent when the viewer can't edit. */
+		onshape?: (room: Room) => void;
 	} = $props();
 
 	const floorName = $derived(ix.floorName(floorId));
@@ -84,7 +82,7 @@
 	const groups = $derived(room ? roomGroups(ix, room) : []);
 	const nCirc = $derived(roomBreakerCount(groups));
 	const roomItems = $derived(room ? ix.itemsInRoom(room.id).length : 0);
-	const hasShape = $derived(room ? outlineOf(room) !== null : false);
+	const hasShape = $derived(room ? shapeOfRoom(room) !== null : false);
 
 	let renaming = $state(false);
 	let draftName = $state('');
@@ -253,9 +251,7 @@
 				</a>
 				{#if hasShape}
 					<div class="row">
-						<button type="button" class="btn grow sm" aria-pressed={shaping === room.id} onclick={() => room && onshape(room)}>
-							{shaping === room.id ? 'Done editing' : 'Edit shape'}
-						</button>
+						<button type="button" class="btn grow sm" onclick={() => room && onshape?.(room)}>Edit shape</button>
 						<button type="button" class="btn grow sm" aria-pressed={renaming} onclick={() => (renaming ? saveRename() : startRename())}>
 							{renaming ? 'Save name' : 'Rename'}
 						</button>

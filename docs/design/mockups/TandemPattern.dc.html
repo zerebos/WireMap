@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Tandem breakers everywhere</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;--fed-bd:#1A1B1D;--ghost:rgba(255,255,255,.85);--room:rgba(255,255,255,.55);--bus-ink:#2F3337;--toggle:#7A7F85;--link-h:#8A4B06;--tie:#8A8F95;--enclosure-bd:#9AA0A6;--breaker-bd:#AEB4BA;--bus:#B3B9BF;--enclosure:#C4C9CE;--enclosure-hi:#E3E6E9;--chip-h:#2E3034;--plan-ink:#2F3337;--on-amber-muted:#3A2A10;--chip-bd:#4A4D52;--room-lit-ink:#6E3F04;--wall:#6E7378;--room-lit-bd:#B8700F;--chip-muted:#C9CACC;--grid-line:#E7E4DD;--grid-bg:#F7F6F2;color-scheme:light}
+.th-dark{--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;--fed-bd:#F2A33A;--ghost:rgba(32,34,38,.9);--room:rgba(32,34,38,.72);--bus-ink:#C3C6CB;--toggle:#5E636A;--link-h:#F5B860;--tie:#6E737A;--enclosure-bd:#4A4F55;--breaker-bd:#3A3E43;--bus:#34383D;--enclosure:#25282C;--enclosure-hi:#34383D;--chip-h:#D6D3CC;--plan-ink:#C3C6CB;--on-amber-muted:#3A2A10;--chip-bd:#9A9DA2;--room-lit-ink:#F5B860;--wall:#5E636A;--room-lit-bd:#E0922C;--chip-muted:#4A4D52;--grid-line:#22252A;--grid-bg:#15161A;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.sheet{background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.cap{font-size:13px;color:var(--muted);line-height:1.45}
+.slotbox{width:150px;box-sizing:border-box;padding:6px;border:1px solid var(--breaker-bd);border-radius:6px;background:var(--enclosure);display:flex;flex-direction:column;gap:4px}
+.half{height:34px;border-radius:4px;background:var(--raised);border:1px solid var(--breaker-bd);display:flex;align-items:center;gap:8px;padding:0 8px}
+.half .h{width:26px;height:14px;border-radius:2px;background:var(--handle)}
+.drow{display:grid;grid-template-columns:40px minmax(0,1fr) 70px 44px;align-items:center;column-gap:8px;min-height:40px}
+.din{height:36px;box-sizing:border-box;width:100%;padding:0 10px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+.dsel{height:36px;width:100%;box-sizing:border-box;border:1px solid var(--field);border-radius:6px;background:var(--surface);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--ink);padding:0 6px}
+.dnum{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;color:var(--muted);text-align:right}
+.tchk{display:flex;align-items:center;justify-content:center}
+.tchk input{width:18px;height:18px;accent-color:#F2A33A;margin:0}
+.pc{border:1px solid var(--breaker-bd);border-radius:4px;background:var(--raised);padding:4px 10px 4px 8px;display:flex;flex-direction:column;gap:1px;height:46px;box-sizing:border-box;justify-content:center}
+.pch{display:flex;align-items:center;gap:6px;border:1px solid var(--breaker-bd);border-radius:3px;background:var(--raised);padding:0 6px;height:20px;font-size:12px;font-stretch:78%;font-weight:600}
+.pch .n{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;color:var(--muted);font-stretch:100%;font-weight:400}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; box-sizing: border-box; background: var(--bg); color: var(--ink); padding: 36px 40px; display: flex; flex-direction: column; gap: 22px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="ov">Pattern</span>
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em">Tandem breakers</h1>
+<p style="margin: 0; font-size: 15px; color: var(--soft); max-width: 960px; line-height: 1.5">Two half-width breakers in one space. Each half is its own breaker with its own label, amps and items. Both halves sit on the same leg. Everywhere a breaker is named, a tandem half is “17A” or “17B”.</p>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 20px">
+
+<div class="sheet">
+<span class="ov">Naming &amp; position</span>
+<div style="display: flex; gap: 20px; align-items: center">
+<div class="slotbox" aria-hidden="true"><div class="half"><span class="h"></span><span class="mono" style="font-size: 12px; font-weight: 600">17A</span></div><div class="half"><span class="h"></span><span class="mono" style="font-size: 12px; font-weight: 600">17B</span></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.45"><span><strong>A</strong> = upper half, <strong>B</strong> = lower half.</span><span>Position text: “Left, row 9 · lower half”.</span><span>Header counts spaces and breakers separately: “29 of 40 spaces · 31 breakers”.</span></div>
+</div>
+<span class="cap">Some brands print their own numbers on tandems. If the directory says “17, 18” for a tandem, the user can type that into the label; the slot stays 17A/17B.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">New breaker in an open slot</span>
+<div class="fld"><span style="font-size: 12px; font-weight: 600; color: var(--muted)" id="nb-s">Size</span><div class="seg" role="group" aria-labelledby="nb-s"><button type="button" class="{{s1}}" style="flex: 1 1 0; justify-content: center" onClick="{{set1}}" aria-pressed="{{p1}}">1-pole</button><button type="button" class="{{s2}}" style="flex: 1 1 0; justify-content: center" onClick="{{set2}}" aria-pressed="{{p2}}">2-pole</button><button type="button" class="{{st}}" style="flex: 1 1 0; justify-content: center" onClick="{{setT}}" aria-pressed="{{pt}}">Tandem A+B</button></div></div>
+<sc-if value="{{isT}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div class="drow" style="grid-template-columns: 44px minmax(0, 1fr) 80px"><span class="dnum">17A</span><input class="din" type="text" aria-label="17A label" placeholder="What does it power?"><select class="dsel" aria-label="17A amps"><option>15 A</option><option>20 A</option></select></div>
+<div class="drow" style="grid-template-columns: 44px minmax(0, 1fr) 80px"><span class="dnum">17B</span><input class="din" type="text" aria-label="17B label" placeholder="What does it power?"><select class="dsel" aria-label="17B amps"><option>15 A</option><option>20 A</option></select></div>
+</div>
+</sc-if>
+<span class="cap">Tandem is offered only when the slot is within the panel’s tandem slots; outside them it’s disabled with “Slot 5 isn’t rated for tandems (17–28)”. Unknown range = always allowed.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Settings · Panels</span>
+<div class="fld"><label for="tr">Tandem slots</label><input id="tr" class="inp" type="text" value="17–28"><span class="cap">Printed on the panel label, e.g. “Class CTL — tandems in spaces 17–28”. Leave blank if you’re not sure.</span></div>
+<span class="cap">Existing tandems outside the range get a dashed warn outline on the Panel and a note in the breaker detail. It’s a warning, not a block — the house is how it is.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Copy the panel directory</span>
+<div>
+<div class="drow" style="min-height: 28px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted)"><span style="text-align: right">Slot</span><span>Label</span><span>Amps</span><span style="text-align: center">Tandem</span></div>
+<div class="drow"><span class="dnum">15</span><input class="din" type="text" value="Living rm" aria-label="Slot 15 label"><select class="dsel" aria-label="Slot 15 amps"><option>15</option></select><label class="tchk"><input type="checkbox" aria-label="Slot 15 is a tandem"></label></div>
+<div class="drow"><span class="dnum">17A</span><input class="din" type="text" value="Primary bedroom" aria-label="Slot 17A label"><select class="dsel" aria-label="Slot 17A amps"><option>15</option></select><label class="tchk"><input type="checkbox" checked="{{true}}" aria-label="Slot 17 is a tandem"></label></div>
+<div class="drow"><span class="dnum">17B</span><input class="din" type="text" value="Closet &amp; hall" aria-label="Slot 17B label"><select class="dsel" aria-label="Slot 17B amps"><option>15</option></select><span></span></div>
+</div>
+<span class="cap">A “Tandem” column next to “2-pole”. Ticking it splits the row into A and B in place; the slot number column reads 17A / 17B.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Phone panel cell</span>
+<div style="display: flex; gap: 10px">
+<div class="pc" style="flex: 1 1 0"><span class="mono" style="font-size: 10px; color: var(--muted)">15 · 15A</span><span style="font-size: 13px; font-weight: 600; font-stretch: 78%">Living room</span></div>
+<div style="flex: 1 1 0; display: flex; flex-direction: column; gap: 2px; padding: 2px; border: 1px solid var(--breaker-bd); border-radius: 4px; height: 46px; box-sizing: border-box"><span class="pch"><span class="n">17A</span>Primary bedroom</span><span class="pch"><span class="n">17B</span>Closet &amp; hall</span></div>
+</div>
+<span class="cap">Same 46px cell height, split into two 20px halves with one line of label each. Each half is its own tap target (the pair is 46px tall, so the sheet also lists both halves).</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Everywhere else</span>
+<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"><span class="bnum">17A</span><span class="bnum">17B</span><span class="bnum">1/3</span><span class="bnum">14 + 21</span></div>
+<ul style="margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--soft)">
+<li>Slot chips, circuit lists, Items table, map badges: the half letter is part of the number.</li>
+<li>Shutoff and Trace position: “Left, row 9 · lower half”; the trace mini-diagram highlights one half.</li>
+<li>Sorting: 17A, 17B, then 18.</li>
+<li>Moving a tandem half moves only that half; an empty half can be left open or removed to make the slot full-size again.</li>
+</ul>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var set = function (o) { self.setState(o); };
+    var dark = this.props.dark !== undefined ? !!this.props.dark : true;
+    var sz = st.sz || 't';
+    var c = function (k) { return 'sb' + (sz === k ? ' is-on' : ''); };
+    var p = function (k) { return sz === k ? 'true' : 'false'; };
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light',
+      s1: c('1'), s2: c('2'), st: c('t'), p1: p('1'), p2: p('2'), pt: p('t'), isT: sz === 't',
+      set1: function () { set({ sz: '1' }); }, set2: function () { set({ sz: '2' }); }, setT: function () { set({ sz: 't' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
