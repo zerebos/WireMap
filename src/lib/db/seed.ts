@@ -3,6 +3,9 @@ import { panels, breakers, floors, rooms, items, itemBreakers, planImages } from
 import house from '../../../docs/design/seed.json';
 import mainFloorPlan from './main-floor.png?inline';
 
+// Breakers the example house has already traced, as in the Trace mockup (docs/design/mockups/TracePick.dc.html).
+const CHECKED = [1, 2, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 20, 22];
+
 type Shape = { type: 'rect'; x: number; y: number; w: number; h: number } | null;
 
 const outline = (s: Shape): [number, number][] | null =>
@@ -40,7 +43,8 @@ export async function seed(db: DB) {
 					poles: b.poles,
 					amps: b.amps,
 					kind: b.protection as 'standard' | 'gfci' | 'afci' | 'dual',
-					label: b.label ?? ''
+					label: b.label ?? '',
+					lastCheckedAt: CHECKED.includes(b.slot) ? Date.now() : null
 				}))
 			)
 			.returning()
