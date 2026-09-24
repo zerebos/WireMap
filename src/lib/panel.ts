@@ -50,7 +50,8 @@ export function physicalPosition(b: Placed, p: PanelShape): string {
 /** "Slot 16 · Leg L2", or "Slots 1 + 3 · Legs L1 + L2". */
 export function slotText(b: Placed, p: PanelShape): string {
 	const slots = occupiedSlots(b, p);
-	if (slots.length === 2) return `Slots ${slots[0]} + ${slots[1]} · Legs L1 + L2`;
+	if (slots.length === 2)
+		return `Slots ${slots[0]} + ${slots[1]} · Legs ${legOf(slots[0], p)} + ${legOf(slots[1], p)}`;
 	return `Slot ${b.slot} · Leg ${legOf(b.slot, p)}`;
 }
 

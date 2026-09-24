@@ -77,7 +77,7 @@
 	}
 
 	// The Directory screen (§5.8).
-	const directoryHref = resolve('/') + 'directory';
+	const directoryHref = resolve('/directory');
 
 	// ---- A new breaker in an open slot (?slot=<n>). While it's open, ?b= is kept so Cancel goes back.
 	const newSlot = $derived.by(() => {
