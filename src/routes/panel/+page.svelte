@@ -494,6 +494,7 @@
 						{/if}
 						{#if tandemText(panel)}<span class="mono">Tandem / quad slots {tandemText(panel)}</span>{/if}
 						<a class="btn trace" href={resolve('/trace')}><Icon name="bolt" size={14} />Trace</a>
+						<a class="btn trace" href={resolve('/print') + `?p=${panel.id}`}><Icon name="print" size={14} />Print</a>
 					</div>
 				{/if}
 			</div>
