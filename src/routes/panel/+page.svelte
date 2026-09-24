@@ -17,7 +17,7 @@
 	import type { Half, Protection } from '$lib/constants';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import { createBreaker, createItem, createSubpanel, deleteBreaker, makeTandem, updateBreaker, type SubpanelValues } from '$lib/db/ops';
-	import { index, mutate, plural } from '$lib/house';
+	import { index, mutate, plural, type HouseBreaker } from '$lib/house';
 	import { checkFit, faceColumns, legOf, legOfRow, tandemOk, tandemText, nextInColumn, occupiedSlots, position, rowCount, slotLabel, slotText, spaceLabel, panelShort, compareBreakers, spacesUsed, tiedBelow, tiedTogether, type Cell as FaceCell } from '$lib/panel';
 	import { query, search } from '$lib/search.svelte';
 
@@ -68,7 +68,10 @@
 
 	const view = (b: Breaker): Breaker => {
 		const d = drafts[b.id];
-		return d ? { ...b, label: d.label, amps: d.amps, kind: d.kind, poles: d.poles, notes: d.notes } : b;
+		if (!d) return b;
+		// A pole change re-derives the spaces it takes (the stored ones are for the saved size).
+		const spaces = d.poles === b.poles ? (b as HouseBreaker).spaces : undefined;
+		return { ...b, label: d.label, amps: d.amps, kind: d.kind, poles: d.poles, notes: d.notes, spaces } as Breaker;
 	};
 	const isChanged = (b: Breaker, d: Draft) =>
 		d.label.trim() !== b.label ||
@@ -624,6 +627,7 @@
 					oninput={(e) => edit(selRaw!, { label: e.currentTarget.value })}
 					placeholder="Unlabeled — what does it power?"
 				/>
+				{#if house.panels.length > 1}
 				<div class="path" aria-label="Power path">
 					<span class="ov">Power path</span>
 					{#each path as c, i (i)}
@@ -631,6 +635,7 @@
 						<span class="pchip" class:cur={c.cur}>{c.t}</span>
 					{/each}
 				</div>
+				{/if}
 				<div class="grid4">
 					<div class="fld">
 						<label for="f-amp">Amperage</label>

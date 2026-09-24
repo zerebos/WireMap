@@ -123,6 +123,21 @@ export const items = sqliteTable(
 
 // Which breakers feed an item. Usually one; none = "No breaker"; several for a switch box on
 // two circuits or a multi-wire branch circuit.
+// Which spaces each breaker takes (DATA-MODEL.md "Occupancy"). The source of truth: quad breakers
+// pair across halves (21A + 23B), so it can't be derived from slot + half + poles. breakers.slot and
+// breakers.half stay as the anchor (first space) for sorting.
+export const breakerSpaces = sqliteTable(
+	'breaker_spaces',
+	{
+		breakerId: integer('breaker_id')
+			.notNull()
+			.references(() => breakers.id, { onDelete: 'cascade' }),
+		slot: integer('slot').notNull(),
+		half: text('half', { enum: HALVES })
+	},
+	(t) => [index('breaker_spaces_breaker_idx').on(t.breakerId)]
+);
+
 export const itemBreakers = sqliteTable(
 	'item_breakers',
 	{

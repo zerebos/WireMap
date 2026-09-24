@@ -6,6 +6,7 @@ import * as t from './schema';
 import type { Breaker, Floor, Item, Panel, Room, Settings } from './schema';
 import { savePlan, deletePlan } from '../plans';
 import { roomAt, type Shape } from '../shape';
+import { deriveSpaces, type Space } from '../panel';
 
 // ---- Settings and panels
 
@@ -15,6 +16,19 @@ export async function updateSettings(patch: Partial<Omit<Settings, 'id'>>) {
 
 export async function updatePanel(id: number, patch: Partial<Omit<Panel, 'id'>>) {
 	await db.update(t.panels).set(patch).where(eq(t.panels.id, id));
+	// A new numbering moves the second space of 2-pole breakers. Quads keep their stored spaces.
+	if ('numbering' in patch) {
+		const inside = await db
+			.select({
+				id: t.breakers.id,
+				poles: t.breakers.poles,
+				half: t.breakers.half
+			})
+			.from(t.breakers)
+			.where(eq(t.breakers.panelId, id))
+			.all();
+		for (const b of inside) if (b.poles === 2 && b.half === null) await setSpaces(b.id);
+	}
 }
 
 export async function createPanel(values: typeof t.panels.$inferInsert): Promise<number> {
@@ -40,7 +54,14 @@ export async function createSubpanel(v: SubpanelValues): Promise<number> {
 	const feeder =
 		'breakerId' in v.fedBy
 			? v.fedBy.breakerId
-			: await createBreaker({ panelId: v.fedBy.panelId, slot: v.fedBy.slot, poles: 2, amps: v.fedBy.amps, kind: 'standard', label: v.name });
+			: await createBreaker({
+					panelId: v.fedBy.panelId,
+					slot: v.fedBy.slot,
+					poles: 2,
+					amps: v.fedBy.amps,
+					kind: 'standard',
+					label: v.name
+				});
 	await updateBreaker(feeder, { label: v.name });
 	return createPanel({
 		name: v.name,
@@ -72,7 +93,12 @@ export async function deletePanel(id: number) {
 		const subs = await db
 			.select({ id: t.panels.id })
 			.from(t.panels)
-			.where(inArray(t.panels.fedByBreakerId, inside.map((b) => b.id)))
+			.where(
+				inArray(
+					t.panels.fedByBreakerId,
+					inside.map((b) => b.id)
+				)
+			)
 			.all();
 		doomed.push(...subs.map((s) => s.id).filter((s) => !doomed.includes(s)));
 	}
@@ -81,13 +107,117 @@ export async function deletePanel(id: number) {
 
 // ---- Breakers
 
-export async function updateBreaker(id: number, patch: Partial<Omit<Breaker, 'id' | 'panelId'>>) {
-	await db.update(t.breakers).set(patch).where(eq(t.breakers.id, id));
+/**
+ * Rewrites a breaker's breaker_spaces rows (DATA-MODEL.md "Occupancy"). Without `spaces`, they're
+ * derived from its slot, poles and half; a quad passes its spaces explicitly.
+ */
+export async function setSpaces(id: number, spaces?: Space[]) {
+	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
+	if (!b) return;
+	const p = await db.select().from(t.panels).where(eq(t.panels.id, b.panelId)).get();
+	if (!p) return;
+	const rows = spaces ?? deriveSpaces(b, p);
+	await db.delete(t.breakerSpaces).where(eq(t.breakerSpaces.breakerId, id));
+	await db.insert(t.breakerSpaces).values(rows.map((r) => ({ breakerId: id, slot: r.slot, half: r.half })));
+	// The anchor is the first space.
+	const first = [...rows].sort((a, c) => a.slot - c.slot || (a.half ?? '').localeCompare(c.half ?? ''))[0];
+	if (first.slot !== b.slot || first.half !== b.half)
+		await db.update(t.breakers).set({ slot: first.slot, half: first.half }).where(eq(t.breakers.id, id));
 }
 
-export async function createBreaker(values: typeof t.breakers.$inferInsert): Promise<number> {
+export async function updateBreaker(id: number, patch: Partial<Omit<Breaker, 'id' | 'panelId'>>) {
+	await db.update(t.breakers).set(patch).where(eq(t.breakers.id, id));
+	if ('slot' in patch || 'half' in patch || 'poles' in patch) await setSpaces(id);
+}
+
+export async function createBreaker(values: typeof t.breakers.$inferInsert, spaces?: Space[]): Promise<number> {
 	const [row] = await db.insert(t.breakers).values(values).returning({ id: t.breakers.id }).all();
+	await setSpaces(row.id, spaces);
 	return row.id;
+}
+
+type QuadHalf = { label: string; amps: number; kind?: Breaker['kind'] };
+/**
+ * Adds a quad at `slot` and the slot below (DESIGN.md §5.18): two 2-pole pairs, or a 2-pole outer
+ * pair and two 1-pole halves (sB, belowA). Returns the outer pair's id.
+ */
+export async function createQuad(
+	panelId: number,
+	slot: number,
+	below: number,
+	outer: QuadHalf,
+	inner: QuadHalf | { b: QuadHalf; c: QuadHalf }
+): Promise<number> {
+	const base = { panelId, kind: 'standard' as const };
+	const out = await createBreaker({ ...base, ...outer, slot, half: 'A', poles: 2 }, [
+		{ slot, half: 'A' },
+		{ slot: below, half: 'B' }
+	]);
+	if ('b' in inner) {
+		await createBreaker({ ...base, ...inner.b, slot, half: 'B', poles: 1 });
+		await createBreaker({
+			...base,
+			...inner.c,
+			slot: below,
+			half: 'A',
+			poles: 1
+		});
+	} else {
+		await createBreaker({ ...base, ...inner, slot, half: 'B', poles: 2 }, [
+			{ slot, half: 'B' },
+			{ slot: below, half: 'A' }
+		]);
+	}
+	return out;
+}
+
+/**
+ * Turns a full-size 2-pole breaker into the outer pair of a quad and adds an empty inner pair.
+ * Returns the inner pair's id.
+ */
+export async function makeQuad(id: number, below: number): Promise<number> {
+	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
+	if (!b) throw new Error('No such breaker');
+	await setSpaces(id, [
+		{ slot: b.slot, half: 'A' },
+		{ slot: below, half: 'B' }
+	]);
+	return createBreaker(
+		{
+			panelId: b.panelId,
+			slot: b.slot,
+			half: 'B',
+			poles: 2,
+			amps: b.amps,
+			kind: 'standard',
+			label: ''
+		},
+		[
+			{ slot: b.slot, half: 'B' },
+			{ slot: below, half: 'A' }
+		]
+	);
+}
+
+/**
+ * Brands differ on which handles pair up (§5.18): swapping outer and inner swaps the halves on the
+ * quad's second slot for everything in it.
+ */
+export async function swapQuadPairs(ids: number[], below: number) {
+	for (const id of ids) {
+		const rows = await db.select().from(t.breakerSpaces).where(eq(t.breakerSpaces.breakerId, id)).all();
+		await setSpaces(
+			id,
+			rows.map((r) =>
+				r.slot === below && r.half
+					? {
+							slot: r.slot,
+							half: r.half === 'A' ? ('B' as const) : ('A' as const)
+						}
+					: { slot: r.slot, half: r.half }
+			)
+		);
+	}
 }
 
 /**
@@ -97,8 +227,16 @@ export async function createBreaker(values: typeof t.breakers.$inferInsert): Pro
 export async function makeTandem(id: number): Promise<number> {
 	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
 	if (!b) throw new Error('No such breaker');
-	await db.update(t.breakers).set({ half: 'A' }).where(eq(t.breakers.id, id));
-	return createBreaker({ panelId: b.panelId, slot: b.slot, half: 'B', poles: 1, amps: b.amps, kind: 'standard', label: '' });
+	await updateBreaker(id, { half: 'A' });
+	return createBreaker({
+		panelId: b.panelId,
+		slot: b.slot,
+		half: 'B',
+		poles: 1,
+		amps: b.amps,
+		kind: 'standard',
+		label: ''
+	});
 }
 
 export async function deleteBreaker(id: number) {
@@ -109,7 +247,10 @@ export async function deleteBreaker(id: number) {
 export async function setTied(breakerIds: number[], tied: boolean) {
 	if (!breakerIds.length) return;
 	if (!tied) return void (await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.id, breakerIds)));
-	const top = await db.select({ g: max(t.breakers.tieGroup) }).from(t.breakers).get();
+	const top = await db
+		.select({ g: max(t.breakers.tieGroup) })
+		.from(t.breakers)
+		.get();
 	await db
 		.update(t.breakers)
 		.set({ tieGroup: (top?.g ?? 0) + 1 })
@@ -182,16 +323,16 @@ export async function saveTrace(breakerId: number, label: string, markedItemIds:
 	const ops = [
 		db
 			.update(t.breakers)
-			.set({ label, isSpare: markedItemIds.length === 0, lastCheckedAt: Date.now() })
+			.set({
+				label,
+				isSpare: markedItemIds.length === 0,
+				lastCheckedAt: Date.now()
+			})
 			.where(eq(t.breakers.id, breakerId))
 	] as const;
 	const rest = [];
 	if (unmarked.length) {
-		rest.push(
-			db
-				.delete(t.itemBreakers)
-				.where(and(eq(t.itemBreakers.breakerId, breakerId), inArray(t.itemBreakers.itemId, unmarked)))
-		);
+		rest.push(db.delete(t.itemBreakers).where(and(eq(t.itemBreakers.breakerId, breakerId), inArray(t.itemBreakers.itemId, unmarked))));
 	}
 	if (moved.length) rest.push(db.delete(t.itemBreakers).where(inArray(t.itemBreakers.itemId, moved)));
 	if (added.length) rest.push(db.insert(t.itemBreakers).values(added.map((itemId) => ({ itemId, breakerId }))));
@@ -201,7 +342,10 @@ export async function saveTrace(breakerId: number, label: string, markedItemIds:
 // ---- Floors
 
 export async function createFloor(name: string, size?: { planWidth: number; planHeight: number }): Promise<number> {
-	const top = await db.select({ level: max(t.floors.level) }).from(t.floors).get();
+	const top = await db
+		.select({ level: max(t.floors.level) })
+		.from(t.floors)
+		.get();
 	const [row] = await db
 		.insert(t.floors)
 		.values({ name, level: (top?.level ?? -1) + 1, ...size })
@@ -302,7 +446,10 @@ export async function setRoomShape(id: number, shape: Shape, carry?: { itemIds: 
 		ops.push(
 			db
 				.update(t.items)
-				.set({ x: sql`${t.items.x} + ${carry.dx}`, y: sql`${t.items.y} + ${carry.dy}` })
+				.set({
+					x: sql`${t.items.x} + ${carry.dx}`,
+					y: sql`${t.items.y} + ${carry.dy}`
+				})
 				.where(inArray(t.items.id, carry.itemIds)) as unknown as (typeof ops)[number]
 		);
 	}
@@ -320,7 +467,10 @@ export async function deleteRoom(id: number) {
 
 /** Puts an item on the map at (x, y) on a floor; its room comes from where it sits. */
 export async function placeItem(id: number, floorId: number, x: number, y: number) {
-	await db.update(t.items).set({ floorId, x, y, roomId: await roomFor(floorId, x, y) }).where(eq(t.items.id, id));
+	await db
+		.update(t.items)
+		.set({ floorId, x, y, roomId: await roomFor(floorId, x, y) })
+		.where(eq(t.items.id, id));
 }
 
 /** Takes an item off the map. It keeps its floor and room, and shows under "Not placed". */
@@ -340,11 +490,20 @@ export type LayoutSnapshot = {
 export async function restoreLayout(s: LayoutSnapshot) {
 	const keep = s.rooms.map((r) => r.id);
 	const ops = [
-		db
-			.delete(t.rooms)
-			.where(and(eq(t.rooms.floorId, s.floorId), keep.length ? notInArray(t.rooms.id, keep) : undefined)),
+		db.delete(t.rooms).where(and(eq(t.rooms.floorId, s.floorId), keep.length ? notInArray(t.rooms.id, keep) : undefined)),
 		...s.rooms.map((r) =>
-			db.insert(t.rooms).values(r).onConflictDoUpdate({ target: t.rooms.id, set: { floorId: r.floorId, name: r.name, kind: r.kind, shape: r.shape } })
+			db
+				.insert(t.rooms)
+				.values(r)
+				.onConflictDoUpdate({
+					target: t.rooms.id,
+					set: {
+						floorId: r.floorId,
+						name: r.name,
+						kind: r.kind,
+						shape: r.shape
+					}
+				})
 		),
 		...s.items.map((i) => db.update(t.items).set({ x: i.x, y: i.y, roomId: i.roomId }).where(eq(t.items.id, i.id))),
 		db.update(t.floors).set(s.floor).where(eq(t.floors.id, s.floorId))
