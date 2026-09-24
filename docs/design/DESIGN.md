@@ -214,6 +214,26 @@ How users map their house. Three steps, one flow:
 3. **Name & save**: amber callout "Flip 29 back on" with a switch (turns neutral "29 is back on" when done); label input with suggestion chips derived from marked items (dominant room, "{room} outlets" if single type, floor name; "Spare" if nothing marked); "Feeds N items" list with tags New / Same / From 26; note "1 item will move off 26. Worth re-tracing that breaker next." Primary "Save & trace the next one" (returns to step 1 with toast "Breaker 29 saved as “Storage”"), secondary "Save and finish".
 Saving sets the breaker's label, reassigns marked items, unassigns un-marked items that were on it, and stamps **last checked**.
 
+### 5.7 First-run setup [`SetupPanel.dc.html`, `SetupStart.dc.html`]
+Shown when the database is empty. Minimal header (wordmark + "Setup", no nav). Left step rail (320px, `--raised`): numbered steps with title + one-line description; current = amber number on a surface pill; done = dark check (clickable to go back); upcoming = muted. Rail footnote: "Everything is stored on this server. Nothing is sent anywhere." Content column with a sticky footer: Back · "Step N of 4" · primary Continue.
+
+1. **You & your home**: "Welcome to Breakerbook"; Home name; owner account (username, password, confirm) with note that sign-in can be turned off later.
+2. **Your panel**: Panel name; Main breaker (100–400A, hint "Printed on the big breaker at the top."); Spaces (12–42, hint "Count both sides, including empty slots and knockouts."); numbering as two radio cards ("Odd left, even right": most US panels; "Down the left, then the right" with a live example of the numbers). **Live preview** on the right (300px): mini enclosure with MAIN and every slot numbered per the chosen scheme; updates as the fields change.
+3. **Floors**: listed top to bottom; each row: up/down, name input, "Plan image" (optional), remove (disabled for the last floor). Quick-add chips (Basement adds to the bottom; Upstairs/Attic to the top; Detached garage to the bottom) + "Other…". Hint: a detached garage or shed can be its own floor.
+4. **Fill it in**: three radio cards: **Copy the panel directory** (FASTEST tag) → §5.8; **Trace it with your phone** (expands to show a QR code + `[server address]/trace`, same network) → §5.6; **Restore a backup** (JSON, replaces what was just set up). Primary button label follows the choice ("Open the directory" / "I’m on my phone — start" / "Choose backup file…"). Link "Skip — take me to the empty panel" → §5.9.
+
+### 5.8 Copy the panel directory [`Directory.dc.html`]
+Bulk entry of the paper label inside the panel door. App header (Panel active).
+- Left: title, meta "Main panel · 200A · 40 spaces", instruction line; a card with two columns (odd slots left, even right, same order as the panel), each row: slot number · label input · amps select (— / 15…60) · 2-pole checkbox. Filled inputs switch to the quieter filled style. Ticking 2-pole on slot *s* replaces row *s+2* with a dashed "↳ second pole of *s*" row; 2-pole is disabled when *s+2* doesn't exist. Tab order runs down each column.
+- Right (340px): progress ("11 breakers entered", bar, "19 of 40 spaces used · 21 left"), tips (Tab, 2-pole, Blank, GFCI set later), "Paste a list instead…" (one label per line, slot order), primary "Save N breakers" → Panel, Cancel.
+- Blank rows create nothing. Protection defaults to Standard.
+
+### 5.9 Empty states [`PanelEmpty.dc.html`, `MapEmpty.dc.html`, `ItemsEmpty.dc.html`]
+- **Panel, no breakers**: every slot is an **open-slot button** (dashed; hover/focus reads "+ Add breaker"). Detail pane shows "Your panel is empty", one line of guidance, and three action cards: Copy the panel directory (FASTEST) → §5.8, Trace with your phone → §5.6, Add one at a time ("Click any open slot", dashed, informational). Clicking an open slot turns it amber ("New breaker…") and the pane becomes a **new-breaker form**: overline "New breaker · Slot 7 · Leg L2", label input, Amperage, Protection, Poles segmented (2-pole disabled with a reason when the slot below is taken or doesn't exist), "Add breaker", "Add & next slot" (jumps to the next free slot, keeps the amps), footer link to the directory. The open-slot button and form also apply on the normal Panel page whenever an open slot is clicked.
+- **Map, floor with no rooms**: circuits list still shows breakers ("20A · 0 items", hint "Nothing placed yet…"). Canvas shows a centered card "Map the {floor}" with two big options: **Upload a floor plan** (dashed dropzone, PNG/JPG/PDF) and **Draw rooms** (switches to the draw tool: banner "Drag on the grid to draw your first room" + ghost rectangle). Inspector shows a 3-step checklist (Add rooms · Place items · Connect them to breakers) and "Trace with your phone instead".
+- **Items, none yet**: no filters or table header. Centered: the four type icons as tiles, "No items yet", explanation that tracing is the quickest way, buttons Trace a breaker (primary) · Add item · Import CSV…, mono hint "CSV columns: name, type, floor, room, breaker". Export CSV disabled.
+- Existing smaller empty states (breaker with no items, search with no results, floor with no plan image, "Nothing on this floor") are described with their screens above.
+
 ---
 
 ## 6. Rules the UI depends on
@@ -239,11 +259,10 @@ Saving sets the breaker's label, reassigns marked items, unassigns un-marked ite
 
 ## 8. Not designed yet (decide with the owner before building)
 
-1. **First run / empty install**: create the panel (amps, spaces, numbering), add the first floor (upload plan or start blank), then land in trace mode. Use existing components and tone; ask before inventing screens.
-2. **Items on more than one breaker** (switch boxes with two circuits, multi-wire branch circuits). The data model supports it (`DATA-MODEL.md`). UI proposal: "Fed by" shows stacked slot chips ("14 + 21"); room cards list the item under each breaker; shutoff counts it under every breaker it touches.
-3. **Exterior areas**: rooms with `kind: exterior`, drawn outside the walls with a dashed outline; selectable like rooms. Detached buildings (shed) are an extra floor tab.
-4. **Phone layouts of Panel and Map**: likely a single-column stacked panel. Later.
-5. **Subpanels**: the model supports a panel fed by a breaker; UI beyond "Add subpanel" isn't designed.
+1. **Items on more than one breaker** (switch boxes with two circuits, multi-wire branch circuits). The data model supports it (`DATA-MODEL.md`). UI proposal: "Fed by" shows stacked slot chips ("14 + 21"); room cards list the item under each breaker; shutoff counts it under every breaker it touches.
+2. **Exterior areas**: rooms with `kind: exterior`, drawn outside the walls with a dashed outline; selectable like rooms. Detached buildings (shed) are an extra floor tab.
+3. **Phone layouts of Panel and Map**: likely a single-column stacked panel. Later.
+4. **Subpanels**: the model supports a panel fed by a breaker; UI beyond "Add subpanel" isn't designed.
 
 ---
 

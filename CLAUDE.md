@@ -30,7 +30,7 @@ This is a **local-first** app. It diverges from the handoff's server/Docker assu
 - SQLite runs in the browser. `@sqlite.org/sqlite-wasm` uses the OPFS "SAH pool" VFS in a worker (`src/lib/db/worker.ts`), and Drizzle reaches it through its `sqlite-proxy` driver (`src/lib/db/index.ts`). There is no server, no API routes and no form actions.
 - Floor-plan images are stored in the `plan_images` table, so a backup is one `.sqlite` file (Settings → Data & backups).
 - A service worker and web manifest make it an installable PWA that works offline. `.github/workflows/pages.yml` deploys `main` to GitHub Pages under `/WireMap/`.
-- Features that need a server (sign-in and users, nightly backups) exist in Settings only as disabled placeholders. They're on the README roadmap.
+- Features that need a server (sign-in and users, nightly backups, tracing from a second device) exist only as disabled placeholders. They're on the README roadmap.
 
 Confirm with the owner before changing any of these.
 

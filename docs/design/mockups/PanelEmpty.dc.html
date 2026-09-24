@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Empty panel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;--fed-bd:#1A1B1D;--ghost:rgba(255,255,255,.85);--room:rgba(255,255,255,.55);--bus-ink:#2F3337;--toggle:#7A7F85;--link-h:#8A4B06;--tie:#8A8F95;--enclosure-bd:#9AA0A6;--breaker-bd:#AEB4BA;--bus:#B3B9BF;--enclosure:#C4C9CE;--enclosure-hi:#E3E6E9;--chip-h:#2E3034;--plan-ink:#2F3337;--on-amber-muted:#3A2A10;--chip-bd:#4A4D52;--room-lit-ink:#6E3F04;--wall:#6E7378;--room-lit-bd:#B8700F;--chip-muted:#C9CACC;--grid-line:#E7E4DD;--grid-bg:#F7F6F2;color-scheme:light}
+.th-dark{--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;--fed-bd:#F2A33A;--ghost:rgba(32,34,38,.9);--room:rgba(32,34,38,.72);--bus-ink:#C3C6CB;--toggle:#5E636A;--link-h:#F5B860;--tie:#6E737A;--enclosure-bd:#4A4F55;--breaker-bd:#3A3E43;--bus:#34383D;--enclosure:#25282C;--enclosure-hi:#34383D;--chip-h:#D6D3CC;--plan-ink:#C3C6CB;--on-amber-muted:#3A2A10;--chip-bd:#9A9DA2;--room-lit-ink:#F5B860;--wall:#5E636A;--room-lit-bd:#E0922C;--chip-muted:#4A4D52;--grid-line:#22252A;--grid-bg:#15161A;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.bk{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding:0 6px 0 8px;border:1px solid var(--breaker-bd);border-radius:4px;background:var(--raised);font:inherit;color:var(--ink);cursor:pointer;text-align:left}
+.bk-1{height:30px}.bk-2{height:62px}
+.bk-r{flex-direction:row-reverse;padding:0 8px 0 6px;text-align:right}
+.bk .num{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted);width:34px;flex-shrink:0}
+.bk-r .num{text-align:right}
+.bk .lbl{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-stretch:80%;font-size:14px;font-weight:500}
+.bk .amp{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;width:22px;text-align:center;flex-shrink:0}
+.bk .hdl{width:30px;height:22px;background:var(--handle);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:space-around;flex-shrink:0;position:relative}
+.bk-2 .hdl{height:54px}
+.bk-2 .hdl::after{content:'';position:absolute;left:4px;right:4px;top:50%;height:3px;margin-top:-1.5px;background:var(--tie);border-radius:1px}
+.bk .tog{width:14px;height:8px;background:var(--toggle);border-radius:2px}
+.bk-1 .tog2{display:none}
+.bk.is-sel{background:#F2A33A;color:#1A1B1D;border-color:#1A1B1D;box-shadow:0 0 0 2px var(--ink)}
+.th-dark .bk.is-sel{box-shadow:0 0 0 2px #F2A33A}
+.bk.is-sel .num{color:#1A1B1D}
+.bk.is-unl .lbl{color:var(--warn);font-style:italic}
+.bk:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.bk-open{border:1px dashed var(--enclosure-bd);background:transparent}
+.bk-open .lbl{font-style:italic;color:var(--muted)}
+.bk-open .add{display:none}
+.bk-open:hover,.bk-open:focus-visible{border-style:solid;border-color:var(--ink);background:var(--raised)}
+.bk-open:hover .opn,.bk-open:focus-visible .opn{display:none}
+.bk-open:hover .add,.bk-open:focus-visible .add{display:inline;font-style:normal;color:var(--ink);font-weight:600}
+.bk-open.is-sel{border-style:solid}
+.bk-open.is-sel .lbl{color:#1A1B1D;font-style:normal;font-weight:700}
+.bk-open.is-sel .opn{display:none}.bk-open.is-sel .add{display:inline;color:#1A1B1D}
+.acard{display:flex;gap:16px;align-items:flex-start;padding:18px;border:1.5px solid var(--line-2);border-radius:10px;background:var(--surface);color:var(--ink);text-decoration:none}
+a.acard:hover{border-color:var(--btn-bd-h);color:var(--ink)}
+.acard .ai{width:40px;height:40px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.acard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.ttl{width:100%;box-sizing:border-box;border:0;border-bottom:2px solid var(--line-2);padding:2px 0 6px;background:transparent;font-family:inherit;font-size:28px;font-weight:800;font-stretch:108%;color:var(--ink)}
+.ttl:focus{outline:none;border-bottom-color:#F2A33A}
+.ttl::placeholder{color:var(--muted);font-weight:600}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); overflow: hidden">
+<header style="height: 60px; flex-shrink: 0; background: var(--hdr); color: #ECEAE4; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--hdr-bd); padding: 0 24px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2A33A" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><rect x="9" y="6" width="6" height="7" rx="1" fill="#F2A33A"></rect><path d="M9 17h6"></path></svg>
+<span style="font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em">Breakerbook</span>
+</div>
+<nav aria-label="Primary" style="display: flex; gap: 2px; height: 100%">
+<a class="nav is-on" href="Panel.dc.html" aria-current="page">Panel</a>
+<a class="nav" href="Map.dc.html">Map</a>
+<a class="nav" href="Items.dc.html">Items</a>
+<a class="nav" href="Settings.dc.html">Settings</a>
+</nav>
+<div style="flex-grow: 1"></div>
+<label for="hq" class="sr">Search breakers, items, rooms</label>
+<div style="position: relative; display: flex; align-items: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B9BBBF" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; pointer-events: none"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input id="hq" class="search" type="search" placeholder="Search breakers, items, rooms" value="{{q}}" onChange="{{onSearch}}">
+</div>
+<button type="button" class="tgl" onClick="{{toggleTheme}}" aria-label="{{themeLabel}}" title="{{themeLabel}}"><sc-if value="{{isDark}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{isLight}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></sc-if></button>
+<span class="mono" style="font-size: 12px; color: #B9BBBF">Main panel · 200A</span>
+</header>
+<main style="flex-grow: 1; min-height: 0; display: flex; gap: 32px; padding: 28px 32px; box-sizing: border-box">
+<section aria-label="Breaker panel" style="width: 640px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em">Main panel</h1>
+<span class="mono" style="font-size: 12px; color: var(--muted)">200A main · {{used}} of 40 spaces used</span>
+</div>
+<div style="background: var(--enclosure); border: 1px solid var(--enclosure-bd); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: inset 0 1px 0 var(--enclosure-hi)">
+<div style="align-self: center; display: flex; align-items: center; gap: 14px; background: var(--raised); border: 1px solid var(--enclosure-bd); border-radius: 6px; padding: 8px 18px 8px 8px">
+<div style="width: 64px; height: 44px; background: var(--handle); border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px"><span style="width: 18px; height: 26px; background: var(--toggle); border-radius: 2px"></span><span style="width: 18px; height: 26px; background: var(--toggle); border-radius: 2px"></span></div>
+<div style="display: flex; flex-direction: column; gap: 1px"><span class="mono" style="font-size: 11px; color: var(--muted); letter-spacing: 0.08em">MAIN</span><span style="font-size: 20px; font-weight: 800; font-stretch: 112%">200A</span></div>
+</div>
+<div style="display: flex; gap: 8px">
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{left}}" as="b" hint-placeholder-count="20"><sc-if value="{{b.isOpen}}" hint-placeholder-val="{{true}}"><button type="button" class="{{b.cls}}" onClick="{{b.pick}}" aria-label="{{b.aria}}"><span class="num">{{b.num}}</span><span class="lbl"><span class="opn">Open</span><span class="add">{{b.addText}}</span></span></button></sc-if><sc-if value="{{b.isB}}" hint-placeholder-val="{{false}}"><div class="{{b.cls}}" style="cursor: default"><span class="num">{{b.num}}</span><span class="lbl">{{b.label}}</span><sc-if value="{{b.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag">{{b.tag}}</span></sc-if><span class="amp">{{b.amps}}</span><span class="hdl"><span class="tog"></span><span class="tog tog2"></span></span></div></sc-if></sc-for>
+</div>
+<div aria-hidden="true" style="width: 28px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; background: var(--bus); border-radius: 4px">
+<sc-for list="{{legs}}" as="leg" hint-placeholder-count="20"><div class="mono" style="height: 30px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: var(--bus-ink)">{{leg.name}}</div></sc-for>
+</div>
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{right}}" as="b" hint-placeholder-count="20"><sc-if value="{{b.isOpen}}" hint-placeholder-val="{{true}}"><button type="button" class="{{b.cls}}" onClick="{{b.pick}}" aria-label="{{b.aria}}"><span class="num">{{b.num}}</span><span class="lbl"><span class="opn">Open</span><span class="add">{{b.addText}}</span></span></button></sc-if><sc-if value="{{b.isB}}" hint-placeholder-val="{{false}}"><div class="{{b.cls}}" style="cursor: default"><span class="num">{{b.num}}</span><span class="lbl">{{b.label}}</span><sc-if value="{{b.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag">{{b.tag}}</span></sc-if><span class="amp">{{b.amps}}</span><span class="hdl"><span class="tog"></span><span class="tog tog2"></span></span></div></sc-if></sc-for>
+</div>
+</div>
+</div>
+</section>
+
+<section aria-label="Getting started" style="flex: 1 1 0; min-width: 0; background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+<sc-if value="{{noSel}}" hint-placeholder-val="{{true}}">
+<div style="padding: 40px 40px; display: flex; flex-direction: column; gap: 24px; overflow: auto">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 30px; font-weight: 800; font-stretch: 108%">{{emptyTitle}}</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: var(--soft); max-width: 560px">{{emptyText}}</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<a class="acard" href="Directory.dc.html"><span class="ai"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h4"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><span style="display: flex; gap: 10px; align-items: center"><span style="font-size: 16px; font-weight: 700">Copy the panel directory</span><span class="tag">FASTEST</span></span><span style="font-size: 14px; color: var(--soft); line-height: 1.45">Type in the label from inside the panel door, all slots on one screen.</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 10px; color: var(--muted)"><path d="m9 6 6 6-6 6"></path></svg></a>
+<a class="acard" href="TracePick.dc.html"><span class="ai"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; font-weight: 700">Trace with your phone</span><span style="font-size: 14px; color: var(--soft); line-height: 1.45">Flip one breaker at a time and tap what goes dark. Fills in the map as you go.</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 10px; color: var(--muted)"><path d="m9 6 6 6-6 6"></path></svg></a>
+<div class="acard" style="border-style: dashed"><span class="ai"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; font-weight: 700">Add one at a time</span><span style="font-size: 14px; color: var(--soft); line-height: 1.45">Click any open slot on the panel.</span></span></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{false}}">
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span class="mono" style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase">New breaker · {{f.slotText}}</span>
+<button type="button" class="ibtn" aria-label="Cancel new breaker" onClick="{{cancel}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<div><label for="n-label" class="sr">Label</label><input id="n-label" class="ttl" type="text" value="{{f.label}}" onChange="{{onLabel}}" placeholder="What does it power?"></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+<div class="fld"><label for="n-amp">Amperage</label><select id="n-amp" class="inp" value="{{f.amps}}" onChange="{{onAmps}}"><option value="15">15 A</option><option value="20">20 A</option><option value="30">30 A</option><option value="40">40 A</option><option value="50">50 A</option></select></div>
+<div class="fld"><label for="n-type">Protection</label><select id="n-type" class="inp" value="{{f.type}}" onChange="{{onType}}"><option value="std">Standard</option><option value="gfci">GFCI</option><option value="afci">AFCI</option><option value="df">Dual function</option></select></div>
+<div class="fld"><span style="font-size: 12px; font-weight: 600; color: var(--muted)" id="n-pl">Poles</span><div class="seg" role="group" aria-labelledby="n-pl"><button type="button" class="{{f.p1Cls}}" style="flex: 1 1 0; justify-content: center" onClick="{{set1}}" aria-pressed="{{f.p1}}">1-pole</button><button type="button" class="{{f.p2Cls}}" style="flex: 1 1 0; justify-content: center" onClick="{{set2}}" aria-pressed="{{f.p2}}" disabled="{{f.no2}}">2-pole</button></div></div>
+</div>
+<sc-if value="{{f.no2}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: var(--muted)">{{f.no2Why}}</span></sc-if>
+<div style="display: flex; gap: 8px">
+<button type="button" class="btn btn-pri" onClick="{{add}}">Add breaker</button>
+<button type="button" class="btn" onClick="{{addNext}}">Add &amp; next slot</button>
+</div>
+<div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); line-height: 1.5">Adding a lot? <a href="Directory.dc.html" style="font-weight: 600">Copy the whole panel directory</a> on one screen instead.</div>
+</div>
+</sc-if>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+var TAG = { std: '', gfci: 'GF', afci: 'AF', df: 'DF' };
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var set = function (o) { self.setState(o); };
+    var dark = st.dark !== undefined ? st.dark : (this.props.dark !== undefined ? !!this.props.dark : true);
+    var added = st.added || {};
+    var sel = st.sel === undefined ? null : st.sel;
+    var form = st.form || { l: '', a: '20', t: 'std', p: 1 };
+    var cover = {};
+    Object.keys(added).forEach(function (k) { var b = added[k]; cover[b.s] = b; if (b.p === 2) cover[b.s + 2] = b; });
+    var mk = function (s, side) {
+      var b = cover[s];
+      var base = 'bk' + (side === 'r' ? ' bk-r' : '');
+      if (b) return { key: 'b' + s, isB: true, isOpen: false, num: b.p === 2 ? b.s + '/' + (b.s + 2) : String(b.s), label: b.l || 'Unlabeled', amps: String(b.a), tag: TAG[b.t], hasTag: !!TAG[b.t], cls: base + ' bk-' + b.p + (b.l ? '' : ' is-unl'), aria: 'Breaker ' + s, pick: function () {} };
+      var isSel = sel === s;
+      return { key: 'o' + s, isB: false, isOpen: true, num: String(s), cls: base + ' bk-1 bk-open' + (isSel ? ' is-sel' : ''), addText: isSel ? 'New breaker…' : '+ Add breaker', aria: 'Open slot ' + s + ', add a breaker', pick: function () { set({ sel: s, form: { l: '', a: '20', t: 'std', p: 1 } }); } };
+    };
+    var col = function (start, side) { var out = []; for (var s = start; s <= 40; s += 2) { var b = cover[s]; if (b && b.s !== s) continue; out.push(mk(s, side)); } return out; };
+    var legs = []; for (var r = 1; r <= 20; r++) legs.push({ key: 'r' + r, name: r % 2 ? 'L1' : 'L2' });
+    var used = 0; Object.keys(added).forEach(function (k) { used += added[k].p; });
+    var leg = function (s) { return Math.ceil(s / 2) % 2 ? 'L1' : 'L2'; };
+    var no2 = sel != null && (sel + 2 > 40 || !!cover[sel + 2]);
+    var fv = function (o) { set({ form: Object.assign({}, form, o) }); };
+    var commit = function (next) {
+      var a = Object.assign({}, added);
+      a[sel] = { s: sel, l: form.l.trim(), a: Number(form.a), t: form.t, p: no2 ? 1 : form.p };
+      var ns = null;
+      if (next) { for (var s = sel + 1; s <= 40; s++) { if (!a[s] && !(a[s - 2] && a[s - 2].p === 2) && s !== sel + 2 * (form.p === 2 ? 1 : 0)) { ns = s; break; } } }
+      set({ added: a, sel: ns, form: { l: '', a: form.a, t: 'std', p: 1 } });
+    };
+    var n = Object.keys(added).length;
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light', isDark: dark, isLight: !dark,
+      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: function () { set({ dark: !dark }); },
+      q: '', onSearch: function () {},
+      used: String(used), left: col(1, 'l'), right: col(2, 'r'), legs: legs,
+      noSel: sel == null, hasSel: sel != null,
+      emptyTitle: n === 0 ? 'Your panel is empty' : n + (n === 1 ? ' breaker so far' : ' breakers so far'),
+      emptyText: n === 0 ? '40 open spaces, ready to fill in. Most people copy the label inside the panel door first, then trace with their phone to check it and build the map.' : 'Keep going: click the next open slot, or switch to copying the directory or tracing.',
+      f: {
+        slotText: sel == null ? '' : 'Slot ' + sel + ' · Leg ' + leg(sel), label: form.l, amps: form.a, type: form.t,
+        p1Cls: 'sb' + (form.p === 1 ? ' is-on' : ''), p2Cls: 'sb' + (form.p === 2 ? ' is-on' : ''), p1: form.p === 1 ? 'true' : 'false', p2: form.p === 2 ? 'true' : 'false',
+        no2: no2, no2Why: sel != null && sel + 2 > 40 ? 'A 2-pole breaker needs the slot below, and this is the bottom row.' : 'A 2-pole breaker needs slot ' + (sel + 2) + ', which is taken.'
+      },
+      onLabel: function (e) { fv({ l: e.target.value }); }, onAmps: function (e) { fv({ a: e.target.value }); }, onType: function (e) { fv({ t: e.target.value }); },
+      set1: function () { fv({ p: 1 }); }, set2: function () { fv({ p: 2 }); },
+      cancel: function () { set({ sel: null }); },
+      add: function () { commit(false); }, addNext: function () { commit(true); }
+    };
+  }
+}
+</script>
+</body>
+</html>

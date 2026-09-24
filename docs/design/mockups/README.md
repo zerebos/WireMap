@@ -14,8 +14,14 @@ They won't open standalone in a browser (they need the canvas runtime). Read the
 | `TracePick.dc.html` | Trace step 1: pick & flip (phone) | 390 × 844 |
 | `TraceMark.dc.html` | Trace step 2: mark what died (phone) | 390 × 844 |
 | `TraceName.dc.html` | Trace step 3: name & save (phone) | 390 × 844 |
+| `SetupPanel.dc.html` | First-run setup, opens on step 2 | 1440 × 960 |
+| `SetupStart.dc.html` | First-run setup, opens on step 4 | 1440 × 960 |
+| `Directory.dc.html` | Copy the panel directory | 1440 × 960 |
+| `PanelEmpty.dc.html` | Panel with no breakers + new-breaker form | 1440 × 960 |
+| `MapEmpty.dc.html` | Map floor with no rooms | 1440 × 960 |
+| `ItemsEmpty.dc.html` | Items with none yet | 1440 × 960 |
 
-The three Trace files are the same component, each starting at a different step.
+The three Trace files are the same component, each starting at a different step; same for the two Setup files.
 
 ## Reading the format
 

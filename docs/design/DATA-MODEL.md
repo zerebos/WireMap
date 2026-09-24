@@ -70,7 +70,7 @@ Map units: one coordinate space per floor. The mockups use an 820 × 760 canvas;
 | item_id | fk |
 | breaker_id | fk |
 
-**Decision: items can be fed by more than one breaker.** Real cases: a switch box holding two circuits, multi-wire branch circuits (two breakers that must be off together). Most items have exactly one row here; zero rows = "No breaker". Every "which breaker" question in the UI (Fed by, room circuit cards, shutoff lists, trace moves) must handle 0, 1 or many. See `DESIGN.md` §8.2 for the display proposal.
+**Decision: items can be fed by more than one breaker.** Real cases: a switch box holding two circuits, multi-wire branch circuits (two breakers that must be off together). Most items have exactly one row here; zero rows = "No breaker". Every "which breaker" question in the UI (Fed by, room circuit cards, shutoff lists, trace moves) must handle 0, 1 or many. See `DESIGN.md` §8.1 for the display proposal.
 
 ### settings (single row or key/value)
 home_name · start_page (`panel`/`map`/`items`) · theme (`system`/`light`/`dark`) · show_legs (bool) · map_fade_others (bool) · backups_enabled (bool) · backup_retention_days · require_sign_in (bool) · guest_read_only (bool)

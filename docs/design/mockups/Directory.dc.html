@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Copy the panel directory</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;--fed-bd:#1A1B1D;--ghost:rgba(255,255,255,.85);--room:rgba(255,255,255,.55);--bus-ink:#2F3337;--toggle:#7A7F85;--link-h:#8A4B06;--tie:#8A8F95;--enclosure-bd:#9AA0A6;--breaker-bd:#AEB4BA;--bus:#B3B9BF;--enclosure:#C4C9CE;--enclosure-hi:#E3E6E9;--chip-h:#2E3034;--plan-ink:#2F3337;--on-amber-muted:#3A2A10;--chip-bd:#4A4D52;--room-lit-ink:#6E3F04;--wall:#6E7378;--room-lit-bd:#B8700F;--chip-muted:#C9CACC;--grid-line:#E7E4DD;--grid-bg:#F7F6F2;color-scheme:light}
+.th-dark{--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;--fed-bd:#F2A33A;--ghost:rgba(32,34,38,.9);--room:rgba(32,34,38,.72);--bus-ink:#C3C6CB;--toggle:#5E636A;--link-h:#F5B860;--tie:#6E737A;--enclosure-bd:#4A4F55;--breaker-bd:#3A3E43;--bus:#34383D;--enclosure:#25282C;--enclosure-hi:#34383D;--chip-h:#D6D3CC;--plan-ink:#C3C6CB;--on-amber-muted:#3A2A10;--chip-bd:#9A9DA2;--room-lit-ink:#F5B860;--wall:#5E636A;--room-lit-bd:#E0922C;--chip-muted:#4A4D52;--grid-line:#22252A;--grid-bg:#15161A;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.drow{display:grid;grid-template-columns:40px minmax(0,1fr) 84px 52px;align-items:center;column-gap:8px;height:40px}
+.dhead{height:28px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dnum{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;color:var(--muted);text-align:right;padding-right:4px}
+.din{height:36px;box-sizing:border-box;width:100%;padding:0 10px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;font-stretch:90%;color:var(--ink)}
+.din:focus,.dsel:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.din.is-filled{border-color:var(--line-2);background:var(--raised)}
+.dsel{height:36px;box-sizing:border-box;width:100%;padding:0 6px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--ink)}
+.d2p{display:flex;align-items:center;justify-content:center;height:36px;cursor:pointer}
+.d2p input{width:18px;height:18px;margin:0;accent-color:#F2A33A;cursor:pointer}
+.dcont{height:36px;box-sizing:border-box;border:1px dashed var(--field);border-radius:6px;display:flex;align-items:center;padding:0 10px;font-size:13px;color:var(--muted);font-style:italic}
+.tip{display:flex;gap:10px;font-size:13px;line-height:1.45}
+.tip .k{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;border:1px solid var(--line-2);background:var(--bg);height:fit-content;white-space:nowrap}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar>span{display:block;height:100%;background:#F2A33A;border-radius:3px}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); overflow: hidden">
+<header style="height: 60px; flex-shrink: 0; background: var(--hdr); color: #ECEAE4; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--hdr-bd); padding: 0 24px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2A33A" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><rect x="9" y="6" width="6" height="7" rx="1" fill="#F2A33A"></rect><path d="M9 17h6"></path></svg>
+<span style="font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em">Breakerbook</span>
+</div>
+<nav aria-label="Primary" style="display: flex; gap: 2px; height: 100%">
+<a class="nav is-on" href="Panel.dc.html" aria-current="page">Panel</a>
+<a class="nav" href="Map.dc.html">Map</a>
+<a class="nav" href="Items.dc.html">Items</a>
+<a class="nav" href="Settings.dc.html">Settings</a>
+</nav>
+<div style="flex-grow: 1"></div>
+<label for="hq" class="sr">Search breakers, items, rooms</label>
+<div style="position: relative; display: flex; align-items: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B9BBBF" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; pointer-events: none"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input id="hq" class="search" type="search" placeholder="Search breakers, items, rooms" value="{{q}}" onChange="{{onSearch}}">
+</div>
+<button type="button" class="tgl" onClick="{{toggleTheme}}" aria-label="{{themeLabel}}" title="{{themeLabel}}"><sc-if value="{{isDark}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{isLight}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></sc-if></button>
+<span class="mono" style="font-size: 12px; color: #B9BBBF">Main panel · 200A</span>
+</header>
+<main style="flex-grow: 1; min-height: 0; display: flex; gap: 32px; padding: 24px 32px; box-sizing: border-box">
+<section aria-label="Panel directory" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: baseline; gap: 14px"><h1 style="margin: 0; font-size: 28px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em">Copy the panel directory</h1><span class="mono" style="font-size: 12px; color: var(--muted)">Main panel · 200A · 40 spaces</span></div>
+<span style="font-size: 14px; color: var(--soft)">Type what’s written on the label inside the panel door. Leave a slot blank if it’s empty or unreadable.</span>
+</div>
+<div style="flex-grow: 1; min-height: 0; overflow: auto; background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; padding: 12px 20px 20px">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div class="drow dhead"><span style="text-align: right; padding-right: 4px">Slot</span><span>Label</span><span>Amps</span><span style="text-align: center">2-pole</span></div>
+<sc-for list="{{left}}" as="r" hint-placeholder-count="20">
+<div class="drow"><span class="dnum">{{r.num}}</span><span style="min-width: 0"><sc-if value="{{r.open}}" hint-placeholder-val="{{true}}"><input class="{{r.inCls}}" type="text" value="{{r.label}}" onChange="{{r.onLabel}}" aria-label="{{r.aria}}"></sc-if><sc-if value="{{r.cont}}" hint-placeholder-val="{{false}}"><span class="dcont">{{r.contText}}</span></sc-if></span><span><sc-if value="{{r.open}}" hint-placeholder-val="{{true}}"><select class="dsel" value="{{r.amps}}" onChange="{{r.onAmps}}" aria-label="{{r.ampAria}}"><option value="">—</option><option value="15">15</option><option value="20">20</option><option value="30">30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option></select></sc-if></span><span><sc-if value="{{r.open}}" hint-placeholder-val="{{true}}"><label class="d2p"><input type="checkbox" checked="{{r.two}}" onChange="{{r.onTwo}}" aria-label="{{r.twoAria}}" disabled="{{r.cant2}}"></label></sc-if></span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div class="drow dhead"><span style="text-align: right; padding-right: 4px">Slot</span><span>Label</span><span>Amps</span><span style="text-align: center">2-pole</span></div>
+<sc-for list="{{right}}" as="r" hint-placeholder-count="20">
+<div class="drow"><span class="dnum">{{r.num}}</span><span style="min-width: 0"><sc-if value="{{r.open}}" hint-placeholder-val="{{true}}"><input class="{{r.inCls}}" type="text" value="{{r.label}}" onChange="{{r.onLabel}}" aria-label="{{r.aria}}"></sc-if><sc-if value="{{r.cont}}" hint-placeholder-val="{{false}}"><span class="dcont">{{r.contText}}</span></sc-if></span><span><sc-if value="{{r.open}}" hint-placeholder-val="{{true}}"><select class="dsel" value="{{r.amps}}" onChange="{{r.onAmps}}" aria-label="{{r.ampAria}}"><option value="">—</option><option value="15">15</option><option value="20">20</option><option value="30">30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option></select></sc-if></span><span><sc-if value="{{r.open}}" hint-placeholder-val="{{true}}"><label class="d2p"><input type="checkbox" checked="{{r.two}}" onChange="{{r.onTwo}}" aria-label="{{r.twoAria}}" disabled="{{r.cant2}}"></label></sc-if></span></div>
+</sc-for>
+</div>
+</div>
+</div>
+</section>
+
+<aside style="width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 20px; font-weight: 800; font-stretch: 105%">{{filledText}}</span>
+<div class="bar"><span style="width: {{pct}}%"></span></div>
+<span style="font-size: 13px; color: var(--muted)">{{spacesText}}</span>
+</div>
+<div style="background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span class="ov">Tips</span>
+<div class="tip"><span class="k">Tab</span><span>moves down the column, like reading the label.</span></div>
+<div class="tip"><span class="k">2-pole</span><span>Tick it on the top slot of a double-wide breaker (range, dryer, A/C). The slot below joins it.</span></div>
+<div class="tip"><span class="k">Blank</span><span>Empty or unreadable slots can stay blank. Tracing will fill them in later.</span></div>
+<div class="tip"><span class="k">GFCI</span><span>Protection types can be set per breaker on the Panel page afterwards.</span></div>
+</div>
+<div style="flex-grow: 1"></div>
+<button type="button" class="btn" style="width: 100%">Paste a list instead…</button>
+<a class="btn btn-pri" style="width: 100%; height: 50px; font-size: 15px" href="Panel.dc.html">{{saveLabel}}</a>
+<a class="btn" style="width: 100%" href="PanelEmpty.dc.html">Cancel</a>
+</aside>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+var PRE = {
+  1: { l: 'Range', a: '50', p: 2 }, 2: { l: 'Dryer', a: '30', p: 2 }, 5: { l: 'A/C', a: '40', p: 2 }, 6: { l: 'Water heater', a: '30', p: 2 },
+  9: { l: 'Kitchen counter W', a: '20', p: 1 }, 10: { l: 'Kitchen counter E', a: '20', p: 1 }, 11: { l: 'Dishwasher', a: '20', p: 1 },
+  12: { l: 'Fridge', a: '20', p: 1 }, 13: { l: 'Microwave', a: '20', p: 1 }, 14: { l: 'Kit/dining lts', a: '15', p: 1 }, 15: { l: 'Living rm', a: '15', p: 1 }
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var set = function (o) { self.setState(o); };
+    var dark = st.dark !== undefined ? st.dark : (this.props.dark !== undefined ? !!this.props.dark : true);
+    var rows = st.rows || PRE;
+    var get = function (s) { return rows[s] || { l: '', a: '', p: 1 }; };
+    var patch = function (s, o) { var r = Object.assign({}, rows); r[s] = Object.assign({}, get(s), o); set({ rows: r }); };
+    var covered = function (s) { var up = rows[s - 2]; return !!(up && up.p === 2); };
+    var mk = function (s) {
+      var r = get(s);
+      var cont = covered(s);
+      return {
+        key: 's' + s, num: String(s), cont: cont, open: !cont, contText: '↳ second pole of ' + (s - 2),
+        label: r.l, amps: r.a, two: r.p === 2, cant2: s + 2 > 40,
+        inCls: 'din' + (r.l ? ' is-filled' : ''), aria: 'Slot ' + s + ' label', ampAria: 'Slot ' + s + ' amps', twoAria: 'Slot ' + s + ' is 2-pole',
+        onLabel: function (e) { patch(s, { l: e.target.value }); },
+        onAmps: function (e) { patch(s, { a: e.target.value }); },
+        onTwo: function () { patch(s, { p: r.p === 2 ? 1 : 2 }); }
+      };
+    };
+    var left = [], right = [];
+    for (var s = 1; s <= 40; s++) (s % 2 ? left : right).push(mk(s));
+    var n = 0, used = 0;
+    Object.keys(rows).forEach(function (k) { var r = rows[k]; if (r.l || r.a) { n++; used += r.p === 2 ? 2 : 1; } });
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light', isDark: dark, isLight: !dark,
+      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: function () { set({ dark: !dark }); },
+      q: '', onSearch: function () {},
+      left: left, right: right,
+      filledText: n + (n === 1 ? ' breaker' : ' breakers') + ' entered',
+      spacesText: used + ' of 40 spaces used · ' + (40 - used) + ' left',
+      pct: Math.round(used / 40 * 100),
+      saveLabel: 'Save ' + n + (n === 1 ? ' breaker' : ' breakers')
+    };
+  }
+}
+</script>
+</body>
+</html>
