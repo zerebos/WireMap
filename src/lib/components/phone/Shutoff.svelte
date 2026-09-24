@@ -10,7 +10,7 @@
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
 	import { plural, type HouseIndex, type HouseItem } from '$lib/house';
-	import { physicalPosition, compareBreakers } from '$lib/panel';
+	import { physicalPosition, compareBreakers, panelShort } from '$lib/panel';
 	import type { Breaker } from '$lib/db/schema';
 
 	let {
@@ -68,13 +68,15 @@
 			.sort(compareBreakers);
 	});
 	const ids = $derived(new Set(breakers.map((b) => b.id)));
+	// A feeder in the list also cuts everything in its subpanel (DESIGN.md §5.17).
+	const cut = $derived(new Set([...ids, ...breakers.flatMap((b) => ix.downstream(b).breakers.map((d) => d.id))]));
 	const unknown = $derived(scope.filter((i) => i.breakerIds.length === 0));
-	const affected = $derived(data.house.items.filter((i) => i.breakerIds.some((id) => ids.has(id))));
+	const affected = $derived(data.house.items.filter((i) => i.breakerIds.some((id) => cut.has(id))));
 	/** The breakers being shut off that feed an item: "12", "14 + 21". */
 	const slotsFor = (i: HouseItem) =>
 		ix
 			.breakersOf(i)
-			.filter((b) => ids.has(b.id))
+			.filter((b) => cut.has(b.id))
 			.map((b) => ix.slotOf(b))
 			.join(' + ');
 
@@ -86,7 +88,7 @@
 			.filter((i) => i.critical)
 			.map((i) => ({
 				item: i,
-				where: `${ix.breakersOf(i).filter((b) => ids.has(b.id)).length > 1 ? 'breakers' : 'breaker'} ${slotsFor(i)}${inScope(i) ? '' : ` · ${ix.roomName(i.roomId)}`}`
+				where: `${ix.breakersOf(i).filter((b) => cut.has(b.id)).length > 1 ? 'breakers' : 'breaker'} ${slotsFor(i)}${inScope(i) ? '' : ` · ${ix.roomName(i.roomId)}`}`
 			}))
 	);
 	const elsewhere = $derived.by(() => {
@@ -147,8 +149,34 @@
 			target?.kind === 'breaker'
 				? plural(new Set(bs.flatMap((b) => ix.itemsOf(b.id).map((i) => i.id))).size, 'item')
 				: `${plural(scope.filter((i) => bs.some((b) => i.breakerIds.includes(b.id))).length, 'item')} here`;
-		if (bs.length === 1) return `${physicalPosition(bs[0], ix.panelOf(bs[0]))} · ${here}${sharedText(bs)}`;
+		// With subpanels, rows say which panel to walk to: "Garage panel · Left, row 1".
+		const at = data.house.panels.length > 1 ? `${panelShort(ix.panelOf(bs[0]))} panel · ` : '';
+		if (bs.length === 1) return `${at}${physicalPosition(bs[0], ix.panelOf(bs[0]))} · ${here}${sharedText(bs)}`;
 		return `${bs.map((b) => ix.slotOf(b)).join(' + ')} · turn off together · ${here}${sharedText(bs)}`;
+	}
+
+	/** When every breaker in the list is in one subpanel, its feeder is a one-flip alternative. */
+	const feeder = $derived.by(() => {
+		const panels = new Set(breakers.map((b) => b.panelId));
+		if (panels.size !== 1 || target?.kind === 'breaker') return null;
+		const f = ix.feederOf(ix.panelOf(breakers[0]));
+		if (!f) return null;
+		const down = ix.downstream(f);
+		const crit = down.items.filter((i) => i.critical).map((i) => i.name);
+		const sub = panelShort(ix.fedPanelOf(f)!);
+		return {
+			b: f,
+			sub: `${panelShort(ix.panelOf(f))} panel · kills all of ${sub}${crit.length ? `, incl. ${crit.join(', ')}` : ` · ${plural(down.breakers.length, 'breaker')}, ${plural(down.items.length, 'item')}`}`
+		};
+	});
+	const feederDone = $derived(!!feeder && isDone(feeder.b.id));
+	function toggleFeeder() {
+		if (!feeder) return;
+		const v = !feederDone;
+		for (const id of [feeder.b.id, ...breakers.map((b) => b.id)]) {
+			if (restoring) on[id] = v;
+			else off[id] = v;
+		}
 	}
 
 	const total = $derived(breakers.length);
@@ -258,6 +286,20 @@
 				{:else}
 					<p class="empty">No breaker on record feeds {target.kind === 'item' ? 'this item' : 'this room'} yet.</p>
 				{/each}
+				{#if feeder}
+					<button type="button" class="brow feeder" class:is-done={feederDone} aria-pressed={feederDone} onclick={toggleFeeder}>
+						<span class="bnum big">{ix.slotOf(feeder.b)}</span>
+						<span class="bmain">
+							<span class="bname">Or flip the feeder</span>
+							<span class="bsub">{feeder.sub}</span>
+						</span>
+						<span
+							class="pill mono"
+							class:is-off={restoring ? !feederDone : feederDone}
+							class:is-on={restoring && feederDone}>{restoring ? (feederDone ? 'ON' : 'OFF') : feederDone ? 'OFF' : 'ON'}</span
+						>
+					</button>
+				{/if}
 			</section>
 
 			{#if crit.length}
@@ -429,6 +471,10 @@
 		transition:
 			background 0.15s,
 			border-color 0.15s;
+	}
+	.brow.feeder {
+		border-style: dashed;
+		background: transparent;
 	}
 	.brow:hover {
 		border-color: var(--btn-bd-h);

@@ -5,7 +5,7 @@
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import Icon from '$lib/components/Icon.svelte';
 	import PhoneShell from '$lib/components/phone/PhoneShell.svelte';
-	import { mutate, needsSetup } from '$lib/house';
+	import { index, mutate, needsSetup } from '$lib/house';
 	import { updateSettings } from '$lib/db/ops';
 	import { search } from '$lib/search.svelte';
 	import { viewport } from '$lib/viewport.svelte';
@@ -81,7 +81,20 @@
 	const toggleTheme = () => mutate(() => updateSettings({ theme: shown === 'dark' ? 'light' : 'dark' }));
 
 	const panel = $derived(data.house?.panel);
+	const hix = $derived(data.house ? index(data.house) : null);
+	const tree = $derived(hix?.panelTree() ?? []);
+	let menuOpen = $state(false);
+	let menuEl = $state<HTMLDivElement>();
 </script>
+
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Escape' && menuOpen) {
+			menuOpen = false;
+			menuEl?.querySelector('button')?.focus();
+		}
+	}}
+/>
 
 <svelte:head>
 	<link rel="icon" href={asset('/icon.svg')} type="image/svg+xml" />
@@ -118,7 +131,30 @@
 				<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
 					<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
 				</button>
-				{#if panel}
+				{#if panel && tree.length > 1}
+					<!-- More than one panel: the name becomes a menu of panels as a tree (DESIGN.md §5.17). -->
+					<div class="pmenu" bind:this={menuEl} onfocusout={(e) => !menuEl?.contains(e.relatedTarget as Node) && (menuOpen = false)}>
+						<button type="button" class="mono meta pbtn" aria-expanded={menuOpen} aria-haspopup="true" onclick={() => (menuOpen = !menuOpen)}>
+							{panel.name}{panel.mainAmps ? ` · ${panel.mainAmps}A` : ''}<Icon name="down" size={14} />
+						</button>
+						{#if menuOpen}
+							<ul class="plist">
+								{#each tree as t (t.panel.id)}
+									{@const a = t.panel.mainAmps ?? hix?.feederOf(t.panel)?.amps}
+									<li>
+										<a
+											class="mono"
+											href={resolve('/panel') + `?p=${t.panel.id}`}
+											style:padding-left="{12 + t.depth * 20}px"
+											onclick={() => (menuOpen = false)}
+											>{#if t.depth}<span class="brg" aria-hidden="true">↳</span>{/if}{t.panel.name}{a ? ` · ${a}A` : ''}</a
+										>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+				{:else if panel}
 					<span class="mono meta">{panel.name}{panel.mainAmps ? ` · ${panel.mainAmps}A` : ''}</span>
 				{/if}
 			{/if}
@@ -257,6 +293,55 @@
 		font-size: 12px;
 		color: var(--hdr-nav);
 		white-space: nowrap;
+	}
+	.pmenu {
+		position: relative;
+	}
+	.pbtn {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		height: 36px;
+		padding: 0 10px;
+		border: 1px solid var(--hdr-field-bd);
+		border-radius: var(--r-md);
+		background: var(--hdr-field);
+		font-family: var(--font-mono);
+		cursor: pointer;
+	}
+	.pbtn:hover {
+		color: var(--hdr-fg);
+	}
+	.plist {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 6px);
+		z-index: 40;
+		min-width: 100%;
+		list-style: none;
+		margin: 0;
+		padding: 6px;
+		background: var(--hdr);
+		border: 1px solid var(--hdr-bd);
+		border-radius: var(--r-lg);
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+	}
+	.plist a {
+		display: flex;
+		gap: 6px;
+		padding: 8px 12px;
+		border-radius: var(--r-md);
+		font-size: 12px;
+		color: var(--hdr-fg);
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.plist a:hover {
+		background: var(--hdr-field);
+		color: var(--hdr-fg);
+	}
+	.brg {
+		color: var(--hdr-nav);
 	}
 	/* Setup: wordmark and "Setup" only. */
 	.step {

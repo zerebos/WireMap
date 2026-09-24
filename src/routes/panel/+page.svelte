@@ -11,20 +11,54 @@
 	import { access } from '$lib/access.svelte';
 	import PanelEmpty from '$lib/components/panel/PanelEmpty.svelte';
 	import RemoveBreakerDialog from '$lib/components/panel/RemoveBreakerDialog.svelte';
+	import SubpanelForm from '$lib/components/panel/SubpanelForm.svelte';
 	import { tick } from 'svelte';
 	import { AMPS, ITEM_TYPES, ITEM_TYPE_LABELS, MIN_WIRE, PROTECTIONS, PROTECTION_LABELS, PROTECTION_TAGS } from '$lib/constants';
 	import type { Half, Protection } from '$lib/constants';
 	import type { Breaker, Panel } from '$lib/db/schema';
-	import { createBreaker, createItem, deleteBreaker, makeTandem, updateBreaker } from '$lib/db/ops';
+	import { createBreaker, createItem, createSubpanel, deleteBreaker, makeTandem, updateBreaker, type SubpanelValues } from '$lib/db/ops';
 	import { index, mutate, plural } from '$lib/house';
-	import { checkFit, faceColumns, legOf, legOfRow, tandemOk, tandemText, nextInColumn, occupiedSlots, position, rowCount, slotLabel, slotText, spacesUsed, tiedBelow, tiedTogether, type Cell as FaceCell } from '$lib/panel';
+	import { checkFit, faceColumns, legOf, legOfRow, tandemOk, tandemText, nextInColumn, occupiedSlots, position, rowCount, slotLabel, slotText, spaceLabel, panelShort, compareBreakers, spacesUsed, tiedBelow, tiedTogether, type Cell as FaceCell } from '$lib/panel';
 	import { query, search } from '$lib/search.svelte';
 
 	let { data } = $props();
 
 	const house = $derived(data.house);
 	const ix = $derived(index(house));
-	const panel = $derived(house.panel);
+	// Which panel (DESIGN.md §5.17): ?p=<id>, else the selected breaker's panel, else the main panel.
+	const pParam = $derived(Number(page.url.searchParams.get('p')) || null);
+	const bPanel = $derived(ix.breakerById.get(Number(page.url.searchParams.get('b')))?.panelId ?? null);
+	const panel = $derived(house.panels.find((p) => p.id === pParam) ?? house.panels.find((p) => p.id === bPanel) ?? house.panel);
+	const tree = $derived(ix.panelTree());
+	/** A panel's amps: its main breaker, or for main lugs the feeder's. */
+	const ampsOf = (p: Panel) => p.mainAmps ?? ix.feederOf(p)?.amps ?? null;
+	const feeder = $derived(panel ? ix.feederOf(panel) : null);
+	const subsHere = $derived(
+		panel ? house.panels.filter((p) => p.fedByBreakerId !== null && ix.breakerById.get(p.fedByBreakerId)?.panelId === panel.id) : []
+	);
+	const panelHref = (p: Panel) => resolve('/panel') + `?p=${p.id}`;
+
+	// ---- Add subpanel (?add=sub) in the detail pane.
+	const adding = $derived(page.url.searchParams.get('add') === 'sub');
+	let subForm = $state<ReturnType<typeof SubpanelForm>>();
+	async function openAdd() {
+		const url = new URL(page.url);
+		url.searchParams.set('add', 'sub');
+		url.searchParams.delete('slot');
+		await goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+		await tick();
+		subForm?.focus();
+	}
+	function cancelAdd() {
+		const url = new URL(page.url);
+		url.searchParams.delete('add');
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+	async function addSub(v: SubpanelValues) {
+		const id = await mutate(() => createSubpanel(v));
+		goto(resolve('/panel') + `?p=${id}`);
+	}
+
 	const breakers = $derived(panel ? house.breakers.filter((b) => b.panelId === panel.id) : []);
 
 	// ---- Unsaved edits, per breaker. The breaker face shows them live.
@@ -253,6 +287,22 @@
 		return group.filter((b) => b.id !== sel.id).map((b) => slotLabel(b, panel));
 	});
 
+	// ---- Power path (DESIGN.md §5.17): Main 200A › 30/32 · 60A › Garage › G6.
+	/** The subpanel the selected breaker feeds. */
+	const selSub = $derived(sel ? ix.fedPanelOf(sel) : null);
+	const selDown = $derived(sel && selSub ? ix.downstream(sel) : null);
+	const subBreakers = $derived(selSub ? house.breakers.filter((b) => b.panelId === selSub.id).sort(compareBreakers) : []);
+	const path = $derived.by(() => {
+		if (!sel || !panel) return [];
+		const above = ix.feedersAbove(panel);
+		const root = above.length ? ix.panelOf(above[0]) : panel;
+		const chips: { t: string; cur?: boolean }[] = [{ t: `${panelShort(root)}${root.mainAmps ? ` ${root.mainAmps}A` : ''}` }];
+		for (const f of above) chips.push({ t: `${ix.slotOf(f)} · ${f.amps}A` }, { t: panelShort(ix.fedPanelOf(f)!) });
+		chips.push({ t: slotLabel(sel, panel), cur: true });
+		if (selSub) chips.push({ t: selSub.name });
+		return chips;
+	});
+
 	// ---- What the selected breaker powers.
 	const selItems = $derived(sel ? ix.itemsOf(sel.id) : []);
 	const selNo2 = $derived(sel ? why2(sel.slot, sel.id) : null);
@@ -315,16 +365,53 @@
 {:else}
 	<main>
 		<section class="panel" aria-label="Breaker panel">
+			{#if tree.length > 1}
+				<div class="ptabs" role="group" aria-label="Panel">
+					{#each tree as t (t.panel.id)}
+						{@const a = ampsOf(t.panel)}
+						<a
+							class="ptab"
+							class:is-on={t.panel.id === panel.id}
+							href={panelHref(t.panel)}
+							aria-current={t.panel.id === panel.id ? 'page' : undefined}
+						>
+							{#if t.depth}<span class="br"><Icon name="branch" size={14} /></span>{/if}
+							<span class="pt">
+								<span class="pn">{t.panel.name}</span>
+								<span class="mono pm"
+									>{a ? `${a}A · ` : ''}{spacesUsed(
+										house.breakers.filter((b) => b.panelId === t.panel.id),
+										t.panel
+									)}/{t.panel.slotCount} spaces</span
+								>
+							</span>
+						</a>
+					{/each}
+					<button type="button" class="btn addsub" aria-pressed={adding} onclick={openAdd}
+						><Icon name="plus" size={14} stroke={2.2} />Subpanel</button
+					>
+				</div>
+			{/if}
 			<div class="top">
 				<div class="title">
 					<h1>{panel.name}</h1>
 					<span class="mono meta">
-						{panel.mainAmps ? `${panel.mainAmps}A main · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces · {plural(
-							breakers.length,
-							'breaker'
-						)}
+						{#if feeder}
+							Fed by {panelShort(ix.panelOf(feeder))} {ix.slotOf(feeder)} · {ampsOf(panel)}A · {spacesUsed(breakers, panel)} of {panel.slotCount}
+							spaces{panel.location ? ` · ${panel.location}` : ''}
+						{:else}
+							{panel.mainAmps ? `${panel.mainAmps}A main · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces · {plural(
+								breakers.length,
+								'breaker'
+							)}{subsHere.length ? ` · ${plural(subsHere.length, 'subpanel')}` : ''}
+						{/if}
 					</span>
 				</div>
+				{#if feeder}
+					<a class="btn fedby" href={resolve('/panel') + `?p=${feeder.panelId}&b=${feeder.id}`}
+						><Icon name="arrowup" size={14} stroke={2.2} />Fed by {panelShort(ix.panelOf(feeder))} · {ix.slotOf(feeder)}</a
+					>
+				{/if}
 				{#if breakers.length}
 					<div class="legend">
 						<span><span class="tag">GF</span>GFCI</span>
@@ -357,8 +444,8 @@
 				<div class="main-bk">
 					<div class="main-hdl"><span></span><span></span></div>
 					<div class="main-txt">
-						<span class="mono">MAIN</span>
-						<strong>{panel.mainAmps ? `${panel.mainAmps}A` : '—'}</strong>
+						<span class="mono">{feeder && panel.mainAmps === null ? 'MAIN LUGS' : 'MAIN'}</span>
+						<strong>{ampsOf(panel) ? `${ampsOf(panel)}A` : '—'}</strong>
 					</div>
 				</div>
 
@@ -402,7 +489,7 @@
 												<span class="hdl"></span>
 											</button>
 										{:else}
-											{@const half = i === 0 ? 'A' : 'B'}
+											{@const half = i === 0 ? ('A' as const) : ('B' as const)}
 											{@const ok = moving && fits(cell.slot, half)}
 											<button
 												type="button"
@@ -413,7 +500,7 @@
 												aria-label={ok ? `Move here: slot ${cell.slot}${half}` : `Slot ${cell.slot}${half}, open`}
 												onclick={() => moveTo(cell.slot, half)}
 											>
-												<span class="num">{cell.slot}{half}</span>
+												<span class="num">{spaceLabel({ slot: cell.slot, half }, panel)}</span>
 												<span class="lbl">{ok ? 'Move here' : 'Open'}</span>
 											</button>
 										{/if}
@@ -434,7 +521,7 @@
 									aria-label="Move here: slot {cell.slot}"
 									onclick={() => moveTo(cell.slot)}
 								>
-									<span class="num">{cell.slot}</span>
+									<span class="num">{spaceLabel({ slot: cell.slot, half: null }, panel)}</span>
 									<span class="lbl">{ok ? 'Move here' : 'Open'}</span>
 								</button>
 							{:else if !cell.breaker}
@@ -452,12 +539,13 @@
 									aria-label="Open slot {two ? newSlots.join(' and ') : cell.slot}, add a breaker"
 									onclick={() => (isNew ? formEl?.focus() : openSlot(cell.slot))}
 								>
-									<span class="num">{two ? newSlots.join('/') : cell.slot}</span>
+									<span class="num">{spaceLabel({ slot: cell.slot, half: null }, panel)}{two ? `/${newSlots[1]}` : ''}</span>
 									<span class="lbl"><span class="opn">Open</span><span class="add">{isNew ? 'New breaker…' : '+ Add breaker'}</span></span>
 								</button>
 							{:else}
 								{@const b = view(cell.breaker)}
-								{@const tag = PROTECTION_TAGS[b.kind]}
+								{@const sub = ix.fedPanelOf(b)}
+								{@const tag = sub ? 'SUB' : PROTECTION_TAGS[b.kind]}
 								{@const tie = tiedBelow(b, placed, panel)}
 								<button
 									type="button"
@@ -468,7 +556,8 @@
 									class:is-sel={newSlot === null && b.id === sel?.id}
 									class:is-moving={moving && b.id === sel?.id}
 									class:is-dim={!matches(cell.breaker) || (moving && b.id !== sel?.id)}
-									class:is-unl={!b.label.trim()}
+									class:is-unl={!b.label.trim() && !sub}
+									class:feed={!!sub}
 									style:grid-row="{at.row} / span {b.poles === 2 ? 2 : 1}"
 									style:grid-column={side === 'l' ? 1 : 3}
 									aria-pressed={newSlot === null && b.id === sel?.id}
@@ -477,7 +566,7 @@
 									onclick={() => pick(b.id)}
 								>
 									<span class="num">{slotLabel(b, panel)}</span>
-									<span class="lbl">{b.label.trim() || 'Unlabeled'}</span>
+									<span class="lbl">{sub ? `→ ${sub.name}` : b.label.trim() || 'Unlabeled'}</span>
 									{#if tag}<span class="tag">{tag}</span>{/if}
 									<span class="amp">{b.amps}</span>
 									<span class="hdl"><span class="tog"></span><span class="tog tog2"></span></span>
@@ -500,8 +589,10 @@
 {/if}
 
 {#snippet detail(panel: Panel)}
-	<section class="detail" aria-label={newSlot !== null ? 'New breaker' : sel ? 'Breaker details' : 'Getting started'}>
-		{#if newSlot !== null}
+	<section class="detail" aria-label={adding ? 'Add subpanel' : newSlot !== null ? 'New breaker' : sel ? 'Breaker details' : 'Getting started'}>
+		{#if adding}
+			<div class="addpane"><SubpanelForm bind:this={subForm} {ix} oncancel={cancelAdd} onadd={addSub} /></div>
+		{:else if newSlot !== null}
 			<NewBreakerForm
 				bind:this={formEl}
 				bind:form
@@ -517,7 +608,7 @@
 		{:else}
 			<div class="dhead">
 				<div class="row">
-					<span class="mono slot">{slotText(sel, panel)}</span>
+					<span class="mono slot">{feeder ? `${panelShort(panel)} · ` : ''}{slotText(sel, panel)}{selSub ? ' · Feeder' : ''}</span>
 					<div class="nav">
 						<button type="button" class="btn" aria-pressed={moving} onclick={() => (moving = !moving)}>Move…</button>
 						<button type="button" class="ibtn" aria-label="Previous breaker" onclick={() => step(-1)}><Icon name="prev" /></button>
@@ -533,6 +624,13 @@
 					oninput={(e) => edit(selRaw!, { label: e.currentTarget.value })}
 					placeholder="Unlabeled — what does it power?"
 				/>
+				<div class="path" aria-label="Power path">
+					<span class="ov">Power path</span>
+					{#each path as c, i (i)}
+						{#if i}<Icon name="next" size={14} stroke={2.2} />{/if}
+						<span class="pchip" class:cur={c.cur}>{c.t}</span>
+					{/each}
+				</div>
 				<div class="grid4">
 					<div class="fld">
 						<label for="f-amp">Amperage</label>
@@ -628,6 +726,39 @@
 						<span class="why" id="f-nofull">To go back to one full-size breaker, remove or move {slotLabel(selMate, panel)} first.</span>
 					{/if}
 				{/if}
+				{#if selSub && selDown}
+					{@const crit = selDown.items.filter((i) => i.critical).map((i) => i.name)}
+					<div class="feedcard">
+						<div class="fh">
+							<span class="tag">SUBPANEL</span>
+							<span class="ft">Feeds the {selSub.name}</span>
+							<a class="btn" href={panelHref(selSub)}>Open {panelShort(selSub)} →</a>
+						</div>
+						<span class="fm"
+							>{sel.amps}A {sel.poles === 2 ? '2-pole ' : ''}feeder · {plural(subBreakers.length, 'breaker')} · {plural(
+								new Set(subBreakers.flatMap((b) => ix.itemsOf(b.id).map((i) => i.id))).size,
+								'item'
+							)}{selSub.location ? ` · ${selSub.location}` : ''}</span
+						>
+						{#if subBreakers.length}
+							<div class="fgrid">
+								{#each subBreakers as g (g.id)}
+									<a class="frow" href={resolve('/panel') + `?p=${selSub.id}&b=${g.id}`}>
+										<span class="bnum">{ix.slotOf(g)}</span>
+										<span class="fl">{ix.fedPanelOf(g) ? `→ ${ix.fedPanelOf(g)?.name}` : ix.labelOf(g)}</span>
+										<span class="mono fc">{ix.itemsOf(g.id).length}</span>
+									</a>
+								{/each}
+							</div>
+						{/if}
+					</div>
+					<div class="kill" role="note">
+						<strong>Turning this off kills the whole {selSub.name}</strong> — {plural(selDown.breakers.length, 'breaker')} and {plural(
+							selDown.items.length,
+							'item'
+						)}{crit.length ? `, including ${crit.join(', ')}` : ''}.
+					</div>
+				{:else}
 				<div class="powers">
 					<div class="ph">
 						<h2>Powers</h2>
@@ -664,6 +795,10 @@
 						</div>
 					</div>
 				{/each}
+				{#if feeder}
+					<span class="up">This breaker is also dead whenever {panelShort(ix.panelOf(feeder))} {ix.slotOf(feeder)} is off.</span>
+				{/if}
+				{/if}
 
 				<div class="fld">
 					<label for="f-notes">Notes</label>
@@ -680,7 +815,13 @@
 
 			<div class="dfoot">
 				<div class="fleft">
-					<button type="button" class="rm" onclick={() => removeDlg?.open()}>Remove breaker</button>
+					<button
+						type="button"
+						class="rm"
+						disabled={!!selSub}
+						title={selSub ? `It feeds the ${selSub.name}. Delete the subpanel in Settings first.` : undefined}
+						onclick={() => removeDlg?.open()}>Remove breaker</button
+					>
 					<span class="status" role="status">
 						<span class="dot" class:is-dirty={dirty}></span>
 						{dirty ? 'Unsaved changes' : savedJustNow ? 'Saved just now' : 'All changes saved'}
@@ -1494,5 +1635,180 @@
 	}
 	.acts .btn:disabled {
 		opacity: 1;
+	}
+	/* ---- Subpanels (DESIGN.md §5.17) */
+	.ptabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		align-items: center;
+	}
+	.ptab {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		height: 52px;
+		padding: 0 16px 0 12px;
+		border: 1.5px solid var(--line-2);
+		border-radius: var(--r-xl);
+		background: var(--surface);
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.ptab:hover {
+		color: var(--ink);
+		border-color: var(--btn-bd-h);
+	}
+	.ptab.is-on {
+		border-color: var(--amber);
+		box-shadow: 0 0 0 2px var(--amber);
+	}
+	.ptab .br {
+		display: flex;
+		color: var(--muted);
+	}
+	.pt {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+	.pn {
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.pm {
+		font-size: 11px;
+		color: var(--muted);
+	}
+	.addsub {
+		height: 52px;
+		border-style: dashed;
+	}
+	.fedby {
+		height: 38px;
+	}
+	.bk.feed {
+		border: 1.5px solid var(--tag-fg);
+	}
+	.bk.feed .lbl {
+		font-weight: 700;
+	}
+	.bk.is-sel.feed {
+		border-color: var(--on-amber);
+	}
+	.path {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: wrap;
+		color: var(--muted);
+	}
+	.path .ov {
+		margin-right: 4px;
+	}
+	.pchip {
+		display: inline-flex;
+		align-items: center;
+		height: 30px;
+		padding: 0 10px;
+		border-radius: var(--r-md);
+		background: var(--bg);
+		border: 1px solid var(--line-2);
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--ink);
+	}
+	.pchip.cur {
+		background: var(--amber);
+		border-color: var(--amber);
+		color: var(--on-amber);
+	}
+	.feedcard {
+		border: 1.5px solid var(--tag-fg);
+		border-radius: var(--r-xl);
+		padding: 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		background: var(--raised);
+	}
+	.fh {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+	.fh .tag {
+		font-size: 11px;
+		padding: 3px 6px;
+	}
+	.fh .btn {
+		height: 38px;
+	}
+	.ft {
+		flex-grow: 1;
+		font-size: 16px;
+		font-weight: 700;
+	}
+	.fm {
+		font-size: 14px;
+		color: var(--soft);
+	}
+	.fgrid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 6px;
+	}
+	.frow {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 8px 10px;
+		border: 1px solid var(--line);
+		border-radius: var(--r-lg);
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.frow:hover {
+		color: var(--ink);
+		border-color: var(--btn-bd-h);
+	}
+	.fl {
+		flex-grow: 1;
+		min-width: 0;
+		font-size: 13px;
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.fc {
+		font-size: 11px;
+		color: var(--muted);
+	}
+	.kill {
+		padding: 12px 14px;
+		border-radius: var(--r-lg);
+		background: var(--amber-soft);
+		border: 1px solid var(--amber);
+		font-size: 13px;
+		line-height: 1.5;
+	}
+	.kill strong {
+		color: var(--amber-ink);
+	}
+	.up {
+		font-size: 13px;
+		line-height: 1.5;
+		color: var(--muted);
+	}
+	.addpane {
+		flex-grow: 1;
+		min-height: 0;
+		overflow: auto;
+		padding: 28px 32px;
+	}
+	.rm:disabled {
+		opacity: 0.4;
+		cursor: default;
 	}
 </style>

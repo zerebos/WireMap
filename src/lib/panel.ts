@@ -8,7 +8,7 @@
 import type { Half, Numbering } from './constants';
 
 export type Side = 'left' | 'right';
-type PanelShape = { slotCount: number; numbering: Numbering; tandemSlots?: string | null };
+type PanelShape = { slotCount: number; numbering: Numbering; tandemSlots?: string | null; shortCode?: string | null };
 type Placed = { slot: number; poles: number; half?: Half | null };
 
 /** One space a breaker takes: a whole slot (half null) or half of one. */
@@ -98,8 +98,17 @@ export function faceColumns<B extends Placed>(p: PanelShape, breakers: B[]): Rec
 export const legOfRow = (row: number) => (row % 2 === 1 ? 'L1' : 'L2');
 export const legOf = (slot: number, p: PanelShape) => legOfRow(position(slot, p).row);
 
-/** A breaker's number: "16", "1/3" for a 2-pole breaker, "17B" for a tandem half. */
-export const slotLabel = (b: Placed, p: PanelShape) => spacesOf(b, p).map(spaceText).join('/');
+/**
+ * A breaker's number: "16", "1/3" for a 2-pole breaker, "17B" for a tandem half. A subpanel's short
+ * code prefixes it once: "G6", "G3/5" (DESIGN.md §5.17).
+ */
+export const slotLabel = (b: Placed, p: PanelShape) => (p.shortCode ?? '') + spacesOf(b, p).map(spaceText).join('/');
+
+/** An open space's number, with the panel's prefix: "G9", "17A". */
+export const spaceLabel = (s: Space, p: PanelShape) => (p.shortCode ?? '') + spaceText(s);
+
+/** A panel's name without "panel"/"subpanel": "Main", "Garage". */
+export const panelShort = (p: { name: string }) => p.name.replace(/\s+(sub)?panel$/i, '').trim() || p.name;
 
 /** "Leg L2", or "Legs L1 + L2" for a 2-pole breaker. */
 export function legsText(b: Placed, p: PanelShape): string {
