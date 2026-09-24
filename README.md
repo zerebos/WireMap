@@ -95,10 +95,17 @@ disabled placeholders for now:
 - **Access**: sign-in, users and passwords, and a read-only guest view (for a tablet mounted by
   the panel).
 - **Automatic backups**: nightly backups kept for a set number of days.
+- **Tracing from a phone**: the design has you scan a QR code on the computer and walk the
+  house with your phone. Each browser keeps its own copy of the data, so the phone can't see the
+  computer's house yet. For now Trace runs on the device you start it from, and the QR code is a
+  placeholder.
+- **Owner account** in first-run setup: the fields are shown but disabled.
+
+The local-first version is meant for prototyping and demoing; a server version is the likely
+long-term direction.
 
 Designed as open questions in `docs/design/DESIGN.md` §8 and not built yet:
 
-- First-run setup (create the panel and first floor, then land in Trace).
 - A fuller display of items on more than one breaker.
 - Exterior areas and detached buildings.
 - Phone layouts of Panel and Map.
