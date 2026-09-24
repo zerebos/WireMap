@@ -236,3 +236,21 @@
     color-scheme: dark;
   }
 }
+
+/* Theme previews in Settings → Appearance: each mini preview shows one theme, whatever theme is on. */
+:root {
+  --pv-l-bg: #F1EFEA;
+  --pv-l-hdr: #1A1B1D;
+  --pv-l-side: #C4C9CE;
+  --pv-l-row: #FBFAF7;
+  --pv-l-card: #FFFFFF;
+  --pv-l-ink: #1A1B1D;
+  --pv-l-dim: #CFCBC2;
+  --pv-d-bg: #121315;
+  --pv-d-hdr: #0B0C0D;
+  --pv-d-side: #25282C;
+  --pv-d-row: #1B1D20;
+  --pv-d-card: #202226;
+  --pv-d-ink: #ECEAE4;
+  --pv-d-dim: #3C4046;
+}
