@@ -9,6 +9,7 @@
 	import { updateSettings } from '$lib/db/ops';
 	import { search } from '$lib/search.svelte';
 	import { viewport } from '$lib/viewport.svelte';
+	import { traceFlow } from '$lib/trace.svelte';
 	import { applyTheme, effectiveTheme } from '$lib/theme';
 
 	let { data, children } = $props();
@@ -27,12 +28,16 @@
 		'/items': 'Search items, rooms, breakers',
 		'/settings': 'Search settings'
 	};
-	// The phone flows are full-screen, with their own back button; Sign in has no header.
-	const phone = $derived(route.startsWith('/shutoff') || route.startsWith('/trace') || route === '/signin');
+	// The phone flows are full-screen, with their own back button; Sign in has no header. On desktop,
+	// Trace starts as a card under the normal header until a breaker is picked (DESIGN.md §5.16).
+	const tracing = $derived(
+		route.startsWith('/trace') && (viewport.phone || traceFlow.handoff || page.url.searchParams.has('b'))
+	);
+	const phone = $derived(route.startsWith('/shutoff') || tracing || route === '/signin');
 
 	// First-run setup (minimal header) and the pages that belong to a nav tab.
 	const setup = $derived(route === '/setup');
-	const tabOf = (r: string) => (r === '/directory' ? '/panel' : r);
+	const tabOf = (r: string) => (r === '/directory' || r === '/trace' ? '/panel' : r);
 	// With no panel yet, every page but Settings leads to setup.
 	beforeNavigate((nav) => {
 		if (nav.to && data.house && needsSetup(data.house, nav.to.route.id)) {
