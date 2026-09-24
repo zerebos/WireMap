@@ -221,7 +221,7 @@
 					disabled={house.items.length === 0}
 					title="Downloads the items shown in the table">Export CSV</button>
 				<button type="button" class="btn btn-pri" onclick={addItem}
-					><Icon name="plus" size={16} stroke={2.2} />Add item</button>
+					>{#if house.items.length}<Icon name="plus" size={16} stroke={2.2} />{/if}Add item</button>
 			</div>
 		</div>
 
@@ -469,6 +469,7 @@
 		overflow: auto;
 	}
 	.nwrap {
+		box-sizing: content-box;
 		max-width: 560px;
 		display: flex;
 		flex-direction: column;
