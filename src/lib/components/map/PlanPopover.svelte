@@ -1,8 +1,9 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { mutate } from '$lib/house';
-	import { removeFloorPlan, setFloorPlan, updateFloor } from '$lib/db/ops';
+	import { removeFloorPlan, updateFloor } from '$lib/db/ops';
 	import type { Floor } from '$lib/db/schema';
+	import { PLAN_ACCEPT, uploadPlan } from './model';
 
 	let {
 		floor,
@@ -21,8 +22,6 @@
 		onclose: () => void;
 	} = $props();
 
-	// PDF plans aren't supported yet; images only.
-	const ACCEPT = ['image/png', 'image/jpeg', 'image/webp'];
 	let input: HTMLInputElement | undefined = $state();
 	let error = $state('');
 	let busy = $state(false);
@@ -41,24 +40,10 @@
 
 	async function useFile(file: File | undefined) {
 		if (!file) return;
-		error = '';
-		if (!ACCEPT.includes(file.type)) {
-			error = "That file isn't a PNG, JPG or WebP image.";
-			return;
-		}
 		busy = true;
-		try {
-			const bmp = await createImageBitmap(file);
-			const size = { width: bmp.width, height: bmp.height };
-			bmp.close();
-			const id = floor.id;
-			await mutate(() => setFloorPlan(id, file, size));
-		} catch {
-			error = "Couldn't read that image.";
-		} finally {
-			busy = false;
-			if (input) input.value = '';
-		}
+		error = await uploadPlan(floor.id, file);
+		busy = false;
+		if (input) input.value = '';
 	}
 
 	async function remove() {
@@ -79,7 +64,7 @@
 		<span class="pt">Floor plan · {floor.name}</span>
 		<button type="button" class="ibtn sm" aria-label="Close floor plan settings" onclick={onclose}><Icon name="close" size={16} /></button>
 	</div>
-	<input bind:this={input} class="sr" type="file" accept={ACCEPT.join(',')} tabindex="-1" aria-hidden="true" onchange={(e) => useFile(e.currentTarget.files?.[0])} />
+	<input bind:this={input} class="sr" type="file" accept={PLAN_ACCEPT.join(',')} tabindex="-1" aria-hidden="true" onchange={(e) => useFile(e.currentTarget.files?.[0])} />
 	{#if floor.planImage}
 		<div class="col">
 			<div class="file">

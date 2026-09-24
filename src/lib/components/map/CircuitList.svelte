@@ -6,9 +6,12 @@
 		ix,
 		q,
 		lit,
-		onpick
+		onpick,
+		empty = false
 	}: {
 		ix: HouseIndex;
+		/** The floor on show has no rooms or placed items yet. */
+		empty?: boolean;
 		/** Trimmed, lower-cased header search. */
 		q: string;
 		/** Breakers the current selection lights. */
@@ -31,7 +34,9 @@
 		<h2>Circuits</h2>
 		<span class="mono count">{shown.length} of {all.length}</span>
 	</div>
-	<p class="hint">Pick one to light up everything it feeds.</p>
+	<p class="hint">
+		{empty ? 'Nothing placed yet, so nothing lights up. Add rooms and items first.' : 'Pick one to light up everything it feeds.'}
+	</p>
 	<div class="list">
 		{#each shown as b (b.id)}
 			{@const sel = lit.has(b.id)}

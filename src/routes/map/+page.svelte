@@ -5,7 +5,7 @@
 	import CircuitList from '$lib/components/map/CircuitList.svelte';
 	import Inspector from '$lib/components/map/Inspector.svelte';
 	import MapView from '$lib/components/map/MapView.svelte';
-	import { NONE, defaultFloor, floorOfCircuit, litBreakers, type Sel, type Tool } from '$lib/components/map/model';
+	import { NONE, defaultFloor, floorOfCircuit, floorSteps, litBreakers, type Sel, type Tool } from '$lib/components/map/model';
 	import type { Breaker, Room } from '$lib/db/schema';
 	import { index, type HouseItem } from '$lib/house';
 	import { query } from '$lib/search.svelte';
@@ -55,6 +55,7 @@
 	let shaping = $state<number | null>(null);
 	let moving = $state<number | null>(null);
 
+	const steps = $derived(floorSteps(ix, floorId));
 	const lit = $derived(new Set(litBreakers(ix, sel).map((b) => b.id)));
 	function pickCircuit(b: Breaker) {
 		go(lit.has(b.id) ? NONE : { kind: 'circuit', id: b.id });
@@ -70,7 +71,7 @@
 </script>
 
 <div class="map">
-	<CircuitList {ix} q={query()} {lit} onpick={pickCircuit} />
+	<CircuitList {ix} q={query()} {lit} onpick={pickCircuit} empty={floorId !== null && !steps.placed} />
 	<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:tool bind:hovB bind:shaping bind:moving {go} />
 	<Inspector {ix} {sel} {floorId} bind:hovB {shaping} {moving} {go} onmove={startMove} onshape={startShape} />
 </div>

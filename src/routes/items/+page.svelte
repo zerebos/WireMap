@@ -6,10 +6,11 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import Icon from '$lib/components/Icon.svelte';
 	import ItemDrawer from '$lib/components/items/ItemDrawer.svelte';
-	import { ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
+	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
 	import { index, mutate, type HouseItem } from '$lib/house';
 	import { createItem, moveItemsToBreaker } from '$lib/db/ops';
 	import { query, search } from '$lib/search.svelte';
+	import { importItemsCsv } from '$lib/csv';
 
 	let { data } = $props();
 	const house = $derived(data.house);
@@ -173,6 +174,31 @@
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	}
 
+	// ---- CSV import (empty state only; DESIGN.md §5.9)
+	let csvInput: HTMLInputElement | undefined = $state();
+	let importing = $state(false);
+	let toast = $state<{ text: string; warn: boolean } | null>(null);
+	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	function say(text: string, warn = false) {
+		toast = { text, warn };
+		clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => (toast = null), 8000);
+	}
+	async function importCsv(file: File | undefined) {
+		if (!file) return;
+		importing = true;
+		try {
+			const text = await file.text();
+			const r = await mutate(() => importItemsCsv(house, text));
+			say(`Imported ${r.imported} ${r.imported === 1 ? 'item' : 'items'} (${r.skipped} skipped)`);
+		} catch (e) {
+			say(e instanceof Error && e.message.startsWith('The first row') ? e.message : "Couldn't read that CSV file.", true);
+		} finally {
+			importing = false;
+			if (csvInput) csvInput.value = '';
+		}
+	}
+
 	const mapHref = (id: number) => resolve('/map') + '?item=' + id;
 	const onSelect = (e: Event) => (e.currentTarget as HTMLSelectElement).value;
 </script>
@@ -183,138 +209,181 @@
 			<div class="ttl">
 				<h1>Items</h1>
 				<span class="mono sub"
-					>{house.items.length} {house.items.length === 1 ? 'item' : 'items'} · {attnCount}
-					{attnCount === 1 ? 'needs' : 'need'} attention</span>
+					>{house.items.length} {house.items.length === 1 ? 'item' : 'items'}{house.items.length
+						? ` · ${attnCount} ${attnCount === 1 ? 'needs' : 'need'} attention`
+						: ''}</span>
 			</div>
 			<div class="acts">
-				<button type="button" class="btn" onclick={exportCsv} title="Downloads the items shown in the table"
-					>Export CSV</button>
+				<button
+					type="button"
+					class="btn"
+					onclick={exportCsv}
+					disabled={house.items.length === 0}
+					title="Downloads the items shown in the table">Export CSV</button>
 				<button type="button" class="btn btn-pri" onclick={addItem}
 					><Icon name="plus" size={16} stroke={2.2} />Add item</button>
 			</div>
 		</div>
 
-		<div class="filters">
-			<div class="seg" role="group" aria-label="Item type">
-				{#each types as t (t.key)}
-					<button
-						type="button"
-						class="sb"
-						class:is-on={type === t.key}
-						aria-pressed={type === t.key}
-						onclick={() => (type = t.key)}>{t.label}<span class="ct">{t.count}</span></button>
-				{/each}
+		{#if house.items.length === 0}
+			<div class="card none">
+				<div class="nwrap">
+					<div class="tiles" aria-hidden="true">
+						{#each ITEM_TYPES as t (t)}<span class="tile"><Icon name={t} size={22} /></span>{/each}
+					</div>
+					<div class="ntxt">
+						<h2>No items yet</h2>
+						<p>
+							Items are what your breakers feed: outlets, lights, switches and appliances. The quickest way to add them is to trace a
+							breaker — flip it off and tap what went dark.
+						</p>
+					</div>
+					<div class="nacts">
+						<a class="btn btn-pri" href={resolve('/trace')}>Trace a breaker</a>
+						<button type="button" class="btn" onclick={addItem}>Add item</button>
+						<button type="button" class="btn" disabled={importing} onclick={() => csvInput?.click()}>Import CSV…</button>
+						<input
+							bind:this={csvInput}
+							class="sr"
+							type="file"
+							accept=".csv,text/csv"
+							tabindex="-1"
+							aria-hidden="true"
+							onchange={(e) => importCsv(e.currentTarget.files?.[0])}
+						/>
+					</div>
+					<span class="mono hint">CSV columns: name, type, floor, room, breaker</span>
+				</div>
 			</div>
-			<label for="ff" class="sr">Floor</label>
-			<select
-				id="ff"
-				class="inp fsel"
-				value={floorF}
-				onchange={(e) => {
-					const v = onSelect(e);
-					floorF = v === 'all' ? 'all' : Number(v);
-				}}>
-				<option value="all">All floors</option>
-				{#each house.floors as f (f.id)}<option value={f.id}>{f.name}</option>{/each}
-			</select>
-			<label for="fb" class="sr">Breaker</label>
-			<select
-				id="fb"
-				class="inp fsel fbrk"
-				value={brkF}
-				onchange={(e) => {
-					const v = onSelect(e);
-					brkF = v === 'all' || v === 'none' ? v : Number(v);
-				}}>
-				<option value="all">All breakers</option>
-				<option value="none">No breaker</option>
-				{#each brkFilterOpts as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
-			</select>
-			<button type="button" class="chip" class:is-on={attn} aria-pressed={attn} onclick={() => (attn = !attn)}
-				><Icon name="warning" size={16} />Needs attention · {attnCount}</button>
-			{#if filtered}
-				<button type="button" class="btn clear" onclick={clearFilters}>Clear filters</button>
-			{/if}
-		</div>
+		{:else}
+			<div class="filters">
+				<div class="seg" role="group" aria-label="Item type">
+					{#each types as t (t.key)}
+						<button
+							type="button"
+							class="sb"
+							class:is-on={type === t.key}
+							aria-pressed={type === t.key}
+							onclick={() => (type = t.key)}>{t.label}<span class="ct">{t.count}</span></button>
+					{/each}
+				</div>
+				<label for="ff" class="sr">Floor</label>
+				<select
+					id="ff"
+					class="inp fsel"
+					value={floorF}
+					onchange={(e) => {
+						const v = onSelect(e);
+						floorF = v === 'all' ? 'all' : Number(v);
+					}}>
+					<option value="all">All floors</option>
+					{#each house.floors as f (f.id)}<option value={f.id}>{f.name}</option>{/each}
+				</select>
+				<label for="fb" class="sr">Breaker</label>
+				<select
+					id="fb"
+					class="inp fsel fbrk"
+					value={brkF}
+					onchange={(e) => {
+						const v = onSelect(e);
+						brkF = v === 'all' || v === 'none' ? v : Number(v);
+					}}>
+					<option value="all">All breakers</option>
+					<option value="none">No breaker</option>
+					{#each brkFilterOpts as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+				</select>
+				<button type="button" class="chip" class:is-on={attn} aria-pressed={attn} onclick={() => (attn = !attn)}
+					><Icon name="warning" size={16} />Needs attention · {attnCount}</button>
+				{#if filtered}
+					<button type="button" class="btn clear" onclick={clearFilters}>Clear filters</button>
+				{/if}
+			</div>
 
-		<div class="card">
-			<div class="tbl" role="table" aria-label="Items" aria-rowcount={rows.length + 1}>
-				<div class="trow thead" role="row">
-					<span role="columnheader" class="cb"
-						><input type="checkbox" checked={allChecked} onchange={toggleAll} aria-label="Select all shown items" /></span>
-					<span role="columnheader"><span class="sr">Type</span></span>
-					{#each [['name', 'Name'], ['room', 'Room'], ['floor', 'Floor'], ['breaker', 'Breaker']] as const as [k, label] (k)}
-						<span role="columnheader" aria-sort={ariaSort(k)}
-							><button type="button" class="th" onclick={() => sortBy(k)}
-								>{label}<span aria-hidden="true">{arrow(k)}</span></button></span>
-					{/each}
-					<span role="columnheader">On map</span>
+			<div class="card">
+				<div class="tbl" role="table" aria-label="Items" aria-rowcount={rows.length + 1}>
+					<div class="trow thead" role="row">
+						<span role="columnheader" class="cb"
+							><input type="checkbox" checked={allChecked} onchange={toggleAll} aria-label="Select all shown items" /></span>
+						<span role="columnheader"><span class="sr">Type</span></span>
+						{#each [['name', 'Name'], ['room', 'Room'], ['floor', 'Floor'], ['breaker', 'Breaker']] as const as [k, label] (k)}
+							<span role="columnheader" aria-sort={ariaSort(k)}
+								><button type="button" class="th" onclick={() => sortBy(k)}
+									>{label}<span aria-hidden="true">{arrow(k)}</span></button></span>
+						{/each}
+						<span role="columnheader">On map</span>
+					</div>
+					<div class="tbody" role="rowgroup">
+						{#each rows as i (i.id)}
+							{@const bs = ix.breakersOf(i)}
+							{@const tag = bs[0] ? ix.tagOf(bs[0]) : ''}
+							<div class="trow" class:is-chk={checked.has(i.id)} class:is-open={i.id === openId} role="row">
+								<span role="cell" class="cb"
+									><input
+										type="checkbox"
+										checked={checked.has(i.id)}
+										onchange={() => toggle(i.id)}
+										aria-label="Select {i.name || 'Untitled item'}" /></span>
+								<span role="cell" class="ico" title={ITEM_TYPE_LABELS[i.type].one}
+									><Icon name={i.type} size={16} /><span class="sr">{ITEM_TYPE_LABELS[i.type].one}</span></span>
+								<span role="cell" class="nm"
+									><button type="button" class="rname" class:untitled={!i.name} onclick={() => open(i.id)}
+										>{i.name || 'Untitled item'}</button></span>
+								<span role="cell" class="cell">{ix.roomName(i.roomId)}</span>
+								<span role="cell" class="cell dim">{ix.floorName(i.floorId)}</span>
+								<span role="cell" class="cell brk">
+									{#if bs.length}
+										<span class="chips">
+											{#each bs as b, n (b.id)}
+												{#if n > 0}<span class="plus" aria-hidden="true">+</span>{/if}
+												<span class="bnum">{ix.slotOf(b)}</span>
+											{/each}
+										</span>
+										<span class="cell">{ix.labelOf(bs[0])}</span>
+										{#if tag}<span class="tag">{tag}</span>{/if}
+									{:else}
+										<span class="warnc">No breaker</span>
+									{/if}
+								</span>
+								<span role="cell" class="cell">
+									{#if i.x !== null && i.y !== null}
+										<a class="loc" href={mapHref(i.id)}>Locate</a>
+									{:else}
+										<span class="warnc">Not placed</span>
+									{/if}
+								</span>
+							</div>
+						{/each}
+						{#if rows.length === 0}
+							<div class="empty">
+								<span class="et">No items match these filters</span>
+								<span class="es">Try a different floor or breaker, or clear everything.</span>
+								<button type="button" class="btn" onclick={clearFilters}>Clear filters</button>
+							</div>
+						{/if}
+					</div>
 				</div>
-				<div class="tbody" role="rowgroup">
-					{#each rows as i (i.id)}
-						{@const bs = ix.breakersOf(i)}
-						{@const tag = bs[0] ? ix.tagOf(bs[0]) : ''}
-						<div class="trow" class:is-chk={checked.has(i.id)} class:is-open={i.id === openId} role="row">
-							<span role="cell" class="cb"
-								><input
-									type="checkbox"
-									checked={checked.has(i.id)}
-									onchange={() => toggle(i.id)}
-									aria-label="Select {i.name || 'Untitled item'}" /></span>
-							<span role="cell" class="ico" title={ITEM_TYPE_LABELS[i.type].one}
-								><Icon name={i.type} size={16} /><span class="sr">{ITEM_TYPE_LABELS[i.type].one}</span></span>
-							<span role="cell" class="nm"
-								><button type="button" class="rname" class:untitled={!i.name} onclick={() => open(i.id)}
-									>{i.name || 'Untitled item'}</button></span>
-							<span role="cell" class="cell">{ix.roomName(i.roomId)}</span>
-							<span role="cell" class="cell dim">{ix.floorName(i.floorId)}</span>
-							<span role="cell" class="cell brk">
-								{#if bs.length}
-									<span class="chips">
-										{#each bs as b, n (b.id)}
-											{#if n > 0}<span class="plus" aria-hidden="true">+</span>{/if}
-											<span class="bnum">{ix.slotOf(b)}</span>
-										{/each}
-									</span>
-									<span class="cell">{ix.labelOf(bs[0])}</span>
-									{#if tag}<span class="tag">{tag}</span>{/if}
-								{:else}
-									<span class="warnc">No breaker</span>
-								{/if}
-							</span>
-							<span role="cell" class="cell">
-								{#if i.x !== null && i.y !== null}
-									<a class="loc" href={mapHref(i.id)}>Locate</a>
-								{:else}
-									<span class="warnc">Not placed</span>
-								{/if}
-							</span>
-						</div>
-					{/each}
-					{#if rows.length === 0}
-						<div class="empty">
-							<span class="et">No items match these filters</span>
-							<span class="es">Try a different floor or breaker, or clear everything.</span>
-							<button type="button" class="btn" onclick={clearFilters}>Clear filters</button>
-						</div>
-					{/if}
-				</div>
+				{#if selected.length}
+					<div class="bulk inv">
+						<span class="bn">{selected.length} selected</span>
+						<div class="grow"></div>
+						<label for="bulk" class="bl">Move to breaker</label>
+						<select id="bulk" class="inp bsel" value="" onchange={bulkMove}>
+							<option value="">Choose…</option>
+							<option value="none">No breaker</option>
+							{#each brkOpts as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+						</select>
+						<button type="button" class="btn bclr" onclick={() => checked.clear()}>Clear selection</button>
+					</div>
+				{/if}
 			</div>
-			{#if selected.length}
-				<div class="bulk inv">
-					<span class="bn">{selected.length} selected</span>
-					<div class="grow"></div>
-					<label for="bulk" class="bl">Move to breaker</label>
-					<select id="bulk" class="inp bsel" value="" onchange={bulkMove}>
-						<option value="">Choose…</option>
-						<option value="none">No breaker</option>
-						{#each brkOpts as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
-					</select>
-					<button type="button" class="btn bclr" onclick={() => checked.clear()}>Clear selection</button>
-				</div>
-			{/if}
-		</div>
+		{/if}
 	</section>
+
+	<div class="toastslot" role="status">
+		{#if toast}
+			<div class="toast inv"><Icon name={toast.warn ? 'warning' : 'check'} size={16} stroke={2.4} />{toast.text}</div>
+		{/if}
+	</div>
 
 	{#if openItem}
 		{#key openItem.id}
@@ -392,6 +461,83 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+	}
+	/* No items yet */
+	.card.none {
+		align-items: center;
+		justify-content: center;
+		overflow: auto;
+	}
+	.nwrap {
+		max-width: 560px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 20px;
+		text-align: center;
+		padding: 40px;
+		margin: auto;
+	}
+	.tiles {
+		display: flex;
+		gap: 10px;
+	}
+	.tile {
+		width: 52px;
+		height: 52px;
+		border-radius: var(--r-xl);
+		background: var(--bg);
+		border: 1px solid var(--line-2);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--ink);
+	}
+	.ntxt {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+	.ntxt h2 {
+		font-size: 26px;
+		font-weight: 800;
+		font-stretch: 108%;
+	}
+	.ntxt p {
+		margin: 0;
+		font-size: 15px;
+		line-height: 1.55;
+		color: var(--soft);
+	}
+	.nacts {
+		display: flex;
+		gap: 8px;
+		flex-wrap: wrap;
+		justify-content: center;
+	}
+	.hint {
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.toastslot {
+		position: fixed;
+		left: 50%;
+		bottom: 24px;
+		transform: translateX(-50%);
+		z-index: 20;
+	}
+	.toastslot:empty {
+		display: none;
+	}
+	.toast {
+		padding: 10px 14px;
+		border-radius: var(--r-lg);
+		font-size: 13px;
+		font-weight: 600;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
 	}
 	.tbl {
 		flex: 1 1 0;

@@ -6,7 +6,7 @@
 	import { deleteItems, swapItemBreaker, updateRoom } from '$lib/db/ops';
 	import type { Breaker, Room } from '$lib/db/schema';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS } from '$lib/constants';
-	import { NONE, itemsOn, outlineOf, roomBreakerCount, roomGroups, slotsText, specOf, type Sel } from './model';
+	import { NONE, floorSteps, itemsOn, outlineOf, roomBreakerCount, roomGroups, slotsText, specOf, type Sel } from './model';
 
 	let {
 		ix,
@@ -121,6 +121,16 @@
 		}
 	}
 	const focus = (el: HTMLElement) => el.focus();
+
+	// ---- Nothing selected on a floor that isn't mapped yet (DESIGN.md §5.9)
+	const steps = $derived(floorSteps(ix, floorId));
+	const gettingStarted = $derived(floorId !== null && (!steps.rooms || !steps.placed));
+	const checklist = $derived([
+		{ title: 'Add rooms', body: 'Upload a plan and trace it, or draw on the grid.', done: steps.rooms },
+		{ title: 'Place items', body: 'Outlets, lights, switches and appliances, where they really are.', done: steps.placed },
+		{ title: 'Connect them to breakers', body: 'Pick a breaker per item, or trace with your phone and it places them for you.', done: steps.wired }
+	]);
+	const cur = $derived(checklist.findIndex((s) => !s.done));
 </script>
 
 <aside aria-label="Inspector" class="inspector">
@@ -300,6 +310,24 @@
 					{/each}
 				</div>
 			</div>
+		{:else if gettingStarted}
+			<div class="getting">
+				<div class="hd"><span class="ov">Getting the map going</span><h2 class="h20">Three steps per floor</h2></div>
+				<ol class="steps">
+					{#each checklist as s, n (s.title)}
+						<li class="ck" class:is-cur={n === cur} class:is-done={s.done}>
+							<span class="n">
+								{#if s.done}<Icon name="check" size={14} stroke={2.5} /><span class="sr">Done:</span>{:else}{n + 1}{/if}
+							</span>
+							<span class="ckt">
+								<span class="ckh">{s.title}</span>
+								<span class="ckb">{s.body}</span>
+							</span>
+						</li>
+					{/each}
+				</ol>
+				<a class="btn" href={resolve('/trace')}>Trace with your phone instead</a>
+			</div>
 		{:else}
 			<div class="nothing">
 				<h2>Nothing selected</h2>
@@ -311,17 +339,84 @@
 		{/if}
 	</div>
 
-	<div class="legend">
-		<span class="ov">Legend</span>
-		<div class="lg">
-			{#each ITEM_TYPES as t (t)}
-				<span class="li"><span class="ico"><Icon name={t} size={14} /></span>{ITEM_TYPE_LABELS[t].one}</span>
-			{/each}
+	{#if !(gettingStarted && !item && !breaker && !room)}
+		<div class="legend">
+			<span class="ov">Legend</span>
+			<div class="lg">
+				{#each ITEM_TYPES as t (t)}
+					<span class="li"><span class="ico"><Icon name={t} size={14} /></span>{ITEM_TYPE_LABELS[t].one}</span>
+				{/each}
+			</div>
 		</div>
-	</div>
+	{/if}
 </aside>
 
 <style>
+	.getting {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+	.h20 {
+		font-size: 20px;
+		font-stretch: 105%;
+	}
+	.steps {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+	.ck {
+		display: flex;
+		gap: 12px;
+		align-items: flex-start;
+	}
+	.ck .n {
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		border: 1.5px solid var(--field);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-family: var(--font-mono);
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--muted);
+		flex-shrink: 0;
+	}
+	.ck.is-cur .n {
+		background: var(--amber);
+		border-color: var(--amber);
+		color: var(--on-amber);
+	}
+	.ck.is-done .n {
+		border-color: var(--ok);
+		color: var(--ok);
+	}
+	.ckt {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+	.ckh {
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.ck.is-done .ckh {
+		color: var(--muted);
+	}
+	.ckb {
+		font-size: 13px;
+		color: var(--muted);
+		line-height: 1.45;
+	}
+	.getting .btn {
+		margin-top: 4px;
+	}
 	.inspector {
 		width: 320px;
 		flex-shrink: 0;

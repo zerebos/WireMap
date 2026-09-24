@@ -8,7 +8,22 @@
 	import { planUrl } from '$lib/plans';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
 	import { dist, roomAt, type Point } from '$lib/geometry';
-	import { NONE, itemsOn, litBreakers, outlineOf, rectOf, rectOutline, roomBreakerCount, roomGroups, slotsText, type Sel, type Tool } from './model';
+	import {
+		NONE,
+		PLAN_ACCEPT,
+		itemsOn,
+		litBreakers,
+		midSentence,
+		outlineOf,
+		rectOf,
+		rectOutline,
+		roomBreakerCount,
+		roomGroups,
+		slotsText,
+		uploadPlan,
+		type Sel,
+		type Tool
+	} from './model';
 
 	let {
 		ix,
@@ -356,6 +371,36 @@
 	const traced = $derived(floorRooms.filter((r) => outlineOf(r)).length);
 	const zoomText = $derived(`${Math.round(z * 100)}%`);
 
+	// ---- Empty floor (DESIGN.md §5.9): no rooms yet.
+	const noRooms = $derived(!!floor && floorRooms.length === 0);
+	/** The "Map the floor" card: no rooms and no plan, while nothing else is going on. */
+	const showCard = $derived(noRooms && !floor?.planImage && tool === 'select' && !movingItem);
+	// A floor with a plan but no rooms opens straight into drawing, over the plan.
+	const drawFirst = $derived(noRooms && !!floor?.planImage ? floorId : null);
+	$effect(() => {
+		if (drawFirst !== null) setTool('room');
+	});
+	let cardInput: HTMLInputElement | undefined = $state();
+	let cardError = $state('');
+	let cardBusy = $state(false);
+	let cardOver = $state(false);
+	async function cardFile(file: File | undefined) {
+		if (!file || !floor) return;
+		cardBusy = true;
+		cardError = await uploadPlan(floor.id, file);
+		cardBusy = false;
+		if (cardInput) cardInput.value = '';
+	}
+	function cardDrop(e: DragEvent) {
+		e.preventDefault();
+		cardOver = false;
+		cardFile(e.dataTransfer?.files[0]);
+	}
+	$effect(() => {
+		void floorId;
+		cardError = '';
+	});
+
 	function pickFloor(id: number) {
 		hovB = null;
 		shaping = null;
@@ -485,6 +530,58 @@
 				>
 					<span class="mono">New room</span>
 				</div>
+			{:else if tool === 'room' && noRooms}
+				<div class="ghostroom first" aria-hidden="true"><span class="mono">New room</span></div>
+			{/if}
+
+			{#if showCard}
+				<div class="cardwrap">
+					<div class="mapcard ovl">
+						<div class="mh">
+							<h2>Map the {midSentence(floor.name)}</h2>
+							<p>Trace over a floor plan image, or draw rooms straight onto the grid. Rough is fine — rooms only need to be close enough to tap.</p>
+						</div>
+						<input
+							bind:this={cardInput}
+							class="sr"
+							type="file"
+							accept={PLAN_ACCEPT.join(',')}
+							tabindex="-1"
+							aria-hidden="true"
+							onchange={(e) => cardFile(e.currentTarget.files?.[0])}
+						/>
+						<div class="opts">
+							<button
+								type="button"
+								class="opt drop"
+								class:over={cardOver}
+								disabled={cardBusy}
+								onclick={() => cardInput?.click()}
+								ondragover={(e) => {
+									e.preventDefault();
+									cardOver = true;
+								}}
+								ondragleave={() => (cardOver = false)}
+								ondrop={cardDrop}
+							>
+								<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+									><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg
+								>
+								<span class="ot">Upload a floor plan</span>
+								<span class="os">{cardBusy ? 'Uploading…' : 'Drop a PNG, JPG or WebP here'}</span>
+							</button>
+							<button type="button" class="opt" onclick={() => setTool('room')}>
+								<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"
+									><rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2.5" /></svg
+								>
+								<span class="ot">Draw rooms</span>
+								<span class="os">Drag rectangles on the grid</span>
+							</button>
+						</div>
+						{#if cardError}<span class="err" role="alert">{cardError}</span>{/if}
+						<span class="mfoot">No plan handy? A photo of a sketch works, or an export from a real-estate listing.</span>
+					</div>
+				</div>
 			{/if}
 
 			{#each floorItems as i (i.id)}
@@ -553,7 +650,7 @@
 							{#if nameError}<span class="err" role="alert">{nameError}</span>{/if}
 						</form>
 					{:else}
-						<span class="bt"><strong>Drag on the grid</strong> to draw a room. Release to name it.</span>
+						<span class="bt"><strong>Drag on the grid</strong> to draw {noRooms ? 'your first' : 'a'} room. Release to name it.</span>
 						<button type="button" class="btn h36" onclick={() => setTool('select')}>Done</button>
 					{/if}
 				</div>
@@ -597,15 +694,17 @@
 					{/each}
 					<button type="button" class="chipbtn" onclick={() => go(NONE)}>Clear</button>
 				</div>
-			{:else}
+			{:else if !showCard}
 				<div class="hintchip ovl">Pick a circuit, click a room, or click an item.</div>
 			{/if}
-			<div class="zoom ovl">
-				<button type="button" class="zb" aria-label="Zoom out" onclick={() => zoomAt(1 / 1.25)}>−</button>
-				<span class="mono zt" aria-live="polite">{zoomText}</span>
-				<button type="button" class="zb" aria-label="Zoom in" onclick={() => zoomAt(1.25)}>+</button>
-				<button type="button" class="zb fit" aria-label="Fit floor to screen" onclick={fit}><Icon name="fit" size={16} /></button>
-			</div>
+			{#if !showCard}
+				<div class="zoom ovl">
+					<button type="button" class="zb" aria-label="Zoom out" onclick={() => zoomAt(1 / 1.25)}>−</button>
+					<span class="mono zt" aria-live="polite">{zoomText}</span>
+					<button type="button" class="zb" aria-label="Zoom in" onclick={() => zoomAt(1.25)}>+</button>
+					<button type="button" class="zb fit" aria-label="Fit floor to screen" onclick={fit}><Icon name="fit" size={16} /></button>
+				</div>
+			{/if}
 		</div>
 	</div>
 </section>
@@ -814,6 +913,105 @@
 		padding: 0 10px;
 		pointer-events: none;
 	}
+	/* The example rectangle shown before the first room is drawn. */
+	.ghostroom.first {
+		left: 60px;
+		top: 60px;
+		width: 300px;
+		height: 240px;
+		align-items: flex-end;
+		padding: 8px;
+	}
+
+	/* "Map the floor" card, on a floor with no rooms */
+	.cardwrap {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 16px;
+		pointer-events: none;
+		z-index: 5;
+	}
+	.mapcard {
+		pointer-events: auto;
+		cursor: default;
+		width: 560px;
+		max-width: 100%;
+		background: var(--surface);
+		border: 1px solid var(--line-2);
+		border-radius: var(--r-2xl);
+		padding: 28px;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+		user-select: text;
+	}
+	.mh {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.mh h2 {
+		font-size: 26px;
+		font-weight: 800;
+		font-stretch: 108%;
+	}
+	.mh p {
+		margin: 0;
+		font-size: 15px;
+		line-height: 1.55;
+		color: var(--soft);
+	}
+	.opts {
+		display: flex;
+		gap: 12px;
+	}
+	.opt {
+		flex: 1 1 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+		padding: 24px 18px;
+		border: 1.5px solid var(--line-2);
+		border-radius: var(--r-xl);
+		background: var(--surface);
+		font: inherit;
+		color: var(--ink);
+		text-align: center;
+		cursor: pointer;
+	}
+	.opt:hover,
+	.opt.over {
+		border-color: var(--btn-bd-h);
+	}
+	.opt.drop {
+		border-style: dashed;
+	}
+	.opt:disabled {
+		cursor: default;
+	}
+	.opt:focus-visible {
+		outline: 3px solid var(--focus);
+		outline-offset: 2px;
+	}
+	.ot {
+		font-size: 15px;
+		font-weight: 700;
+	}
+	.os {
+		font-size: 13px;
+		color: var(--muted);
+	}
+	.mfoot {
+		font-size: 13px;
+		color: var(--muted);
+		line-height: 1.5;
+	}
+
 	.ghostroom span {
 		font-size: 11px;
 		background: var(--ink);

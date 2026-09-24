@@ -1,7 +1,8 @@
 // Shared logic for the Map screen (docs/design/DESIGN.md §5.2).
 import type { Breaker, Room } from '$lib/db/schema';
 import type { HouseIndex, HouseItem } from '$lib/house';
-import { plural } from '$lib/house';
+import { mutate, plural } from '$lib/house';
+import { setFloorPlan } from '$lib/db/ops';
 import { PROTECTION_LABELS } from '$lib/constants';
 import { parseOutline, type Point } from '$lib/geometry';
 
@@ -120,6 +121,35 @@ export function floorOfCircuit(ix: HouseIndex, breakerId: number): number | null
 		}
 	}
 	return best;
+}
+
+// ---- Floor plan upload (the plan popover and the empty-floor card share it)
+
+/** Plan images we accept. PDF plans aren't supported yet. */
+export const PLAN_ACCEPT = ['image/png', 'image/jpeg', 'image/webp'];
+
+/** Saves an image as the floor's plan. Resolves to an error message, or '' when it worked. */
+export async function uploadPlan(floorId: number, file: File): Promise<string> {
+	if (!PLAN_ACCEPT.includes(file.type)) return "That file isn't a PNG, JPG or WebP image.";
+	try {
+		const bmp = await createImageBitmap(file);
+		const size = { width: bmp.width, height: bmp.height };
+		bmp.close();
+		await mutate(() => setFloorPlan(floorId, file, size));
+		return '';
+	} catch {
+		return "Couldn't read that image.";
+	}
+}
+
+/** "Map the main floor": the floor's name as it reads mid-sentence. */
+export const midSentence = (name: string) => (/^[A-Z][a-z]/.test(name) ? name[0].toLowerCase() + name.slice(1) : name);
+
+/** Getting-started progress for a floor (DESIGN.md §5.9): rooms, placed items, items with a breaker. */
+export function floorSteps(ix: HouseIndex, floorId: number | null) {
+	const rooms = ix.house.rooms.some((r) => r.floorId === floorId);
+	const placed = ix.house.items.filter((i) => i.floorId === floorId && i.x !== null && i.y !== null);
+	return { rooms, placed: placed.length > 0, wired: placed.length > 0 && placed.every((i) => i.breakerIds.length > 0) };
 }
 
 /** The floor to show when nothing says otherwise: the one with the most items. */
