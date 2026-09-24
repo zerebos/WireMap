@@ -5,6 +5,9 @@
 	import CircuitList from '$lib/components/map/CircuitList.svelte';
 	import Inspector from '$lib/components/map/Inspector.svelte';
 	import MapView from '$lib/components/map/MapView.svelte';
+	import PhoneMap from '$lib/components/map/PhoneMap.svelte';
+	import PhoneShell from '$lib/components/phone/PhoneShell.svelte';
+	import { viewport } from '$lib/viewport.svelte';
 	import MapEditor from '$lib/components/map/edit/MapEditor.svelte';
 	import { NONE, defaultFloor, floorOfCircuit, floorSteps, litBreakers, type Sel, type Tool } from '$lib/components/map/model';
 	import type { Breaker, Room } from '$lib/db/schema';
@@ -77,17 +80,23 @@
 	}
 </script>
 
-<div class="map">
-	{#if editing && floorId !== null}
-		{#key floorId}
-			<MapEditor {ix} {floorId} initialRoom={sel.kind === 'room' ? sel.id : null} ondone={doneEditing} />
-		{/key}
-	{:else}
-		<CircuitList {ix} q={query()} {lit} onpick={pickCircuit} empty={floorId !== null && !steps.placed} />
-		<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:tool bind:hovB bind:moving {go} onedit={() => edit()} />
-		<Inspector {ix} {sel} {floorId} bind:hovB {moving} {go} onmove={startMove} onshape={(r) => edit(r)} />
-	{/if}
-</div>
+{#if viewport.phone}
+	<PhoneShell title="Map" sub={floorId !== null ? ix.floorName(floorId) : ''}>
+		<PhoneMap {ix} {sel} {floorId} {go} />
+	</PhoneShell>
+{:else}
+	<div class="map">
+		{#if editing && floorId !== null}
+			{#key floorId}
+				<MapEditor {ix} {floorId} initialRoom={sel.kind === 'room' ? sel.id : null} ondone={doneEditing} />
+			{/key}
+		{:else}
+			<CircuitList {ix} q={query()} {lit} onpick={pickCircuit} empty={floorId !== null && !steps.placed} />
+			<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:tool bind:hovB bind:moving {go} onedit={() => edit()} />
+			<Inspector {ix} {sel} {floorId} bind:hovB {moving} {go} onmove={startMove} onshape={(r) => edit(r)} />
+		{/if}
+	</div>
+{/if}
 
 <style>
 	.map {

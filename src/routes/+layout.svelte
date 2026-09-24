@@ -4,9 +4,11 @@
 	import { page } from '$app/state';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import Icon from '$lib/components/Icon.svelte';
+	import PhoneShell from '$lib/components/phone/PhoneShell.svelte';
 	import { mutate, needsSetup } from '$lib/house';
 	import { updateSettings } from '$lib/db/ops';
 	import { search } from '$lib/search.svelte';
+	import { viewport } from '$lib/viewport.svelte';
 	import { applyTheme, effectiveTheme } from '$lib/theme';
 
 	let { data, children } = $props();
@@ -25,8 +27,8 @@
 		'/items': 'Search items, rooms, breakers',
 		'/settings': 'Search settings'
 	};
-	// The phone flows are full-screen, with their own back button.
-	const phone = $derived(route.startsWith('/shutoff') || route.startsWith('/trace'));
+	// The phone flows are full-screen, with their own back button; Sign in has no header.
+	const phone = $derived(route.startsWith('/shutoff') || route.startsWith('/trace') || route === '/signin');
 
 	// First-run setup (minimal header) and the pages that belong to a nav tab.
 	const setup = $derived(route === '/setup');
@@ -42,6 +44,16 @@
 	// Search belongs to the page it was typed on.
 	afterNavigate(({ from, to }) => {
 		if (from?.route.id !== to?.route.id) search.q = '';
+	});
+
+	// On a phone, Panel and Map draw their own phone views; the other tab pages keep their layout
+	// inside the phone header and tab bar.
+	const shelled = $derived.by(() => {
+		if (!viewport.phone || !data.house) return null;
+		if (route === '/items') return { title: 'Items', sub: `${data.house.items.length} items` };
+		if (route === '/settings') return { title: 'Settings', sub: data.house.settings.homeName };
+		if (route === '/directory') return { title: data.house.panel?.name ?? 'Panel', sub: 'Directory' };
+		return null;
 	});
 
 	const settings = $derived(data.house?.settings);
@@ -72,7 +84,7 @@
 </svelte:head>
 
 <div class="app">
-	{#if !phone}
+	{#if !phone && !(viewport.phone && !setup)}
 		<header>
 			<a class="brand" href={resolve('/')}>
 				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
@@ -106,7 +118,8 @@
 				{/if}
 			{/if}
 		</header>
-
+	{/if}
+	{#if !phone}
 		{#if data.storage && !data.storage.persistent}
 			<p class="warning" role="status">
 				This browser can't store data for Breakerbook, so changes are lost when you close the tab.
@@ -116,7 +129,11 @@
 	{/if}
 
 	<div class="body">
-		{@render children()}
+		{#if shelled}
+			<PhoneShell title={shelled.title} sub={shelled.sub}>{@render children()}</PhoneShell>
+		{:else}
+			{@render children()}
+		{/if}
 	</div>
 </div>
 

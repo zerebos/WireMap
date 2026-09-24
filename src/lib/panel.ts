@@ -33,12 +33,42 @@ export function occupiedSlots(b: Placed, p: PanelShape): number[] {
 	return b.poles === 2 ? [b.slot, nextInColumn(b.slot, p)] : [b.slot];
 }
 
+/** One place in a column of the panel face: a breaker (starting here), or an open slot. */
+export type Cell<B> = { slot: number; breaker: B | null };
+
+/**
+ * The panel face, column by column, top to bottom. A breaker appears once, at its first slot;
+ * the slots it also covers are left out. Every view that draws the panel builds on this.
+ */
+export function faceColumns<B extends Placed>(p: PanelShape, breakers: B[]): Record<Side, Cell<B>[]> {
+	const cover = new Map<number, B>();
+	for (const b of breakers) for (const s of occupiedSlots(b, p)) cover.set(s, b);
+	const column = (side: Side) => {
+		const out: Cell<B>[] = [];
+		for (let row = 1; row <= rowCount(p); row++) {
+			const slot = slotAt(side, row, p);
+			if (slot > p.slotCount) continue;
+			const b = cover.get(slot);
+			if (b && b.slot !== slot) continue;
+			out.push({ slot, breaker: b ?? null });
+		}
+		return out;
+	};
+	return { left: column('left'), right: column('right') };
+}
+
 /** Rows alternate legs: L1 on odd rows, L2 on even rows. */
 export const legOfRow = (row: number) => (row % 2 === 1 ? 'L1' : 'L2');
 export const legOf = (slot: number, p: PanelShape) => legOfRow(position(slot, p).row);
 
 /** "16", or "1/3" for a 2-pole breaker. */
 export const slotLabel = (b: Placed, p: PanelShape) => occupiedSlots(b, p).join('/');
+
+/** "Leg L2", or "Legs L1 + L2" for a 2-pole breaker. */
+export function legsText(b: Placed, p: PanelShape): string {
+	const legs = occupiedSlots(b, p).map((s) => legOf(s, p));
+	return legs.length === 2 ? `Legs ${legs.join(' + ')}` : `Leg ${legs[0]}`;
+}
 
 /** "Left, row 5", or "Left, row 1–2" for a 2-pole breaker. */
 export function physicalPosition(b: Placed, p: PanelShape): string {

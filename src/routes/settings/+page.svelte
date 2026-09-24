@@ -1277,4 +1277,18 @@
 		font-size: 12px;
 		color: var(--muted);
 	}
+	/* Phones have no Settings layout of their own yet: one column, sections stacked, no side nav. */
+	@media (max-width: 699px) {
+		aside {
+			display: none;
+		}
+		.content {
+			padding: 20px 16px 48px;
+			gap: 28px;
+		}
+		.row {
+			grid-template-columns: minmax(0, 1fr);
+			row-gap: 12px;
+		}
+	}
 </style>
