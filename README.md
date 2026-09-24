@@ -92,8 +92,12 @@ See [`docs/design/DATA-MODEL.md`](docs/design/DATA-MODEL.md). In short:
 These are in the design but need a server version of the app, so Settings shows them as
 disabled placeholders for now:
 
-- **Access**: sign-in, users and passwords, and a read-only guest view (for a tablet mounted by
-  the panel).
+- **Access**: sign-in, users and passwords.
+- **Read-only guest view, done properly**: today Settings → Access → "Read-only guest view"
+  locks only the device it's turned on for (say, a tablet mounted by the panel), and Sign in
+  unlocks it without checking a password. It keeps a tablet from being changed by accident; it
+  isn't security. With a server and real accounts, guest view should be enforced by the server
+  for anyone on the network, and Sign in should need a real account.
 - **Automatic backups**: nightly backups kept for a set number of days.
 - **Tracing from a phone**: the design has you scan a QR code on the computer and walk the
   house with your phone. Each browser keeps its own copy of the data, so the phone can't see the

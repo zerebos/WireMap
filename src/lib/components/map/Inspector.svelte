@@ -2,6 +2,7 @@
 	import FedPath from '$lib/components/FedPath.svelte';
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
+	import { access } from '$lib/access.svelte';
 	import ItemRow from './ItemRow.svelte';
 	import { mutate, plural, type HouseIndex, type HouseItem } from '$lib/house';
 	import { deleteItems, setTied, swapItemBreaker, updateRoom } from '$lib/db/ops';
@@ -173,12 +174,12 @@
 							</div>
 						</div>
 						<FedPath {ix} breaker={b} />
-						<div class="fld">
+						{#if !access.guest}<div class="fld">
 							<label for="reb-{b.id}">Move to another breaker</label>
 							<select id="reb-{b.id}" class="inp" value={String(b.id)} onchange={(e) => reassign(b.id, e)}>
 								{#each ix.house.breakers as o (o.id)}<option value={String(o.id)}>{optionText(o)}</option>{/each}
 							</select>
-						</div>
+						</div>{/if}
 					{:else if fed.length > 1}
 						{#each fed as b (b.id)}
 							<div class="frow">
@@ -187,9 +188,9 @@
 									<span class="fn">{ix.labelOf(b)}</span>
 									<span class="fs">{specOf(b)}</span>
 								</span>
-								<button type="button" class="ibtn x" aria-label="Remove breaker {ix.slotOf(b)} from this item" onclick={() => reassign(b.id, null)}
+								{#if !access.guest}<button type="button" class="ibtn x" aria-label="Remove breaker {ix.slotOf(b)} from this item" onclick={() => reassign(b.id, null)}
 									><Icon name="close" size={14} stroke={2.2} /></button
-								>
+								>{/if}
 							</div>
 						{/each}
 					{:else}
@@ -200,15 +201,15 @@
 								<span class="bs">Not assigned yet</span>
 							</div>
 						</div>
-						<div class="fld">
+						{#if !access.guest}<div class="fld">
 							<label for="reb-none">Pick its breaker</label>
 							<select id="reb-none" class="inp" value="" onchange={(e) => reassign(null, e)}>
 								<option value="">— No breaker —</option>
 								{#each ix.house.breakers as o (o.id)}<option value={String(o.id)}>{optionText(o)}</option>{/each}
 							</select>
-						</div>
+						</div>{/if}
 					{/if}
-					{#if fed.length}
+					{#if fed.length && !access.guest}
 						<div class="fld">
 							<label for="addb">Add another breaker</label>
 							<select id="addb" class="inp" value="" onchange={(e) => reassign(null, e)}>
@@ -222,12 +223,12 @@
 					{#if fed.length > 1}
 						<div class="multi">
 							<span class="mt"><strong>{allOffText}</strong> before opening this box.</span>
-							<label class="chk"
+							{#if !access.guest}<label class="chk"
 								><input type="checkbox" checked={tied} onchange={(e) => tie(e.currentTarget.checked)} /><span
 									>These share a neutral (multi-wire circuit). They should be handle-tied.</span
 								></label
-							>
-							{#if tied}<span class="tiewarn">The Panel draws these {fed.length === 2 ? 'two' : fed.length} with a tie bar and warns if they’re moved apart.</span>{/if}
+							>{/if}
+							{#if tied && !access.guest}<span class="tiewarn">The Panel draws these {fed.length === 2 ? 'two' : fed.length} with a tie bar and warns if they’re moved apart.</span>{/if}
 						</div>
 					{/if}
 					{#each fed as b (b.id)}
@@ -244,12 +245,12 @@
 					{/each}
 				</div>
 
-				<div class="row">
+				{#if !access.guest}<div class="row">
 					<button type="button" class="btn grow" aria-pressed={moving === item.id} onclick={() => item && onmove(item)}>
 						{item.x === null || item.y === null ? 'Place on map' : 'Move on map'}
 					</button>
 					<button type="button" class="btn btn-warn grow" onclick={remove}>Remove</button>
-				</div>
+				</div>{/if}
 			</div>
 		{:else if breaker}
 			<div class="stack">
@@ -276,7 +277,7 @@
 						{/each}
 					</div>
 				{/if}
-				<a class="btn" href={panelHref(breaker)}>Edit in panel</a>
+				<a class="btn" href={panelHref(breaker)}>{access.guest ? 'Open in panel' : 'Edit in panel'}</a>
 			</div>
 		{:else if room}
 			<div class="stack">
@@ -297,7 +298,7 @@
 				<a class="btn shut" href={`${resolve('/map')}?floor=${room.floorId}&room=${room.id}&shutoff=1`}>
 					<Icon name="power" size={16} stroke={2.2} />Shut off this room · {plural(nCirc, 'breaker')}
 				</a>
-				{#if hasShape}
+				{#if hasShape && !access.guest}
 					<div class="row">
 						<button type="button" class="btn grow sm" onclick={() => room && onshape?.(room)}>Edit shape</button>
 						<button type="button" class="btn grow sm" aria-pressed={renaming} onclick={() => (renaming ? saveRename() : startRename())}>
@@ -370,7 +371,7 @@
 						</li>
 					{/each}
 				</ol>
-				<a class="btn" href={resolve('/trace')}>Trace with your phone instead</a>
+				{#if !access.guest}<a class="btn" href={resolve('/trace')}>Trace with your phone instead</a>{/if}
 			</div>
 		{:else}
 			<div class="nothing">
