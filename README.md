@@ -78,6 +78,15 @@ See [`docs/design/DATA-MODEL.md`](docs/design/DATA-MODEL.md). In short:
   (a switch box on two circuits).
 - **settings**: home name, start page, theme, leg markers, map fading.
 
+## Using the map
+
+- **Select**: pick a circuit on the left to light up what it feeds, click an item to find its
+  breaker, or click a room to see every circuit in it (and shut the room off from your phone).
+- **Draw room**: drag a rectangle on the grid, then name it. **Edit shape** on a selected room
+  lets you drag its corners.
+- **Place item**: pick a type and click where it is. It lands in the room under it.
+- **Floor plan**: upload a PNG, JPG or WebP to trace over, and set how strongly it shows.
+
 ## Roadmap
 
 These are in the design but need a server version of the app, so Settings shows them as
