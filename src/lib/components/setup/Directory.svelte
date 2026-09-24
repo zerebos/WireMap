@@ -37,11 +37,17 @@
 		if (up === null || taken.has(up) || !get(up).two) return null;
 		return coveredBy(up) === null ? up : null;
 	};
+	const hasContent = (r: Row) => r.label.trim() !== '' || r.amps !== '';
+	/** 2-pole needs the slot below free: not on the panel and not entered in this list. */
 	const cant2 = (s: number) => {
 		const next = nextInColumn(s, panel);
-		return next > panel.slotCount || position(next, panel).side !== position(s, panel).side || taken.has(next);
+		return (
+			next > panel.slotCount ||
+			position(next, panel).side !== position(s, panel).side ||
+			taken.has(next) ||
+			hasContent(get(next))
+		);
 	};
-	const hasContent = (r: Row) => r.label.trim() !== '' || r.amps !== '';
 
 	type View =
 		| { kind: 'open'; s: number; row: Row; cant2: boolean }

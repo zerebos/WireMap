@@ -111,6 +111,8 @@ Designed as open questions in `docs/design/DESIGN.md` §8 and not built yet:
 - Phone layouts of Panel and Map.
 - Subpanels.
 
+Keyboard access on the map: drawing rooms and placing items work only with a pointer, as in the design. A keyboard way to do both needs designing.
+
 Also still to come from before: a 3D view and PDF floor plans.
 
 ## Changing the schema

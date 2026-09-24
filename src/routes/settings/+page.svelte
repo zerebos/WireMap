@@ -152,11 +152,15 @@
 			return `${used} spaces are in use. Move or remove breakers above slot ${s.slotCount} first.`;
 		}
 		const bad = mainBreakers.find((b) => checkFit(b, s, []));
-		if (!bad) return null;
-		if (occupiedSlots(bad, s).some((slot) => slot > s.slotCount)) {
-			return `Breaker ${slotLabel(bad, s)} sits past slot ${s.slotCount}. Move or remove breakers above slot ${s.slotCount} first.`;
+		if (bad) {
+			if (occupiedSlots(bad, s).some((slot) => slot > s.slotCount)) {
+				return `Breaker ${slotLabel(bad, s)} sits past slot ${s.slotCount}. Move or remove breakers above slot ${s.slotCount} first.`;
+			}
+			return `With this numbering, the 2-pole breaker at slot ${bad.slot} would span both columns. Move it first.`;
 		}
-		return `With this numbering, the 2-pole breaker at slot ${bad.slot} would span both columns. Move it first.`;
+		const clash = mainBreakers.find((b) => checkFit(b, s, mainBreakers));
+		if (!clash) return null;
+		return `With this numbering, the 2-pole breaker at slot ${clash.slot} would overlap another breaker. Move one of them first.`;
 	}
 	const problem = $derived(panel ? fitProblem(shape) : null);
 
