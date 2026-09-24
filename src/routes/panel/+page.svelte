@@ -3,12 +3,15 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
+	import NewBreakerForm, { blankBreaker, type NewBreaker } from '$lib/components/panel/NewBreakerForm.svelte';
+	import PanelEmpty from '$lib/components/panel/PanelEmpty.svelte';
+	import { tick } from 'svelte';
 	import { AMPS, ITEM_TYPES, ITEM_TYPE_LABELS, MIN_WIRE, PROTECTIONS, PROTECTION_LABELS, PROTECTION_TAGS } from '$lib/constants';
 	import type { Protection } from '$lib/constants';
 	import type { Breaker } from '$lib/db/schema';
-	import { createItem, updateBreaker } from '$lib/db/ops';
+	import { createBreaker, createItem, updateBreaker } from '$lib/db/ops';
 	import { index, mutate, plural } from '$lib/house';
-	import { legOfRow, occupiedSlots, rowCount, slotAt, slotLabel, slotText, spacesUsed } from '$lib/panel';
+	import { checkFit, legOfRow, nextInColumn, occupiedSlots, position, rowCount, slotAt, slotLabel, slotText, spacesUsed } from '$lib/panel';
 	import { query, search } from '$lib/search.svelte';
 
 	let { data } = $props();
@@ -57,7 +60,71 @@
 	function pick(id: number) {
 		const url = new URL(page.url);
 		url.searchParams.set('b', String(id));
-		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+		url.searchParams.delete('slot');
+		return goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	// The Directory screen (§5.8).
+	const directoryHref = resolve('/') + 'directory';
+
+	// ---- A new breaker in an open slot (?slot=<n>). While it's open, ?b= is kept so Cancel goes back.
+	const newSlot = $derived.by(() => {
+		const n = Number(page.url.searchParams.get('slot'));
+		if (!panel || !Number.isInteger(n) || n < 1 || n > panel.slotCount || cover.has(n)) return null;
+		return n;
+	});
+	let form = $state<NewBreaker>(blankBreaker());
+	let formEl = $state<ReturnType<typeof NewBreakerForm>>();
+
+	/** Why a 2-pole breaker can't start at the new slot, or null if it can. */
+	const no2Why = $derived.by(() => {
+		if (!panel || newSlot === null || !checkFit({ slot: newSlot, poles: 2 }, panel, breakers)) return null;
+		const below = nextInColumn(newSlot, panel);
+		if (below > panel.slotCount || position(below, panel).side !== position(newSlot, panel).side) {
+			return 'A 2-pole breaker needs the slot below, and this is the bottom row.';
+		}
+		return `A 2-pole breaker needs slot ${below}, which is taken.`;
+	});
+	const newPoles = $derived(no2Why ? 1 : form.poles);
+	const newSlots = $derived(panel && newSlot !== null ? occupiedSlots({ slot: newSlot, poles: newPoles }, panel) : []);
+
+	async function openSlot(slot: number, amps = 20) {
+		form = blankBreaker(amps);
+		const url = new URL(page.url);
+		url.searchParams.set('slot', String(slot));
+		await goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+		await tick();
+		formEl?.focus();
+	}
+	async function cancelSlot() {
+		const slot = newSlot;
+		const url = new URL(page.url);
+		url.searchParams.delete('slot');
+		await goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+		await tick();
+		if (slot !== null) document.querySelector<HTMLElement>(`[data-slot="${slot}"]`)?.focus();
+	}
+	async function addBreaker(next: boolean) {
+		if (!panel || newSlot === null) return;
+		const slot = newSlot;
+		const poles = newPoles;
+		const amps = form.amps;
+		const id = await mutate(() =>
+			createBreaker({ panelId: panel.id, slot, poles, amps, kind: form.kind, label: form.label.trim() })
+		);
+		// The next free slot in slot order after this one (then from the top).
+		const taken = new Set([...cover.keys(), ...occupiedSlots({ slot, poles }, panel)]);
+		const order = Array.from({ length: panel.slotCount }, (_, i) => ((slot + i) % panel.slotCount) + 1);
+		const free = order.find((s) => !taken.has(s));
+		if (next && free !== undefined) {
+			await pick(id);
+			await openSlot(free, amps);
+		} else {
+			await pick(id);
+		}
+	}
+	function onkeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && newSlot !== null && !e.defaultPrevented) cancelSlot();
 	}
 	function step(by: number) {
 		if (!sel) return;
@@ -91,6 +158,8 @@
 			if (slot > panel.slotCount) continue;
 			const b = cover.get(slot);
 			if (b && b.slot !== slot) continue;
+			// A 2-pole new breaker shows as one tall selection.
+			if (!b && newSlots.length === 2 && slot === newSlots[1]) continue;
 			out.push({ slot, breaker: b ?? null });
 		}
 		return out;
@@ -118,7 +187,9 @@
 	}
 </script>
 
-{#if !panel || !sel}
+<svelte:window {onkeydown} />
+
+{#if !panel}
 	<main class="empty-app">
 		<h1>No panel yet</h1>
 		<p>Setting up a panel from scratch isn't designed yet. Load the example house from Settings to look around.</p>
@@ -134,12 +205,14 @@
 						{panel.mainAmps ? `${panel.mainAmps}A main · ` : ''}{spacesUsed(breakers)} of {panel.slotCount} spaces used
 					</span>
 				</div>
-				<div class="legend">
-					<span><span class="tag">GF</span>GFCI</span>
-					<span><span class="tag">AF</span>AFCI</span>
-					<span><span class="tag">DF</span>Dual function</span>
-					<a class="btn trace" href={resolve('/trace')}><Icon name="bolt" size={14} />Trace</a>
-				</div>
+				{#if breakers.length}
+					<div class="legend">
+						<span><span class="tag">GF</span>GFCI</span>
+						<span><span class="tag">AF</span>AFCI</span>
+						<span><span class="tag">DF</span>Dual function</span>
+						<a class="btn trace" href={resolve('/trace')}><Icon name="bolt" size={14} />Trace</a>
+					</div>
+				{/if}
 			</div>
 
 			{#if q}
@@ -163,9 +236,21 @@
 						<div class="col">
 							{#each cells as cell (cell.slot)}
 								{#if !cell.breaker}
-									<div class="bk bk-1 bk-empty" class:bk-r={side === 'r'}>
-										<span class="num">{cell.slot}</span><span class="lbl">Open</span>
-									</div>
+									{@const isNew = cell.slot === newSlot}
+									{@const two = isNew && newSlots.length === 2}
+									<button
+										type="button"
+										class="bk bk-{two ? 2 : 1} bk-open"
+										class:bk-r={side === 'r'}
+										class:is-sel={isNew}
+										data-slot={cell.slot}
+										aria-pressed={isNew}
+										aria-label="Open slot {two ? newSlots.join(' and ') : cell.slot}, add a breaker"
+										onclick={() => (isNew ? formEl?.focus() : openSlot(cell.slot))}
+									>
+										<span class="num">{two ? newSlots.join('/') : cell.slot}</span>
+										<span class="lbl"><span class="opn">Open</span><span class="add">{isNew ? 'New breaker…' : '+ Add breaker'}</span></span>
+									</button>
 								{:else}
 									{@const b = view(cell.breaker)}
 									{@const tag = PROTECTION_TAGS[b.kind]}
@@ -173,10 +258,10 @@
 										type="button"
 										class="bk bk-{b.poles === 2 ? 2 : 1}"
 										class:bk-r={side === 'r'}
-										class:is-sel={b.id === sel.id}
+										class:is-sel={newSlot === null && b.id === sel?.id}
 										class:is-dim={!matches(cell.breaker)}
 										class:is-unl={!b.label.trim()}
-										aria-pressed={b.id === sel.id}
+										aria-pressed={newSlot === null && b.id === sel?.id}
 										aria-label="Breaker {slotLabel(b, panel)}, {b.label.trim() || 'unlabeled'}, {b.amps} amp"
 										onclick={() => pick(b.id)}
 									>
@@ -205,122 +290,137 @@
 			</div>
 		</section>
 
-		<section class="detail" aria-label="Breaker details">
-			<div class="dhead">
-				<div class="row">
-					<span class="mono slot">{slotText(sel, panel)}</span>
-					<div class="nav">
-						<button type="button" class="ibtn" aria-label="Previous breaker" onclick={() => step(-1)}><Icon name="prev" /></button>
-						<button type="button" class="ibtn" aria-label="Next breaker" onclick={() => step(1)}><Icon name="next" /></button>
-					</div>
-				</div>
-				<label for="f-label" class="sr">Breaker label</label>
-				<input
-					id="f-label"
-					class="ttl"
-					type="text"
-					value={sel.label}
-					oninput={(e) => edit(selRaw!, { label: e.currentTarget.value })}
-					placeholder="Unlabeled — what does it power?"
+		<section class="detail" aria-label={newSlot !== null ? 'New breaker' : sel ? 'Breaker details' : 'Getting started'}>
+			{#if newSlot !== null}
+				<NewBreakerForm
+					bind:this={formEl}
+					bind:form
+					slot={newSlot}
+					{panel}
+					{no2Why}
+					{directoryHref}
+					oncancel={cancelSlot}
+					onadd={addBreaker}
 				/>
-				<div class="grid4">
-					<div class="fld">
-						<label for="f-amp">Amperage</label>
-						<select
-							id="f-amp"
-							class="inp"
-							value={sel.amps}
-							onchange={(e) => edit(selRaw!, { amps: Number(e.currentTarget.value) })}
-						>
-							{#each AMPS.includes(sel.amps) ? AMPS : [...AMPS, sel.amps].sort((a, b) => a - b) as a (a)}
-								<option value={a}>{a} A</option>
-							{/each}
-						</select>
-					</div>
-					<div class="fld">
-						<label for="f-type">Protection</label>
-						<select
-							id="f-type"
-							class="inp"
-							value={sel.kind}
-							onchange={(e) => edit(selRaw!, { kind: e.currentTarget.value as Protection })}
-						>
-							{#each PROTECTIONS as p (p)}
-								<option value={p}>{PROTECTION_LABELS[p]}</option>
-							{/each}
-						</select>
-					</div>
-					<div class="fld">
-						<span class="k">Poles</span>
-						<span class="v">{sel.poles === 2 ? '2-pole · 240V' : '1-pole · 120V'}</span>
-					</div>
-					<div class="fld">
-						<span class="k">Min. wire (copper)</span>
-						<span class="v">{MIN_WIRE[sel.amps] ?? '—'}</span>
-					</div>
-				</div>
-			</div>
-
-			<div class="dbody">
-				<div class="powers">
-					<div class="ph">
-						<h2>Powers</h2>
-						<span>{summary}</span>
-					</div>
-					<button type="button" class="btn" onclick={addItem}><Icon name="plus" size={16} stroke={2.2} />Add item</button>
-				</div>
-
-				{#each groups as g (g.type)}
-					<div class="group">
-						<div class="gname">{g.name} · {g.items.length}</div>
-						<div class="grid2">
-							{#each g.items as i (i.id)}
-								<div class="irow">
-									<span class="ico"><Icon name={i.type} stroke={1.9} /></span>
-									<span class="itxt"><span class="in">{i.name}</span><span class="iw">{ix.whereOf(i)}</span></span>
-									{#if i.x !== null}
-										<a class="loc" href={resolve('/map') + `?item=${i.id}`}>Locate</a>
-									{:else}
-										<a class="loc" href={resolve('/items') + `?item=${i.id}`}>Place</a>
-									{/if}
-								</div>
-							{/each}
+			{:else if !sel}
+				<PanelEmpty slotCount={panel.slotCount} {directoryHref} />
+			{:else}
+				<div class="dhead">
+					<div class="row">
+						<span class="mono slot">{slotText(sel, panel)}</span>
+						<div class="nav">
+							<button type="button" class="ibtn" aria-label="Previous breaker" onclick={() => step(-1)}><Icon name="prev" /></button>
+							<button type="button" class="ibtn" aria-label="Next breaker" onclick={() => step(1)}><Icon name="next" /></button>
 						</div>
 					</div>
-				{:else}
-					<div class="none">
-						<span class="nt">Nothing mapped to this breaker yet</span>
-						<span class="nd">Flip it off, walk the house, and add whatever went dark. Anything you add here shows up on the map too.</span>
-						<div class="nb">
-							<button type="button" class="btn btn-pri" onclick={addItem}>Add the first item</button>
-							<a class="btn" href={resolve('/trace') + `?b=${sel.id}`}>Trace it</a>
+					<label for="f-label" class="sr">Breaker label</label>
+					<input
+						id="f-label"
+						class="ttl"
+						type="text"
+						value={sel.label}
+						oninput={(e) => edit(selRaw!, { label: e.currentTarget.value })}
+						placeholder="Unlabeled — what does it power?"
+					/>
+					<div class="grid4">
+						<div class="fld">
+							<label for="f-amp">Amperage</label>
+							<select
+								id="f-amp"
+								class="inp"
+								value={sel.amps}
+								onchange={(e) => edit(selRaw!, { amps: Number(e.currentTarget.value) })}
+							>
+								{#each AMPS.includes(sel.amps) ? AMPS : [...AMPS, sel.amps].sort((a, b) => a - b) as a (a)}
+									<option value={a}>{a} A</option>
+								{/each}
+							</select>
+						</div>
+						<div class="fld">
+							<label for="f-type">Protection</label>
+							<select
+								id="f-type"
+								class="inp"
+								value={sel.kind}
+								onchange={(e) => edit(selRaw!, { kind: e.currentTarget.value as Protection })}
+							>
+								{#each PROTECTIONS as p (p)}
+									<option value={p}>{PROTECTION_LABELS[p]}</option>
+								{/each}
+							</select>
+						</div>
+						<div class="fld">
+							<span class="k">Poles</span>
+							<span class="v">{sel.poles === 2 ? '2-pole · 240V' : '1-pole · 120V'}</span>
+						</div>
+						<div class="fld">
+							<span class="k">Min. wire (copper)</span>
+							<span class="v">{MIN_WIRE[sel.amps] ?? '—'}</span>
 						</div>
 					</div>
-				{/each}
-
-				<div class="fld">
-					<label for="f-notes">Notes</label>
-					<textarea
-						id="f-notes"
-						class="inp"
-						rows="3"
-						placeholder="Anything worth knowing when this one trips"
-						value={sel.notes ?? ''}
-						oninput={(e) => edit(selRaw!, { notes: e.currentTarget.value })}
-					></textarea>
 				</div>
-			</div>
 
-			<div class="dfoot">
-				<span class="status" role="status">
-					<span class="dot" class:is-dirty={dirty}></span>
-					{dirty ? 'Unsaved changes' : savedJustNow ? 'Saved just now' : 'All changes saved'}
-				</span>
-				<div class="acts">
-					<a class="btn" href={resolve('/map') + `?circuit=${sel.id}`}><Icon name="map" size={16} />Show on map</a>
-					<button type="button" class="btn btn-pri" onclick={save} disabled={!dirty}>Save changes</button>
+				<div class="dbody">
+					<div class="powers">
+						<div class="ph">
+							<h2>Powers</h2>
+							<span>{summary}</span>
+						</div>
+						<button type="button" class="btn" onclick={addItem}><Icon name="plus" size={16} stroke={2.2} />Add item</button>
+					</div>
+
+					{#each groups as g (g.type)}
+						<div class="group">
+							<div class="gname">{g.name} · {g.items.length}</div>
+							<div class="grid2">
+								{#each g.items as i (i.id)}
+									<div class="irow">
+										<span class="ico"><Icon name={i.type} stroke={1.9} /></span>
+										<span class="itxt"><span class="in">{i.name}</span><span class="iw">{ix.whereOf(i)}</span></span>
+										{#if i.x !== null}
+											<a class="loc" href={resolve('/map') + `?item=${i.id}`}>Locate</a>
+										{:else}
+											<a class="loc" href={resolve('/items') + `?item=${i.id}`}>Place</a>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						</div>
+					{:else}
+						<div class="none">
+							<span class="nt">Nothing mapped to this breaker yet</span>
+							<span class="nd">Flip it off, walk the house, and add whatever went dark. Anything you add here shows up on the map too.</span>
+							<div class="nb">
+								<button type="button" class="btn btn-pri" onclick={addItem}>Add the first item</button>
+								<a class="btn" href={resolve('/trace') + `?b=${sel.id}`}>Trace it</a>
+							</div>
+						</div>
+					{/each}
+
+					<div class="fld">
+						<label for="f-notes">Notes</label>
+						<textarea
+							id="f-notes"
+							class="inp"
+							rows="3"
+							placeholder="Anything worth knowing when this one trips"
+							value={sel.notes ?? ''}
+							oninput={(e) => edit(selRaw!, { notes: e.currentTarget.value })}
+						></textarea>
+					</div>
 				</div>
-			</div>
+
+				<div class="dfoot">
+					<span class="status" role="status">
+						<span class="dot" class:is-dirty={dirty}></span>
+						{dirty ? 'Unsaved changes' : savedJustNow ? 'Saved just now' : 'All changes saved'}
+					</span>
+					<div class="acts">
+						<a class="btn" href={resolve('/map') + `?circuit=${sel.id}`}><Icon name="map" size={16} />Show on map</a>
+						<button type="button" class="btn btn-pri" onclick={save} disabled={!dirty}>Save changes</button>
+					</div>
+				</div>
+			{/if}
 		</section>
 	</main>
 {/if}
@@ -607,15 +707,47 @@
 	.bk.is-sel.is-unl .lbl {
 		color: var(--on-amber);
 	}
-	.bk-empty,
-	.bk-empty:hover {
+	/* Open slot: dashed; hover/focus offers to add a breaker. */
+	.bk-open {
 		border: 1px dashed var(--enclosure-bd);
 		background: transparent;
-		cursor: default;
 	}
-	.bk-empty .lbl {
-		color: var(--muted);
+	.bk-open .lbl {
 		font-style: italic;
+		color: var(--muted);
+	}
+	.bk-open .add {
+		display: none;
+	}
+	.bk-open:hover,
+	.bk-open:focus-visible {
+		border-style: solid;
+		border-color: var(--ink);
+		background: var(--raised);
+	}
+	.bk-open:hover .opn,
+	.bk-open:focus-visible .opn,
+	.bk-open.is-sel .opn {
+		display: none;
+	}
+	.bk-open:hover .add,
+	.bk-open:focus-visible .add {
+		display: inline;
+		font-style: normal;
+		color: var(--ink);
+		font-weight: 600;
+	}
+	.bk-open.is-sel {
+		border-style: solid;
+		border-color: var(--on-amber);
+		background: var(--amber);
+	}
+	.bk-open.is-sel .lbl,
+	.bk-open.is-sel .add {
+		display: inline;
+		color: var(--on-amber);
+		font-style: normal;
+		font-weight: 700;
 	}
 
 	/* ---- Right: breaker detail */
