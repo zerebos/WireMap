@@ -67,8 +67,8 @@ export function parseCsv(text: string): string[][] {
 export type ImportResult = { imported: number; skipped: number };
 
 /**
- * Adds items from CSV with the columns name, type, floor, room, breaker (any order, any case;
- * other columns are ignored). Rows with an unknown type are skipped. Floors are matched by name
+ * Adds items from CSV with the columns name, type, floor, room, breaker, and optionally critical,
+ * critical note and notes (any order, any case; other columns are ignored). Rows with an unknown type are skipped. Floors are matched by name
  * or left empty; rooms are matched on that floor or created; breakers are slot numbers
  * ("16", "14 + 21", "1/3") or labels on the main panel, else none. Throws when the header is wrong.
  */
@@ -77,7 +77,11 @@ export async function importItemsCsv(house: House, text: string): Promise<Import
 	const [head, ...body] = parseCsv(text);
 	const cols = (head ?? []).map((h) => h.trim().toLowerCase());
 	const col = (...names: string[]) => cols.findIndex((c) => names.includes(c));
-	const at = { name: col('name'), type: col('type'), floor: col('floor'), room: col('room'), breaker: col('breaker', 'breakers') };
+	const at = { name: col('name'), type: col('type'), floor: col('floor'), room: col('room'), breaker: col('breaker', 'breakers'),
+		critical: col('critical'),
+		criticalNote: col('critical note'),
+		notes: col('notes')
+	};
 	if (at.name < 0 || at.type < 0) throw new Error('The first row must name the columns: name, type, floor, room, breaker.');
 
 	const norm = (s: string) => s.trim().toLowerCase();
@@ -131,7 +135,19 @@ export async function importItemsCsv(house: House, text: string): Promise<Import
 			roomId = room.id;
 		}
 		// A name is one line, even when the cell held line breaks.
-		await createItem({ name: get(at.name).replace(/\s+/g, ' '), type, floorId, roomId }, breakersFor(get(at.breaker)));
+		const critical = ['yes', 'y', 'true', '1', 'x'].includes(norm(get(at.critical)));
+		await createItem(
+			{
+				name: get(at.name).replace(/\s+/g, ' '),
+				type,
+				floorId,
+				roomId,
+				critical,
+				criticalNote: critical ? get(at.criticalNote) || null : null,
+				notes: get(at.notes)
+			},
+			breakersFor(get(at.breaker))
+		);
 		imported++;
 	}
 	return { imported, skipped };
