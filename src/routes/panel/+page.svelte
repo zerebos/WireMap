@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
 	import NewBreakerForm, { blankBreaker, type NewBreaker } from '$lib/components/panel/NewBreakerForm.svelte';
+	import ShutoffDrawer from '$lib/components/ShutoffDrawer.svelte';
 	import PhonePanel from '$lib/components/panel/PhonePanel.svelte';
 	import PhoneShell from '$lib/components/phone/PhoneShell.svelte';
 	import { viewport } from '$lib/viewport.svelte';
@@ -75,6 +76,13 @@
 	// On a phone, ?b= opens that breaker's sheet, and &edit=1 its details.
 	const phoneSel = $derived(page.url.searchParams.has('b') && selRaw?.id === selId ? view(selRaw) : null);
 	const phoneEdit = $derived(page.url.searchParams.get('edit') === '1');
+	// Shut off on desktop (DESIGN.md §5.16): &shutoff=1 opens the drawer for the selected breaker.
+	const shutoffOpen = $derived(page.url.searchParams.get('shutoff') === '1');
+	function closeShutoff() {
+		const url = new URL(page.url);
+		url.searchParams.delete('shutoff');
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
 	function closeSheet() {
 		const url = new URL(page.url);
 		url.searchParams.delete('b');
@@ -486,6 +494,9 @@
 		{@render detail(panel)}
 	</main>
 	<RemoveBreakerDialog bind:this={removeDlg} question={removeQuestion} detail={removeDetail} onremove={removeSelected} />
+	{#if shutoffOpen && sel}
+		<ShutoffDrawer {ix} want={{ room: null, breaker: sel.id, item: null }} onclose={closeShutoff} />
+	{/if}
 {/if}
 
 {#snippet detail(panel: Panel)}
@@ -677,6 +688,7 @@
 				</div>
 				<div class="acts">
 					<a class="btn" href={resolve('/map') + `?circuit=${sel.id}`}><Icon name="map" size={16} />Show on map</a>
+					<a class="btn" href={resolve('/panel') + `?b=${sel.id}&shutoff=1`}><Icon name="power" size={16} />Shut off</a>
 					<button type="button" class="btn btn-pri" onclick={save} disabled={!dirty}>Save changes</button>
 				</div>
 			</div>
