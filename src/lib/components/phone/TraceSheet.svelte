@@ -2,6 +2,7 @@
 	// Trace step 1's bottom sheet: where the breaker is, and "flip it off". The scrim isn't
 	// clickable (Cancel or Escape closes it); focus stays inside while it's open.
 	import type { Breaker, Panel } from '$lib/db/schema';
+	import { trapTab } from './trap';
 	import { occupiedSlots, physicalPosition, rowCount, slotAt, slotLabel } from '$lib/panel';
 
 	let {
@@ -30,18 +31,7 @@
 			oncancel();
 			return;
 		}
-		if (e.key !== 'Tab') return;
-		const focusable = [...sheet.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea')];
-		if (!focusable.length) return;
-		const first = focusable[0];
-		const last = focusable[focusable.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
+		trapTab(e, sheet);
 	}
 </script>
 

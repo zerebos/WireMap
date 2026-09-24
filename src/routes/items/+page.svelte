@@ -718,4 +718,19 @@
 	.grow {
 		flex-grow: 1;
 	}
+	/* Phones have no Items layout of their own yet: the table keeps its columns and scrolls sideways. */
+	@media (max-width: 699px) {
+		.page {
+			padding: 16px 12px;
+		}
+		.tbl {
+			overflow-x: auto;
+		}
+		.trow {
+			min-width: 760px;
+		}
+		.tbody {
+			min-width: 760px;
+		}
+	}
 </style>
