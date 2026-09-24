@@ -99,9 +99,45 @@
 		on = {};
 	});
 	const isDone = (id: number) => (restoring ? !!on[id] : !!off[id]);
-	function toggle(id: number) {
-		if (restoring) on[id] = !on[id];
-		else off[id] = !off[id];
+	function toggle(ids: number[]) {
+		const v = !ids.every(isDone);
+		for (const id of ids) {
+			if (restoring) on[id] = v;
+			else off[id] = v;
+		}
+	}
+
+	/** One row per breaker, except handle-tied breakers, which are one row: "turn off together". */
+	const rows = $derived.by(() => {
+		const out: Breaker[][] = [];
+		const byTie = new Map<number, Breaker[]>();
+		for (const b of breakers) {
+			if (b.tieGroup === null) out.push([b]);
+			else if (byTie.has(b.tieGroup)) byTie.get(b.tieGroup)!.push(b);
+			else {
+				const g = [b];
+				byTie.set(b.tieGroup, g);
+				out.push(g);
+			}
+		}
+		return out;
+	});
+	/** " · 1 shared with 21": items here on this breaker that other breakers in the list also feed. */
+	function sharedText(bs: Breaker[]) {
+		if (target?.kind === 'breaker') return '';
+		const mine = new Set(bs.map((b) => b.id));
+		const shared = scope.filter((i) => i.breakerIds.some((id) => mine.has(id)) && i.breakerIds.some((id) => ids.has(id) && !mine.has(id)));
+		if (!shared.length) return '';
+		const others = breakers.filter((b) => !mine.has(b.id) && shared.some((i) => i.breakerIds.includes(b.id)));
+		return ` · ${shared.length} shared with ${others.map((b) => ix.slotOf(b)).join(' + ')}`;
+	}
+	function rowSub(bs: Breaker[]) {
+		const here =
+			target?.kind === 'breaker'
+				? plural(new Set(bs.flatMap((b) => ix.itemsOf(b.id).map((i) => i.id))).size, 'item')
+				: `${plural(scope.filter((i) => bs.some((b) => i.breakerIds.includes(b.id))).length, 'item')} here`;
+		if (bs.length === 1) return `${physicalPosition(bs[0], ix.panelOf(bs[0]))} · ${here}${sharedText(bs)}`;
+		return `${bs.map((b) => ix.slotOf(b)).join(' + ')} · turn off together · ${here}${sharedText(bs)}`;
 	}
 
 	const total = $derived(breakers.length);
@@ -125,8 +161,6 @@
 		const where = target.kind === 'room' ? ix.floorName(target.floorId) : ix.whereOf(target.item);
 		return [where, plural(total, 'breaker'), panelNames].filter(Boolean).join(' · ');
 	});
-	const hereText = (b: Breaker) =>
-		target?.kind === 'breaker' ? plural(ix.itemsOf(b.id).length, 'item') : `${plural(scope.filter((i) => i.breakerIds.includes(b.id)).length, 'item')} here`;
 
 	const progressText = $derived(
 		restoring
@@ -192,13 +226,13 @@
 					<h2 id="list-t" class="ov">{restoring ? 'Turn these back on' : 'Turn these off'}</h2>
 					<span class="mono hint">In panel order</span>
 				</div>
-				{#each breakers as b (b.id)}
-					{@const done = isDone(b.id)}
-					<button type="button" class="brow" class:is-done={done} aria-pressed={done} onclick={() => toggle(b.id)}>
-						<span class="bnum big">{ix.slotOf(b)}</span>
+				{#each rows as bs (bs[0].id)}
+					{@const done = bs.every((b) => isDone(b.id))}
+					<button type="button" class="brow" class:is-done={done} aria-pressed={done} onclick={() => toggle(bs.map((b) => b.id))}>
+						<span class="bnum big">{bs.map((b) => ix.slotOf(b)).join('+')}</span>
 						<span class="bmain">
-							<span class="bname">{ix.labelOf(b)}</span>
-							<span class="bsub">{physicalPosition(b, ix.panelOf(b))} · {hereText(b)}</span>
+							<span class="bname">{[...new Set(bs.map((b) => ix.labelOf(b)))].join(' + ')}</span>
+							<span class="bsub">{rowSub(bs)}</span>
 						</span>
 						<span
 							class="pill mono"

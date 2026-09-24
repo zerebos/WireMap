@@ -12,7 +12,7 @@
 	import type { Breaker } from '$lib/db/schema';
 	import { createBreaker, createItem, deleteBreaker, updateBreaker } from '$lib/db/ops';
 	import { index, mutate, plural } from '$lib/house';
-	import { checkFit, legOfRow, nextInColumn, occupiedSlots, position, rowCount, slotAt, slotLabel, slotText, spacesUsed } from '$lib/panel';
+	import { checkFit, legOfRow, nextInColumn, occupiedSlots, position, rowCount, slotAt, slotLabel, slotText, spacesUsed, tiedBelow, tiedTogether } from '$lib/panel';
 	import { query, search } from '$lib/search.svelte';
 
 	let { data } = $props();
@@ -228,6 +228,14 @@
 	const left = $derived(column('left'));
 	const right = $derived(column('right'));
 
+	// ---- Handle-tied breakers (a multi-wire circuit) that have been moved apart.
+	const tiedApart = $derived.by(() => {
+		if (!sel || sel.tieGroup === null || !panel) return null;
+		const group = placed.filter((b) => b.tieGroup === sel.tieGroup);
+		if (group.length < 2 || tiedTogether(group, panel)) return null;
+		return group.filter((b) => b.id !== sel.id).map((b) => slotLabel(b, panel));
+	});
+
 	// ---- What the selected breaker powers.
 	const selItems = $derived(sel ? ix.itemsOf(sel.id) : []);
 	const selNo2 = $derived(sel ? why2(sel.slot, sel.id) : null);
@@ -339,9 +347,12 @@
 								{:else}
 									{@const b = view(cell.breaker)}
 									{@const tag = PROTECTION_TAGS[b.kind]}
+									{@const tie = tiedBelow(b, placed, panel)}
 									<button
 										type="button"
 										class="bk bk-{b.poles === 2 ? 2 : 1}"
+										class:tie-down={!!tie}
+										style:--tie-rows={tie ? b.poles / 2 + tie.poles / 2 : undefined}
 										class:bk-r={side === 'r'}
 										class:is-sel={newSlot === null && b.id === sel?.id}
 										class:is-moving={moving && b.id === sel?.id}
@@ -464,6 +475,12 @@
 						</div>
 					</div>
 					{#if selNo2}<span class="why" id="f-no2">{selNo2}</span>{/if}
+					{#if tiedApart}
+						<div class="warnbox" role="note">
+							<strong>Handle-tied with {tiedApart.join(' + ')}, but not next to {tiedApart.length > 1 ? 'them' : 'it'}</strong>
+							<span>They share a neutral (multi-wire circuit), so they need to sit side by side with their handles tied.</span>
+						</div>
+					{/if}
 				</div>
 
 				<div class="dbody">
@@ -483,6 +500,7 @@
 									<div class="irow">
 										<span class="ico"><Icon name={i.type} stroke={1.9} /></span>
 										<span class="itxt"><span class="in">{i.name}</span><span class="iw">{ix.whereOf(i)}</span></span>
+										{#if i.breakerIds.length > 1}<span class="plus" title="Also on {ix.plusOf(i, sel.id).slice(1)}">{ix.plusOf(i, sel.id)}</span>{/if}
 										{#if i.x !== null}
 											<a class="loc" href={resolve('/map') + `?item=${i.id}`}>Locate</a>
 										{:else}
@@ -773,6 +791,23 @@
 	}
 	.bk-2 .hdl {
 		height: 54px;
+	}
+	/* Handle-tied to the breaker below (a multi-wire circuit): a tie bar joins the handles. */
+	.bk.tie-down {
+		position: relative;
+		z-index: 1;
+	}
+	.bk.tie-down .hdl::before {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 3px;
+		margin-left: -1.5px;
+		height: calc((var(--breaker-h) + var(--breaker-gap)) * var(--tie-rows));
+		background: var(--tie);
+		border-radius: 2px;
+		z-index: 2;
 	}
 	.bk-2 .hdl::after {
 		content: '';

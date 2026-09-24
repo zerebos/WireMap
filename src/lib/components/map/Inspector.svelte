@@ -3,7 +3,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import ItemRow from './ItemRow.svelte';
 	import { mutate, plural, type HouseIndex, type HouseItem } from '$lib/house';
-	import { deleteItems, swapItemBreaker, updateRoom } from '$lib/db/ops';
+	import { deleteItems, setTied, swapItemBreaker, updateRoom } from '$lib/db/ops';
 	import type { Breaker, Room } from '$lib/db/schema';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS } from '$lib/constants';
 	import { NONE, floorSteps, itemsOn, shapeOfRoom, roomBreakerCount, roomGroups, slotsText, specOf, type Sel } from './model';
@@ -50,13 +50,25 @@
 		const room = ix.roomById.get(item.roomId);
 		go({ kind: 'room', id: item.roomId }, room?.floorId ?? floorId);
 	}
-	function reassign(from: number | null, e: Event) {
+	/** Swaps breaker `from` for the one picked in a select (or none); `from` null adds one. */
+	function reassign(from: number | null, e: Event | null) {
 		if (!item) return;
-		const v = (e.currentTarget as HTMLSelectElement).value;
+		const v = e ? (e.currentTarget as HTMLSelectElement).value : '';
 		const to = v === '' ? null : Number(v);
 		if (to === from) return;
 		const id = item.id;
 		mutate(() => swapItemBreaker(id, from, to));
+	}
+	/** "Turn off both 14 and 21", or "Turn off all 3 (9, 14, 21)". */
+	const allOffText = $derived.by(() => {
+		const n = fed.map((b) => ix.slotOf(b));
+		return n.length === 2 ? `Turn off both ${n[0]} and ${n[1]}` : `Turn off all ${n.length} (${n.join(', ')})`;
+	});
+	/** Handle-tied: every breaker feeding the item shares one tie group. */
+	const tied = $derived(fed.length > 1 && fed[0].tieGroup !== null && fed.every((b) => b.tieGroup === fed[0].tieGroup));
+	function tie(on: boolean) {
+		const ids = fed.map((b) => b.id);
+		mutate(() => setTied(ids, on));
 	}
 	async function remove() {
 		if (!item) return;
@@ -149,25 +161,34 @@
 				</div>
 
 				<div class="fed">
-					<span class="ov amb">Fed by</span>
-					{#if fed.length}
+					<span class="ov amb">{fed.length > 1 ? `Fed by ${fed.length} breakers` : 'Fed by'}</span>
+					{#if fed.length === 1}
+						{@const b = fed[0]}
 						<div class="fb">
-							<span class="big mono">{slotsText(ix, fed)}</span>
+							<span class="big mono">{ix.slotOf(b)}</span>
 							<div class="fbt">
-								<span class="bn">{fed.map((b) => ix.labelOf(b)).join(' + ')}</span>
-								<span class="bs">{fed.length === 1 ? specOf(fed[0]) : [`${fed.length} breakers`, ...new Set(fed.map(specOf))].join(' · ')}</span>
+								<span class="bn">{ix.labelOf(b)}</span>
+								<span class="bs">{specOf(b)}</span>
 							</div>
 						</div>
+						<div class="fld">
+							<label for="reb-{b.id}">Move to another breaker</label>
+							<select id="reb-{b.id}" class="inp" value={String(b.id)} onchange={(e) => reassign(b.id, e)}>
+								{#each ix.house.breakers as o (o.id)}<option value={String(o.id)}>{optionText(o)}</option>{/each}
+							</select>
+						</div>
+					{:else if fed.length > 1}
 						{#each fed as b (b.id)}
-							<div class="fld">
-								<label for="reb-{b.id}">{fed.length > 1 ? `Move ${ix.slotOf(b)} to another breaker` : 'Move to another breaker'}</label>
-								<select id="reb-{b.id}" class="inp" value={String(b.id)} onchange={(e) => reassign(b.id, e)}>
-									{#each ix.house.breakers as o (o.id)}<option value={String(o.id)}>{optionText(o)}</option>{/each}
-								</select>
+							<div class="frow">
+								<span class="chipn mono">{ix.slotOf(b)}</span>
+								<span class="fbt grow">
+									<span class="fn">{ix.labelOf(b)}</span>
+									<span class="fs">{specOf(b)}</span>
+								</span>
+								<button type="button" class="ibtn x" aria-label="Remove breaker {ix.slotOf(b)} from this item" onclick={() => reassign(b.id, null)}
+									><Icon name="close" size={14} stroke={2.2} /></button
+								>
 							</div>
-						{/each}
-						{#each fed as b (b.id)}
-							<a class="open" href={panelHref(b)}>{fed.length > 1 ? `Open ${ix.slotOf(b)} in panel →` : 'Open in panel →'}</a>
 						{/each}
 					{:else}
 						<div class="fb">
@@ -185,6 +206,31 @@
 							</select>
 						</div>
 					{/if}
+					{#if fed.length}
+						<div class="fld">
+							<label for="addb">Add another breaker</label>
+							<select id="addb" class="inp" value="" onchange={(e) => reassign(null, e)}>
+								<option value="">Choose…</option>
+								{#each ix.house.breakers.filter((o) => !item.breakerIds.includes(o.id)) as o (o.id)}<option value={String(o.id)}
+										>{optionText(o)}</option
+									>{/each}
+							</select>
+						</div>
+					{/if}
+					{#if fed.length > 1}
+						<div class="multi">
+							<span class="mt"><strong>{allOffText}</strong> before opening this box.</span>
+							<label class="chk"
+								><input type="checkbox" checked={tied} onchange={(e) => tie(e.currentTarget.checked)} /><span
+									>These share a neutral (multi-wire circuit). They should be handle-tied.</span
+								></label
+							>
+							{#if tied}<span class="tiewarn">The Panel draws these {fed.length === 2 ? 'two' : fed.length} with a tie bar and warns if they’re moved apart.</span>{/if}
+						</div>
+					{/if}
+					{#each fed as b (b.id)}
+						<a class="open" href={panelHref(b)}>{fed.length > 1 ? `Open ${ix.slotOf(b)} in panel →` : 'Open in panel →'}</a>
+					{/each}
 				</div>
 
 				<div class="sect">
@@ -296,7 +342,7 @@
 							{/if}
 							<div class="gitems">
 								{#each g.items as s (s.id)}
-									<ItemRow item={s} compact onclick={() => selectItem(s)} />
+									<ItemRow item={s} compact plus={gb ? ix.plusOf(s, gb.id) : ''} onclick={() => selectItem(s)} />
 								{/each}
 							</div>
 							{#if g.elseText}
@@ -552,6 +598,58 @@
 	.bs {
 		font-size: 13px;
 		color: var(--soft);
+	}
+	.frow {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+	.chipn {
+		min-width: 44px;
+		height: 40px;
+		padding: 0 6px;
+		background: var(--amber);
+		color: var(--on-amber);
+		border-radius: var(--r-md);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 600;
+		font-size: 15px;
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
+	.fn {
+		font-size: 15px;
+		font-weight: 700;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.fs {
+		font-size: 12px;
+		color: var(--soft);
+	}
+	.ibtn.x {
+		width: 36px;
+		height: 36px;
+	}
+	.multi {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding-top: 10px;
+		border-top: 1px solid color-mix(in srgb, var(--amber) 40%, transparent);
+	}
+	.mt {
+		font-size: 13px;
+		line-height: 1.45;
+	}
+	.tiewarn {
+		font-size: 12px;
+		color: var(--warn);
+		font-weight: 600;
+		line-height: 1.45;
 	}
 	.open {
 		font-size: 14px;

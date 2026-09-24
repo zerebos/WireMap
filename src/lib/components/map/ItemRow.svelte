@@ -7,19 +7,29 @@
 		item,
 		where = '',
 		compact = false,
+		plus = '',
 		onclick
-	}: { item: HouseItem; where?: string; compact?: boolean; onclick: () => void } = $props();
+	}: {
+		item: HouseItem;
+		where?: string;
+		compact?: boolean;
+		/** The item's other breakers, "+21", when it's on more than one (DESIGN.md §5.11). */
+		plus?: string;
+		onclick: () => void;
+	} = $props();
 </script>
 
 {#if compact}
 	<button type="button" class="irow2" {onclick}>
 		<span class="ico"><Icon name={item.type} size={16} /></span>
 		<span class="n">{item.name}</span>
+		{#if plus}<span class="plus" title="Also on {plus.slice(1)}">{plus}</span>{/if}
 	</button>
 {:else}
 	<button type="button" class="srow" {onclick}>
 		<span class="ico"><Icon name={item.type} size={16} /></span>
 		<span class="txt"><span class="in">{item.name}</span><span class="iw">{where}</span></span>
+		{#if plus}<span class="plus" title="Also on {plus.slice(1)}">{plus}</span>{/if}
 	</button>
 {/if}
 

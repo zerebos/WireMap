@@ -11,6 +11,7 @@
 		ix,
 		tb,
 		marked,
+		keep,
 		floor = $bindable(),
 		onback,
 		onreview
@@ -18,6 +19,8 @@
 		ix: HouseIndex;
 		tb: Breaker;
 		marked: SvelteSet<number>;
+		/** Marked items to keep on their other breakers too. */
+		keep: SvelteSet<number>;
 		floor: number | null;
 		onback: () => void;
 		onreview: () => void;
@@ -58,6 +61,7 @@
 			return { text: `Already on ${[num, ...rest.map((b) => ix.slotOf(b))].join(' + ')}`, moves: false };
 		}
 		if (!i.breakerIds.length) return { text: on ? `New — will be added to ${num}` : 'No breaker yet', moves: false };
+		if (on && keep.has(i.id)) return { text: `Stays on ${others(i)} too`, moves: false };
 		return on ? { text: `Moves from ${others(i)}`, moves: true } : { text: `On ${others(i)}`, moves: false };
 	}
 	function toggle(id: number) {
@@ -137,6 +141,13 @@
 					</span>
 					<span class="chk"><Icon name="check" size={14} stroke={3} /></span>
 				</button>
+				{#if on && i.breakerIds.length && !i.breakerIds.includes(tb.id)}
+					{@const was = ix.breakersOf(i).map((b) => ix.slotOf(b)).join(' + ')}
+					<div class="segm" role="group" aria-label="What to do with breaker {was} for {i.name}">
+						<button type="button" class:is-on={!keep.has(i.id)} aria-pressed={!keep.has(i.id)} onclick={() => keep.delete(i.id)}>Move to {num}</button>
+						<button type="button" class:is-on={keep.has(i.id)} aria-pressed={keep.has(i.id)} onclick={() => keep.add(i.id)}>On both {was} + {num}</button>
+					</div>
+				{/if}
 			{/each}
 		</section>
 	{:else}
@@ -363,5 +374,31 @@
 		.mrow {
 			transition: none;
 		}
+	}
+	/* Move to 21 / On both 14 + 21, under a marked item that's on another breaker. */
+	.segm {
+		display: flex;
+		background: var(--line);
+		border-radius: var(--r-md);
+		padding: 2px;
+		gap: 2px;
+		margin: -2px 0 4px 52px;
+	}
+	.segm button {
+		height: 34px;
+		padding: 0 10px;
+		border: 0;
+		border-radius: 5px;
+		background: transparent;
+		font: inherit;
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--soft);
+		cursor: pointer;
+	}
+	.segm button.is-on {
+		background: var(--surface);
+		color: var(--ink);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
 	}
 </style>

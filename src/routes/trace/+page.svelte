@@ -24,6 +24,8 @@
 	let sheetFor = $state<number | null>(null);
 	let tbId = $state<number | null>(null);
 	const marked = new SvelteSet<number>();
+	/** Marked items that stay on their other breakers too ("On both", DESIGN.md §5.11). */
+	const keep = new SvelteSet<number>();
 	let floor = $state<number | null>(null);
 	let label = $state('');
 	let backOn = $state(false);
@@ -87,6 +89,7 @@
 		const b = sheetB;
 		const on = ix.itemsOf(b.id);
 		marked.clear();
+		keep.clear();
 		for (const i of on) marked.add(i.id);
 		// Start on the floor it's known to feed; otherwise the floor with the most items.
 		const counts = data.house.floors.map((f) => ({ id: f.id, n: data.house.items.filter((i) => i.floorId === f.id).length }));
@@ -104,7 +107,7 @@
 		busy = true;
 		const b = tb;
 		try {
-			await mutate(() => saveTrace(b.id, finalLabel, [...marked]));
+			await mutate(() => saveTrace(b.id, finalLabel, [...marked], [...keep].filter((id) => marked.has(id))));
 		} finally {
 			busy = false;
 		}
@@ -112,6 +115,7 @@
 			toast = `Breaker ${ix.slotOf(b)} saved as “${finalLabel}”`;
 			tbId = null;
 			marked.clear();
+			keep.clear();
 			go('pick');
 		} else {
 			goto(resolve('/panel') + `?b=${b.id}`);
@@ -125,9 +129,9 @@
 
 <PhoneFrame>
 	{#if step === 'mark' && tb}
-		<TraceMark {ix} {tb} {marked} bind:floor onback={() => go('pick')} onreview={() => go('name')} />
+		<TraceMark {ix} {tb} {marked} {keep} bind:floor onback={() => go('pick')} onreview={() => go('name')} />
 	{:else if step === 'name' && tb}
-		<TraceName {ix} {tb} items={markedItems} bind:label bind:backOn {busy} onback={() => go('mark')} onsave={save} />
+		<TraceName {ix} {tb} items={markedItems} {keep} bind:label bind:backOn {busy} onback={() => go('mark')} onsave={save} />
 	{:else}
 		<div class="pick" inert={!!sheetB}>
 			<header class="top">

@@ -37,6 +37,17 @@ export async function deleteBreaker(id: number) {
 	await db.delete(t.breakers).where(eq(t.breakers.id, id));
 }
 
+/** Handle-ties breakers together (a multi-wire circuit), or unties them. */
+export async function setTied(breakerIds: number[], tied: boolean) {
+	if (!breakerIds.length) return;
+	if (!tied) return void (await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.id, breakerIds)));
+	const top = await db.select({ g: max(t.breakers.tieGroup) }).from(t.breakers).get();
+	await db
+		.update(t.breakers)
+		.set({ tieGroup: (top?.g ?? 0) + 1 })
+		.where(inArray(t.breakers.id, breakerIds));
+}
+
 // ---- Items
 
 export type ItemValues = Partial<Omit<Item, 'id'>>;
@@ -85,10 +96,10 @@ export async function swapItemBreaker(itemId: number, from: number | null, to: n
 
 /**
  * Saves a trace in one write: the breaker's label, which items it feeds (marked items are moved
- * onto it from whatever fed them; items that were on it and aren't marked come off it), and when
- * it was checked.
+ * onto it from whatever fed them, or added alongside for `keepItemIds`; items that were on it
+ * and aren't marked come off it), and when it was checked.
  */
-export async function saveTrace(breakerId: number, label: string, markedItemIds: number[]) {
+export async function saveTrace(breakerId: number, label: string, markedItemIds: number[], keepItemIds: number[] = []) {
 	const current = await db
 		.select({ itemId: t.itemBreakers.itemId })
 		.from(t.itemBreakers)
@@ -96,8 +107,10 @@ export async function saveTrace(breakerId: number, label: string, markedItemIds:
 		.all();
 	const currentIds = current.map((r) => r.itemId);
 	const unmarked = currentIds.filter((id) => !markedItemIds.includes(id));
-	// Items already on this breaker keep any other breakers they're on; only newcomers move.
-	const moved = markedItemIds.filter((id) => !currentIds.includes(id));
+	// Items already on this breaker keep any other breakers they're on; newcomers move, unless
+	// they're kept on both (a box where only part went dead).
+	const added = markedItemIds.filter((id) => !currentIds.includes(id));
+	const moved = added.filter((id) => !keepItemIds.includes(id));
 	const ops = [
 		db
 			.update(t.breakers)
@@ -112,10 +125,8 @@ export async function saveTrace(breakerId: number, label: string, markedItemIds:
 				.where(and(eq(t.itemBreakers.breakerId, breakerId), inArray(t.itemBreakers.itemId, unmarked)))
 		);
 	}
-	if (moved.length) {
-		rest.push(db.delete(t.itemBreakers).where(inArray(t.itemBreakers.itemId, moved)));
-		rest.push(db.insert(t.itemBreakers).values(moved.map((itemId) => ({ itemId, breakerId }))));
-	}
+	if (moved.length) rest.push(db.delete(t.itemBreakers).where(inArray(t.itemBreakers.itemId, moved)));
+	if (added.length) rest.push(db.insert(t.itemBreakers).values(added.map((itemId) => ({ itemId, breakerId }))));
 	await db.batch([...ops, ...rest]);
 }
 

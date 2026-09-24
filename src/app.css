@@ -489,3 +489,16 @@ textarea.inp {
 	accent-color: var(--amber);
 	flex-shrink: 0;
 }
+
+/* "+21": an item's other breakers, beside it in a breaker's list (DESIGN.md §5.11). */
+.plus {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 600;
+	padding: 2px 6px;
+	border-radius: var(--r-xs);
+	border: 1px solid var(--line-2);
+	color: var(--soft);
+	white-space: nowrap;
+	flex-shrink: 0;
+}

@@ -95,6 +95,15 @@ export function index(house: House) {
 				.filter((b): b is Breaker => !!b)
 				.sort((a, b) => a.panelId - b.panelId || a.slot - b.slot),
 		panelOf,
+		/** An item's breakers other than `breakerId`, as a tag: "+21", "+14 + 21", or ''. */
+		plusOf: (item: HouseItem, breakerId: number) => {
+			const others = item.breakerIds
+				.filter((id) => id !== breakerId)
+				.map((id) => breakerById.get(id))
+				.filter((b): b is Breaker => !!b)
+				.sort((a, b) => a.panelId - b.panelId || a.slot - b.slot);
+			return others.length ? `+${others.map((b) => slotLabel(b, panelOf(b))).join(' + ')}` : '';
+		},
 		/** "16" or "1/3". */
 		slotOf: (b: Breaker) => slotLabel(b, panelOf(b)),
 		/** "Bathrooms", or "Unlabeled". */
