@@ -6,7 +6,7 @@
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import type { HouseIndex } from '$lib/house';
 	import { PROTECTION_LABELS } from '$lib/constants';
-	import { legsText, physicalPosition, slotLabel } from '$lib/panel';
+	import { legsText, physicalPosition, quadTopOf, slotLabel } from '$lib/panel';
 	import { access } from '$lib/access.svelte';
 	import { trapTab } from './trap';
 
@@ -19,11 +19,15 @@
 	}: { ix: HouseIndex; breaker: Breaker; panel: Panel; onclose: () => void; onpick: (b: Breaker) => void } = $props();
 
 	const items = $derived(ix.itemsOf(breaker.id));
-	/** The other half of a tandem slot. */
-	const mate = $derived(
-		breaker.half
-			? (ix.house.breakers.find((b) => b.panelId === breaker.panelId && b.slot === breaker.slot && b.half && b.id !== breaker.id) ?? null)
-			: null
+	const inPanel = $derived(ix.house.breakers.filter((b) => b.panelId === breaker.panelId));
+	const quadTop = $derived(quadTopOf(breaker, inPanel, panel));
+	/** The other breakers in the same quad (§5.18), or the other half of a tandem slot (§5.15). */
+	const mates = $derived(
+		quadTop !== null
+			? inPanel.filter((b) => b.id !== breaker.id && quadTopOf(b, inPanel, panel) === quadTop)
+			: breaker.half
+				? inPanel.filter((b) => b.slot === breaker.slot && b.half && b.id !== breaker.id)
+				: []
 	);
 	const spec = $derived(
 		breaker.poles === 2 ? `${breaker.amps}A · 2-pole · 240V` : `${breaker.amps}A · ${PROTECTION_LABELS[breaker.kind]} · 120V`
@@ -58,12 +62,16 @@
 			</div>
 			<button type="button" class="ibtn" aria-label="Close" bind:this={closeBtn} onclick={onclose}><Icon name="close" size={16} /></button>
 		</div>
-		{#if mate}
+		{#each mates as mate (mate.id)}
 			<button type="button" class="mate" onclick={() => onpick(mate)}>
-				<span>Shares slot {breaker.slot} with <strong>{slotLabel(mate, panel)}</strong> · {ix.labelOf(mate)}</span>
+				<span
+					>{quadTop !== null ? 'Shares the quad with' : `Shares slot ${breaker.slot} with`} <strong>{slotLabel(mate, panel)}</strong> · {ix.labelOf(
+						mate
+					)}</span
+				>
 				<span aria-hidden="true">→</span>
 			</button>
-		{/if}
+		{/each}
 		<div class="acts" class:two={access.guest}>
 			<a class="btn" href={resolve('/map') + `?circuit=${breaker.id}`}>Show on map</a>
 			<a class="btn" href={resolve('/shutoff') + `?breaker=${breaker.id}`}>Shut off</a>

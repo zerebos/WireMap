@@ -258,3 +258,45 @@ export function tiedBelow<B extends Placed & { tieGroup: number | null }>(b: B, 
 	if (position(below, p).side !== position(b.slot, p).side) return null;
 	return all.find((o) => o !== b && o.tieGroup === b.tieGroup && o.slot === below && !o.half) ?? null;
 }
+
+/** The top slot of the quad a breaker is part of (a quad pair, or a 1-pole half filling one), or null. */
+export function quadTopOf<B extends Placed>(b: B, all: B[], p: PanelShape): number | null {
+	const mine = spacesOf(b, p);
+	for (const q of all) {
+		if (!quadPair(q, p)) continue;
+		const top = spacesOf(q, p)[0].slot;
+		const below = nextInColumn(top, p);
+		if (mine.every((s) => s.half !== null && (s.slot === top || s.slot === below))) return top;
+	}
+	return null;
+}
+
+/** One row of a quad cell. A 2-pole pair on two adjacent rows (the inner pair) is one row spanning both. */
+export type QuadSeg<B> = { key: string; row: number; span: number; b: B | null; first: boolean };
+
+/**
+ * A quad cell's four half-rows in physical order (sA, sB, (s+2)A, (s+2)B) and its tie bars, which
+ * join each 2-pole pair's handles (row indexes 0–3).
+ */
+export function quadLayout<B extends Placed & { id: number }>(q: (B | null)[], top: number, p: PanelShape) {
+	const below = nextInColumn(top, p);
+	const keys = [`${top}A`, `${top}B`, `${below}A`, `${below}B`];
+	const segs: QuadSeg<B>[] = [];
+	const seen = new Set<number>();
+	for (let i = 0; i < 4; i++) {
+		const b = q[i];
+		if (!b) {
+			segs.push({ key: keys[i], row: i + 1, span: 1, b: null, first: true });
+			continue;
+		}
+		if (seen.has(b.id) && segs[segs.length - 1]?.b === b && segs[segs.length - 1].span === 2) continue;
+		const span = b.poles === 2 && i < 3 && q[i + 1] === b && !seen.has(b.id) ? 2 : 1;
+		segs.push({ key: keys[i], row: i + 1, span, b, first: !seen.has(b.id) });
+		seen.add(b.id);
+	}
+	const ties = [...new Set(q.filter((b): b is B => !!b && b.poles === 2))].map((b) => {
+		const at = q.flatMap((x, i) => (x === b ? [i] : []));
+		return { b, lo: Math.min(...at), hi: Math.max(...at), pair: quadPair(b, p) };
+	});
+	return { segs, ties };
+}

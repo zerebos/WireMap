@@ -1,8 +1,24 @@
 <script lang="ts" module>
 	import type { Numbering, Protection } from '$lib/constants';
 
-	/** A new breaker, or with `tandem` a pair of halves (A uses label/amps, B labelB/ampsB). */
-	export type NewBreaker = { label: string; amps: number; kind: Protection; poles: 1 | 2; tandem: boolean; labelB: string; ampsB: number };
+	/**
+	 * A new breaker; with `tandem` a pair of halves (A uses label/amps, B labelB/ampsB); with `quad` a
+	 * quad (§5.18): outer pair label/amps, and either the inner pair labelB/ampsB or, when `mixed`,
+	 * two 1-poles in the middle halves (labelB/ampsB upper, labelC/ampsC lower).
+	 */
+	export type NewBreaker = {
+		label: string;
+		amps: number;
+		kind: Protection;
+		poles: 1 | 2;
+		tandem: boolean;
+		labelB: string;
+		ampsB: number;
+		quad: boolean;
+		mixed: boolean;
+		labelC: string;
+		ampsC: number;
+	};
 	export const blankBreaker = (amps = 20): NewBreaker => ({
 		label: '',
 		amps,
@@ -10,14 +26,18 @@
 		poles: 1,
 		tandem: false,
 		labelB: '',
-		ampsB: amps
+		ampsB: amps,
+		quad: false,
+		mixed: false,
+		labelC: '',
+		ampsC: amps
 	});
 </script>
 
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { AMPS, PROTECTIONS, PROTECTION_LABELS } from '$lib/constants';
-	import { slotText, tandemOk, tandemText } from '$lib/panel';
+	import { nextInColumn, slotText, tandemOk, tandemText } from '$lib/panel';
 
 	let {
 		form = $bindable(),
@@ -30,7 +50,7 @@
 	}: {
 		form: NewBreaker;
 		slot: number;
-		panel: { slotCount: number; numbering: Numbering; tandemSlots: string | null };
+		panel: { slotCount: number; numbering: Numbering; tandemSlots: string | null; shortCode?: string | null };
 		/** Why a 2-pole breaker can't go here, or null if it can. */
 		no2Why: string | null;
 		directoryHref: string;
@@ -39,12 +59,20 @@
 	} = $props();
 
 	const noTandemWhy = $derived(tandemOk(slot, panel) ? null : `Slot ${slot} isn’t rated for tandems (${tandemText(panel)}).`);
-	const tandem = $derived(form.tandem && !noTandemWhy);
-	const poles = $derived(no2Why || tandem ? 1 : form.poles);
-	const size = (poles: 1 | 2, tandem: boolean) => {
+	const below = $derived(nextInColumn(slot, panel));
+	// A quad needs this slot and the one below free, both rated for half-width breakers (§5.18).
+	const noQuadWhy = $derived(
+		no2Why ? null : tandemOk(slot, panel) && tandemOk(below, panel) ? null : `Slots ${slot}–${below} aren’t rated for quads (${tandemText(panel)}).`
+	);
+	const quad = $derived(form.quad && !no2Why && !noQuadWhy);
+	const tandem = $derived(form.tandem && !noTandemWhy && !quad);
+	const poles = $derived(no2Why || tandem ? 1 : quad ? 2 : form.poles);
+	const size = (poles: 1 | 2, tandem: boolean, quad = false) => {
 		form.poles = poles;
 		form.tandem = tandem;
+		form.quad = quad;
 	};
+	const pre = $derived(panel.shortCode ?? '');
 	let labelInput = $state<HTMLInputElement>();
 
 	/** Puts the cursor in the label field (after picking a slot, or after "Add & next"). */
@@ -60,10 +88,10 @@
 
 <form class="nb" onsubmit={submit}>
 	<div class="row">
-		<span class="mono over">New breaker · {slotText({ slot, poles }, panel)}</span>
+		<span class="mono over">New breaker · {slotText({ slot, poles }, panel)}{quad ? ' · Quad' : ''}</span>
 		<button type="button" class="ibtn" aria-label="Cancel new breaker" onclick={oncancel}><Icon name="close" size={16} /></button>
 	</div>
-	{#if !tandem}
+	{#if !tandem && !quad}
 		<div>
 			<label for="n-label" class="sr">Label</label>
 			<input
@@ -78,7 +106,7 @@
 		</div>
 	{/if}
 	<div class="grid2">
-		{#if !tandem}
+		{#if !tandem && !quad}
 			<div class="fld">
 				<label for="n-amp">Amperage</label>
 				<select id="n-amp" class="inp" bind:value={form.amps}>
@@ -100,14 +128,20 @@
 	<div class="fld">
 		<span class="k" id="n-sz">Size</span>
 		<div class="seg" role="group" aria-labelledby="n-sz">
-			<button type="button" class="sb" class:is-on={poles === 1 && !tandem} aria-pressed={poles === 1 && !tandem} onclick={() => size(1, false)}>
+			<button
+				type="button"
+				class="sb"
+				class:is-on={poles === 1 && !tandem}
+				aria-pressed={poles === 1 && !tandem}
+				onclick={() => size(1, false)}
+			>
 				1-pole
 			</button>
 			<button
 				type="button"
 				class="sb"
-				class:is-on={poles === 2}
-				aria-pressed={poles === 2}
+				class:is-on={poles === 2 && !quad}
+				aria-pressed={poles === 2 && !quad}
 				disabled={!!no2Why}
 				aria-describedby={no2Why ? 'n-no2' : undefined}
 				onclick={() => size(2, false)}
@@ -123,10 +157,62 @@
 				aria-describedby={noTandemWhy ? 'n-not' : undefined}
 				onclick={() => size(1, true)}
 			>
-				Tandem A+B
+				Tandem
 			</button>
+			{#if !no2Why}
+				<button
+					type="button"
+					class="sb"
+					class:is-on={quad}
+					aria-pressed={quad}
+					disabled={!!noQuadWhy}
+					aria-describedby={noQuadWhy ? 'n-noq' : undefined}
+					onclick={() => size(2, false, true)}
+				>
+					Quad (2 × 2-pole)
+				</button>
+			{/if}
 		</div>
 	</div>
+	{#if quad}
+		<div class="seg qmode" role="group" aria-label="Quad layout">
+			<button type="button" class="sb" class:is-on={!form.mixed} aria-pressed={!form.mixed} onclick={() => (form.mixed = false)}>Two 2-pole</button>
+			<button type="button" class="sb" class:is-on={form.mixed} aria-pressed={form.mixed} onclick={() => (form.mixed = true)}
+				>One 2-pole + two 1-poles</button
+			>
+		</div>
+		<div class="halves">
+			<div class="half">
+				<span class="mono hn">{pre}{slot}A/{below}B</span>
+				<label for="n-qo" class="sr">Label for the outer pair</label>
+				<input bind:this={labelInput} id="n-qo" class="inp" type="text" bind:value={form.label} placeholder="Outer pair" autocomplete="off" />
+				<label for="n-qoa" class="sr">Amperage for the outer pair</label>
+				<select id="n-qoa" class="inp amp" bind:value={form.amps}>
+					{#each AMPS as a (a)}<option value={a}>{a} A</option>{/each}
+				</select>
+			</div>
+			<div class="half">
+				<span class="mono hn">{pre}{slot}B{form.mixed ? '' : `/${below}A`}</span>
+				<label for="n-qi" class="sr">Label for {form.mixed ? `${slot}B` : 'the inner pair'}</label>
+				<input id="n-qi" class="inp" type="text" bind:value={form.labelB} placeholder={form.mixed ? 'What does it power?' : 'Inner pair'} autocomplete="off" />
+				<label for="n-qia" class="sr">Amperage for {form.mixed ? `${slot}B` : 'the inner pair'}</label>
+				<select id="n-qia" class="inp amp" bind:value={form.ampsB}>
+					{#each AMPS as a (a)}<option value={a}>{a} A</option>{/each}
+				</select>
+			</div>
+			{#if form.mixed}
+				<div class="half">
+					<span class="mono hn">{pre}{below}A</span>
+					<label for="n-qc" class="sr">Label for {below}A</label>
+					<input id="n-qc" class="inp" type="text" bind:value={form.labelC} placeholder="What does it power?" autocomplete="off" />
+					<label for="n-qca" class="sr">Amperage for {below}A</label>
+					<select id="n-qca" class="inp amp" bind:value={form.ampsC}>
+						{#each AMPS as a (a)}<option value={a}>{a} A</option>{/each}
+					</select>
+				</div>
+			{/if}
+		</div>
+	{/if}
 	{#if tandem}
 		<div class="halves">
 			{#each ['A', 'B'] as h (h)}
@@ -153,6 +239,7 @@
 		</div>
 	{/if}
 	{#if noTandemWhy}<span class="why" id="n-not">{noTandemWhy}</span>{/if}
+	{#if noQuadWhy && !noTandemWhy}<span class="why" id="n-noq">{noQuadWhy}</span>{/if}
 	{#if no2Why}<span class="why" id="n-no2">{no2Why}</span>{/if}
 	<div class="acts">
 		<button type="submit" class="btn btn-pri">Add breaker</button>
@@ -211,6 +298,10 @@
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 14px;
 	}
+	.qmode .sb {
+		flex: 1 1 0;
+		justify-content: center;
+	}
 	.halves {
 		display: flex;
 		flex-direction: column;
@@ -218,7 +309,7 @@
 	}
 	.half {
 		display: grid;
-		grid-template-columns: 36px minmax(0, 1fr) 110px;
+		grid-template-columns: 64px minmax(0, 1fr) 110px;
 		align-items: center;
 		gap: 12px;
 	}

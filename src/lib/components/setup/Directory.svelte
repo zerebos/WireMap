@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { plural, mutate, type House } from '$lib/house';
-	import { createBreaker } from '$lib/db/ops';
+	import { createBreaker, createQuad } from '$lib/db/ops';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import {
 		compareBreakers,
@@ -23,10 +23,13 @@
 	let { house, panel }: { house: House; panel: Panel } = $props();
 
 	const AMP_CHOICES = [15, 20, 30, 40, 50, 60];
-	/** One slot's entry; with `tandem` it's two halves, A (label/amps) and B (labelB/ampsB). */
-	type Row = { label: string; amps: string; two: boolean; tandem: boolean; labelB: string; ampsB: string };
+	/**
+	 * One slot's entry; with `tandem` it's two halves, A (label/amps) and B (labelB/ampsB); with
+	 * `quad` (§5.18) it takes the slot below too: the outer pair (label/amps) and inner pair (labelB/ampsB).
+	 */
+	type Row = { label: string; amps: string; two: boolean; tandem: boolean; quad: boolean; labelB: string; ampsB: string };
 	let rows = $state<Record<number, Row>>({});
-	const get = (s: number): Row => rows[s] ?? { label: '', amps: '', two: false, tandem: false, labelB: '', ampsB: '' };
+	const get = (s: number): Row => rows[s] ?? { label: '', amps: '', two: false, tandem: false, quad: false, labelB: '', ampsB: '' };
 	function patch(s: number, p: Partial<Row>) {
 		rows[s] = { ...get(s), ...p };
 	}
@@ -47,11 +50,11 @@
 	/** A new 2-pole breaker entered on the slot above takes this one. */
 	const coveredBy = (s: number): number | null => {
 		const up = above(s);
-		if (up === null || taken.has(up) || !get(up).two || get(up).tandem) return null;
+		if (up === null || taken.has(up) || !((get(up).two && !get(up).tandem) || get(up).quad)) return null;
 		return coveredBy(up) === null ? up : null;
 	};
 	const hasA = (r: Row) => r.label.trim() !== '' || r.amps !== '';
-	const hasB = (r: Row) => r.tandem && (r.labelB.trim() !== '' || r.ampsB !== '');
+	const hasB = (r: Row) => (r.tandem || r.quad) && (r.labelB.trim() !== '' || r.ampsB !== '');
 	const hasContent = (r: Row) => hasA(r) || hasB(r);
 	/** 2-pole needs the slot below free: not on the panel and not entered in this list. */
 	const cant2 = (s: number) => {
@@ -92,9 +95,12 @@
 			.filter((v): v is Extract<View, { kind: 'open' }> => v.kind === 'open' && hasContent(v.row))
 			.sort((a, b) => a.s - b.s)
 	);
-	const isTwo = (v: { row: Row; cant2: boolean }) => v.row.two && !v.row.tandem && !v.cant2;
-	const used = $derived(spacesUsed(existing, panel) + entered.reduce((n, v) => n + (isTwo(v) ? 2 : 1), 0));
-	const count = $derived(entered.reduce((n, v) => n + (v.row.tandem ? Number(hasA(v.row)) + Number(hasB(v.row)) : 1), 0));
+	const isQuad = (v: { s: number; row: Row; cant2: boolean }) => v.row.quad && !v.cant2;
+	const isTwo = (v: { s: number; row: Row; cant2: boolean }) => v.row.two && !v.row.tandem && !isQuad(v) && !v.cant2;
+	const used = $derived(spacesUsed(existing, panel) + entered.reduce((n, v) => n + (isTwo(v) || isQuad(v) ? 2 : 1), 0));
+	const count = $derived(
+		entered.reduce((n, v) => n + (v.row.tandem || isQuad(v) ? Number(hasA(v.row)) + Number(hasB(v.row)) : 1), 0)
+	);
 	const breakersText = (n: number) => (n === 1 ? '1 breaker' : `${n} breakers`);
 
 	// ---- Paste a list: one label per line, in slot order, into the slots that are still open.
@@ -120,6 +126,18 @@
 			await mutate(async () => {
 				for (const v of entered) {
 					const amps = Number(v.row.amps);
+					if (isQuad(v)) {
+						// Both pairs are saved, even one left blank, so the slots read as a quad.
+						const ampsB = Number(v.row.ampsB);
+						await createQuad(
+							panel.id,
+							v.s,
+							nextInColumn(v.s, panel),
+							{ label: v.row.label.trim(), amps: amps || 20 },
+							{ label: v.row.labelB.trim(), amps: ampsB || 20 }
+						);
+						continue;
+					}
 					if (v.row.tandem) {
 						// Both halves are saved, even one left blank, so the slot reads as a tandem.
 						const ampsB = Number(v.row.ampsB);
@@ -150,13 +168,16 @@
 {#snippet columnOf(views: View[])}
 	<div class="col">
 		<div class="drow dhead" aria-hidden="true">
-			<span class="dnum">Slot</span><span>Label</span><span>Amps</span><span class="c">2-pole</span><span class="c">Tandem</span>
+			<span class="dnum">Slot</span><span>Label</span><span>Amps</span><span class="c">2-pole</span><span class="c">Tandem</span><span class="c">Quad</span>
 		</div>
 		{#each views as v (v.s)}
 			{#if v.kind === 'open'}
 				{@const noT = !tandemOk(v.s, panel)}
+				{@const below = nextInColumn(v.s, panel)}
+				{@const q = isQuad(v)}
+				{@const noQ = v.cant2 || noT || !tandemOk(below, panel)}
 				<div class="drow">
-					<span class="dnum">{v.s}{v.row.tandem ? 'A' : ''}</span>
+					<span class="dnum">{v.s}{q ? `A/${below}B` : v.row.tandem ? 'A' : ''}</span>
 					<input
 						class="din"
 						class:is-filled={v.row.label !== ''}
@@ -178,7 +199,7 @@
 						<input
 							type="checkbox"
 							checked={isTwo(v)}
-							disabled={v.cant2 || v.row.tandem}
+							disabled={v.cant2 || v.row.tandem || q}
 							onchange={(e) => patch(v.s, { two: e.currentTarget.checked })}
 							aria-label="Slot {v.s} is 2-pole"
 						/>
@@ -187,15 +208,24 @@
 						<input
 							type="checkbox"
 							checked={v.row.tandem}
-							disabled={noT || isTwo(v)}
+							disabled={noT || isTwo(v) || q}
 							onchange={(e) => patch(v.s, { tandem: e.currentTarget.checked })}
 							aria-label="Slot {v.s} is a tandem"
 						/>
 					</label>
+					<label class="d2p" title={noQ && !v.cant2 ? `Slots ${v.s}–${below} aren’t rated for quads (${tandemText(panel)})` : undefined}>
+						<input
+							type="checkbox"
+							checked={q}
+							disabled={noQ || isTwo(v) || v.row.tandem}
+							onchange={(e) => patch(v.s, { quad: e.currentTarget.checked })}
+							aria-label="Slots {v.s} and {below} are a quad"
+						/>
+					</label>
 				</div>
-				{#if v.row.tandem}
+				{#if v.row.tandem || q}
 					<div class="drow">
-						<span class="dnum">{v.s}B</span>
+						<span class="dnum">{v.s}B{q ? `/${below}A` : ''}</span>
 						<input
 							class="din"
 							class:is-filled={v.row.labelB !== ''}
@@ -210,6 +240,7 @@
 						</select>
 						<span></span>
 						<span></span>
+						<span></span>
 					</div>
 				{/if}
 			{:else if v.kind === 'existing'}
@@ -220,12 +251,13 @@
 						<span class="mono dexa">{b.amps}A</span>
 						<span></span>
 						<span></span>
+						<span></span>
 					</div>
 				{/each}
 			{:else}
 				<div class="drow">
 					<span class="dnum">{v.s}</span>
-					<span class="dcont">↳ second pole of {v.of}</span>
+					<span class="dcont">↳ {get(v.of).quad ? `part of the quad at ${v.of}` : `second pole of ${v.of}`}</span>
 				</div>
 			{/if}
 		{/each}
@@ -345,7 +377,7 @@
 	}
 	.drow {
 		display: grid;
-		grid-template-columns: 40px minmax(0, 1fr) 84px 52px 52px;
+		grid-template-columns: 62px minmax(0, 1fr) 84px 52px 52px 52px;
 		align-items: center;
 		column-gap: 8px;
 		height: 40px;
@@ -432,6 +464,7 @@
 		color: var(--muted);
 	}
 	.dcont {
+		grid-column: 2 / span 2;
 		border: 1px dashed var(--field);
 		font-style: italic;
 	}
