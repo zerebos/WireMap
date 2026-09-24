@@ -81,7 +81,7 @@ Inline stroke SVG, 1.9–2px stroke, `currentColor`, `stroke-linecap: round`. No
 Names match the class names in the mockups.
 
 **Breaker (`.bk`)**: a `<button>`. Full column width, 30px (1-pole) or 62px (2-pole). Contents, outside→in: slot number (mono 11px, 34px wide), label (condensed, ellipsis), optional protection tag, amps (mono 12/600), handle graphic. Right column mirrors (row-reverse, label right-aligned).
-States: default (face `--raised`, 1px `--breaker-bd`); hover (border `--ink`); **selected** (amber face, `--on-amber` text, 2px ring; ring is `--ink` in light, `--amber` in dark); **dimmed** by search (opacity .3); **unlabeled** (label reads "Unlabeled", italic, `--warn`); **open slot** (non-interactive, dashed border, italic "Open").
+States: default (face `--raised`, 1px `--breaker-bd`); hover (border `--ink`); **selected** (amber face, `--on-amber` text, 2px ring; ring is `--ink` in light, `--amber` in dark); **dimmed** by search (opacity .3); **unlabeled** (label reads "Unlabeled", italic, `--warn`); **open slot** (a `<button>`: dashed border, italic "Open"; hover/focus shows "+ Add breaker"; selected = amber "New breaker…"; see §5.1.1).
 Handle: dark block (`--handle`) with one toggle nub; 2-pole has two nubs joined by a tie bar.
 
 **Leg strip**: 28px column between breaker columns (`--bus`), one mono 9px label per row: L1, L2, L1, … Rows alternate legs; a 2-pole breaker spans both. Hidden when Settings → "Show leg markers" is off.
@@ -142,6 +142,13 @@ Two regions, 32px gap, 28/32px padding.
 - Empty state: dashed box, "Nothing mapped to this breaker yet", "Flip it off, walk the house, and add whatever went dark…", primary "Add the first item" (and in the app, a secondary "Trace it").
 - Notes textarea.
 - Footer: status dot + "All changes saved" / "Unsaved changes" (`--dirty`), "Show on map", "Save changes".
+
+#### 5.1.1 Adding, moving and removing breakers
+Mockup: `PanelEmpty.dc.html` (same panel and new-breaker form; reuse them on the normal Panel page).
+- **Add**: click an open slot → the detail pane becomes the new-breaker form (§5.9): overline "New breaker · Slot 7 · Leg L2", label, Amperage, Protection, Poles (1/2; 2-pole disabled with a reason when slot+2 is taken or off the panel), "Add breaker", "Add & next slot". Escape or the close button cancels. After adding, the new breaker is selected and shown in the normal detail pane.
+- **Move**: a "Move…" button in the detail header (next to prev/next) enters move mode: the selected breaker gets a dashed amber outline, every slot it fits in (both slots free for a 2-pole) shows "Move here", slots it can't use are dimmed, and a bar above the panel reads "Moving breaker 16 · click an open slot · Esc to cancel". Its items move with it.
+- **Change poles**: the Poles field in the detail pane is editable (1-pole / 2-pole segmented). 2-pole needs slot+2 free; otherwise it's disabled with the reason.
+- **Remove**: "Remove breaker" as a warn text button at the left of the detail footer. Confirm dialog: "Remove breaker 16 “Bathrooms”? Its 9 items will be left with no breaker." Cancel / Remove (warn). Items are kept and show under Needs attention.
 
 **Behavior.** Click breaker → select. Edits reflect live on the breaker face. Header search dims non-matching breakers; matches on label, slot number, or any item name/room on that breaker.
 
