@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { DEVICE_KINDS, DEVICE_KIND_INFO, type DeviceKind } from '$lib/constants';
 
 	let { data } = $props();
@@ -50,11 +51,11 @@
 					</td>
 					<td>
 						{d.room ?? '—'}{#if d.floor}<span class="muted small"> {d.floor}</span>{/if}
-						{#if d.placed}<a class="small" href="/map?d={d.id}">Map</a>{/if}
+						{#if d.placed}<a class="small" href="{resolve('/map')}?d={d.id}">Map</a>{/if}
 					</td>
 					<td>
 						{#if d.breakerId}
-							<a href="/panels/{d.panelId}?b={d.breakerId}">
+							<a href="{resolve('/panels/[id]', { id: String(d.panelId) })}?b={d.breakerId}">
 								#{d.breakerSlot} {d.breakerLabel || 'Unlabeled'}
 							</a>
 							<span class="muted small">{d.amps}A · {d.panel}</span>

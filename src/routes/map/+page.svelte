@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '$lib/enhance';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import FloorMap, { type MapDevice, type MapMode } from '$lib/components/FloorMap.svelte';
 	import PanelView from '$lib/components/PanelView.svelte';
@@ -55,7 +56,7 @@
 			else q.set(k, String(v));
 		}
 		const s = q.toString();
-		return s ? `/map?${s}` : '/map';
+		return s ? `${resolve('/map')}?${s}` : resolve('/map');
 	}
 	const nav = (changes: Record<string, number | null>) =>
 		goto(href(changes), { noScroll: true, keepFocus: true, replaceState: true });
@@ -285,6 +286,7 @@
 			.filter(Boolean)
 			.join(' · ');
 	};
+	const panelHref = (id: number) => resolve('/panels/[id]', { id: String(id) });
 	const selectDevice = (d: Device) => nav({ d: d.id, r: null, b: null, floor: floorOf(d) });
 </script>
 
@@ -304,7 +306,7 @@
 					{f.name}
 				</a>
 			{/each}
-			<a class="add" href="/rooms">+ Floor</a>
+			<a class="add" href={resolve('/rooms')}>+ Floor</a>
 		</nav>
 	{/if}
 	<div class="unit-toggle" role="group" aria-label="Units">
@@ -317,7 +319,7 @@
 {#if !floor}
 	<div class="card">
 		<h2>Add a floor to start</h2>
-		<p class="muted">The map is drawn one floor at a time. <a href="/rooms">Add a floor</a> on the Rooms page.</p>
+		<p class="muted">The map is drawn one floor at a time. <a href={resolve('/rooms')}>Add a floor</a> on the Rooms page.</p>
 	</div>
 {:else}
 	<div class="layout">
@@ -461,7 +463,7 @@
 						{#if breaker}
 							<p>
 								On <strong>{breakerName(breaker.id)}</strong> ({breaker.amps}A, {breaker.panelName}).
-								<a href="/panels/{breaker.panelId}?b={breaker.id}">Open on panel</a>
+								<a href="{panelHref(breaker.panelId)}?b={breaker.id}">Open on panel</a>
 							</p>
 							{@const mates = circuitDevices.filter((m) => m.id !== d.id)}
 							{#if mates.length}
@@ -561,7 +563,7 @@
 					{:else}
 						<p class="muted">Nothing on this circuit yet.</p>
 					{/if}
-					<p><a href="/panels/{breaker.panelId}?b={breaker.id}">Open on panel</a></p>
+					<p><a href="{panelHref(breaker.panelId)}?b={breaker.id}">Open on panel</a></p>
 				{:else}
 					<h2>{floor.name}</h2>
 					<p class="muted">
@@ -682,7 +684,7 @@
 							b.id === num('b')
 								? href({ b: null })
 								: href({ b: b.id, d: null, r: null, floor: floorForBreaker(b.id, floor.id) })}
-						hrefForSlot={(slot) => `/panels/${shownPanel.id}?slot=${slot}`}
+						hrefForSlot={(slot) => `${panelHref(shownPanel.id)}?slot=${slot}`}
 					/>
 				</section>
 			{/if}

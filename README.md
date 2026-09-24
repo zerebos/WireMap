@@ -5,7 +5,13 @@ powers: outlets, switches, lights, appliances. The **Map** page shows each floor
 draw rooms, upload a floor plan image, place items where they really are, and click a breaker
 to light up everything it feeds (or an item to see its breaker).
 
-Stack: SvelteKit (Svelte 5, TypeScript), Drizzle ORM on SQLite via `bun:sqlite`, running on Bun.
+Everything runs in your browser. There's no server to host: the data is a SQLite database kept
+in the browser's private storage (OPFS), and the app works offline once it has loaded, so it's
+still there when the power's out and the Wi-Fi with it. It can be installed as an app
+(Add to Home Screen / Install app).
+
+Stack: SvelteKit (Svelte 5, TypeScript) built as a static single-page app, Drizzle ORM on
+[SQLite Wasm](https://sqlite.org/wasm) running in a web worker.
 
 ## Run it
 
@@ -14,32 +20,40 @@ bun install
 bun run dev          # http://localhost:5173
 ```
 
-The database is created at `data/breaker-box.db` on first start, migrations run automatically,
-and an example house is seeded when the database is empty (set `SEED_DEMO=false` to skip).
+The first visit creates the database, applies the migrations and adds an example house.
 
-The app uses `bun:sqlite`, so it has to run under the Bun runtime. The scripts already pass
-`--bun` to Vite; plain `vite dev` under Node won't work.
+## Your data
 
-## Production
+- It's stored per browser and per device. Your phone and your laptop each have their own copy.
+- The **Backup** page downloads everything (including floor plan images) as one `.sqlite` file,
+  and restores from one. That's also how you move to another device. Keep a backup somewhere
+  safe: browsers can clear site data, and Safari does after a week without a visit unless the
+  app is on your home screen. The Backup page can ask the browser to keep the data permanently.
+- A backup is a standard SQLite file. You can open it with any SQLite tool, or with Drizzle
+  Studio: `DATABASE_URL=breaker-box-2026-09-24.sqlite bun run db:studio`.
+- Only one tab can have the app open at a time; a second tab says so.
+- If the browser can't store data at all (some private windows), the app still works but warns
+  that changes are lost when the tab closes.
+
+## Hosting
 
 ```sh
-bun run build
-ORIGIN=http://breakers.local:3000 bun run start
+bun run build        # static site in build/
+bun run preview      # try the build locally
 ```
 
-| Variable        | Default               | Notes                                              |
-| --------------- | --------------------- | -------------------------------------------------- |
-| `DATABASE_URL`  | `data/breaker-box.db` | Path to the SQLite file                            |
-| `ORIGIN`        |                       | The URL you open the app at; needed for form posts |
-| `PORT`          | `3000`                |                                                    |
-| `SEED_DEMO`     | `true`                | Seed example data into an empty database           |
-| `MIGRATIONS_DIR`| `drizzle`             | Where the SQL migrations live                      |
-| `BODY_SIZE_LIMIT`| `512K`               | Max upload size; set e.g. `20M` for floor plan images (the Docker image does) |
+`build/` can be served by any static web server. Unknown paths should fall back to
+`index.html` (or `404.html`, which is the same page). It must be served over HTTPS or from
+`localhost`: browsers only allow the storage and offline support on secure pages.
 
-Uploaded floor plans are stored in a `plans/` folder next to the database file.
+If the app isn't at the root of the site, build with its path, e.g. `BASE_PATH=/breakers bun run build`.
 
-The build prints an `UNRESOLVED_IMPORT` warning for `bun:sqlite`. That's expected: it's a Bun
-built-in, resolved at runtime.
+### GitHub Pages
+
+`.github/workflows/pages.yml` builds every push and publishes `main` to
+`https://<user>.github.io/<repo>/`. Turn it on once under Settings → Pages → Build and
+deployment → Source: **GitHub Actions**. Every visitor gets their own copy of the example house,
+so it works as a demo.
 
 ## Data model
 
@@ -48,7 +62,8 @@ built-in, resolved at runtime.
   Slots use the usual US numbering: odd on the left, even on the right; a 2-pole breaker takes
   its slot and the one below it.
 - **floors** / **rooms**: floors carry a level, elevation, a drawing area (`plan_width` ×
-  `plan_height` in plan units), an optional plan image stretched over that area, and a scale
+  `plan_height` in plan units), an optional plan image stretched over that area (stored in
+  **plan_images**, so a backup is one file), and a scale
   (`meters_per_unit`, 1 unit = 1 cm until you measure one). Rooms carry an optional outline
   polygon in the same plan units.
 - **devices**: kind, name, breaker, room, plus optional `pos_x/pos_y` (plan units) and `pos_z`
@@ -68,12 +83,6 @@ built-in, resolved at runtime.
 
 ## Changing the schema
 
-Edit `src/lib/server/db/schema.ts`, then `bun run db:generate` to write a new migration into
-`drizzle/`. It's applied on the next start.
-
-## Docker
-
-```sh
-docker build -t breaker-box .
-docker run -p 3000:3000 -v breaker-data:/data -e ORIGIN=http://localhost:3000 breaker-box
-```
+Edit `src/lib/db/schema.ts`, then `bun run db:generate` to write a new migration into
+`drizzle/`. The migrations are bundled into the app and applied in the browser on the next
+load, and also to older backups when they're restored.

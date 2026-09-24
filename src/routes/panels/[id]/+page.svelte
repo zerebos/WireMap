@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '$lib/enhance';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import PanelView from '$lib/components/PanelView.svelte';
 	import BreakerFields from '$lib/components/BreakerFields.svelte';
@@ -14,7 +15,7 @@
 	const selectedSlot = $derived(Number(page.url.searchParams.get('slot')) || null);
 	const selected = $derived(data.breakers.find((b) => b.id === selectedId) ?? null);
 
-	const base = $derived(`/panels/${data.panel.id}`);
+	const here = $derived(resolve('/panels/[id]', { id: String(data.panel.id) }));
 	const deviceCount = $derived(data.breakers.reduce((n, b) => n + b.devices.length, 0));
 	const usedSlots = $derived(data.breakers.reduce((n, b) => n + b.poles, 0));
 
@@ -51,14 +52,14 @@
 			<select
 				aria-label="Switch panel"
 				value={data.panel.id}
-				onchange={(e) => goto(`/panels/${e.currentTarget.value}`)}
+				onchange={(e) => goto(resolve('/panels/[id]', { id: e.currentTarget.value }))}
 			>
 				{#each data.panels as p (p.id)}
 					<option value={p.id}>{p.name}</option>
 				{/each}
 			</select>
 		{/if}
-		<a class="button" href="/panels/new">New panel</a>
+		<a class="button" href={resolve('/panels/new')}>New panel</a>
 	</div>
 </div>
 
@@ -69,8 +70,8 @@
 		breakers={data.breakers}
 		{selectedId}
 		{selectedSlot}
-		hrefFor={(b) => (b.id === selectedId ? base : `${base}?b=${b.id}`)}
-		hrefForSlot={(slot) => (slot === selectedSlot ? base : `${base}?slot=${slot}`)}
+		hrefFor={(b) => (b.id === selectedId ? here : `${here}?b=${b.id}`)}
+		hrefForSlot={(slot) => (slot === selectedSlot ? here : `${here}?slot=${slot}`)}
 	/>
 
 	<aside class="card" bind:this={aside}>
@@ -87,14 +88,14 @@
 							· {BREAKER_KIND_LABELS[selected.kind]}
 						</p>
 					</div>
-					<a class="button" href={base} data-sveltekit-noscroll aria-label="Close">✕</a>
+					<a class="button" href={here} data-sveltekit-noscroll aria-label="Close">✕</a>
 				</header>
 
 				<section>
 					<div class="section-head">
 						<h3>On this circuit</h3>
 						{#if selected.devices.some((d) => d.posX !== null)}
-							<a href="/map?b={selected.id}">Show on map</a>
+							<a href="{resolve('/map')}?b={selected.id}">Show on map</a>
 						{/if}
 					</div>
 					{#if selected.devices.length === 0}
@@ -170,7 +171,7 @@
 			{#key selectedSlot}
 				<header class="detail-head">
 					<h2>New breaker in slot {selectedSlot}</h2>
-					<a class="button" href={base} data-sveltekit-noscroll aria-label="Close">✕</a>
+					<a class="button" href={here} data-sveltekit-noscroll aria-label="Close">✕</a>
 				</header>
 				<form method="POST" action="?slot={selectedSlot}&/createBreaker" use:enhance class="stack">
 					<BreakerFields slot={selectedSlot} slotCount={data.panel.slotCount} />

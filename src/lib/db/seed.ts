@@ -1,5 +1,5 @@
-import { db } from './db';
-import { panels, breakers, floors, rooms, devices } from './db/schema';
+import type { DB } from './index';
+import { panels, breakers, floors, rooms, devices } from './schema';
 
 const rect = (x1: number, y1: number, x2: number, y2: number): [number, number][] => [
 	[x1, y1],
@@ -9,18 +9,16 @@ const rect = (x1: number, y1: number, x2: number, y2: number): [number, number][
 ];
 const at = (posX: number, posY: number, posZ: number | null = null) => ({ posX, posY, posZ });
 
-/** Fills an empty database with a small example house so there's something to click on. */
-export function seedIfEmpty() {
-	if (db.select({ id: panels.id }).from(panels).limit(1).all().length) return;
-
-	db.transaction((tx) => {
-		const [panel] = tx
+/** Adds a small example house so there's something to click on. */
+export async function seed(db: DB) {
+	await db.transaction(async (tx) => {
+		const [panel] = await tx
 			.insert(panels)
 			.values({ name: 'Main panel', location: 'Garage', mainAmps: 200, slotCount: 24 })
 			.returning()
 			.all();
 
-		const [main, upstairs] = tx
+		const [main, upstairs] = await tx
 			.insert(floors)
 			.values([
 				// 14 m × 10 m at the default scale of 1 unit = 1 cm.
@@ -30,7 +28,7 @@ export function seedIfEmpty() {
 			.returning()
 			.all();
 
-		const [kitchen, living, garage, bedroom] = tx
+		const [kitchen, living, garage, bedroom] = await tx
 			.insert(rooms)
 			.values([
 				{ name: 'Kitchen', floorId: main.id, outline: rect(600, 0, 1100, 450) },
@@ -45,7 +43,7 @@ export function seedIfEmpty() {
 			.returning()
 			.all();
 
-		const b = tx
+		const b = await tx
 			.insert(breakers)
 			.values([
 				{ panelId: panel.id, slot: 1, amps: 20, kind: 'gfci', label: 'Kitchen counter', color: '#e8a33d' },
@@ -61,7 +59,8 @@ export function seedIfEmpty() {
 			.all();
 		const byLabel = Object.fromEntries(b.map((x) => [x.label, x.id]));
 
-		tx.insert(devices)
+		await tx
+			.insert(devices)
 			.values([
 				{ name: 'Left of sink', kind: 'outlet', breakerId: byLabel['Kitchen counter'], roomId: kitchen.id, ...at(820, 15, 1.1) },
 				{ name: 'By fridge', kind: 'outlet', breakerId: byLabel['Kitchen counter'], roomId: kitchen.id, ...at(1085, 220, 1.1) },

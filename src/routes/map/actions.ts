@@ -1,42 +1,22 @@
-import { asc, eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { DEVICE_KINDS, devices, floors, panels, rooms } from '$lib/server/db/schema';
-import { invalid, reader } from '$lib/server/form';
-import { PLAN_TYPES, deletePlan, savePlan } from '$lib/server/plans';
+import { eq } from 'drizzle-orm';
+import { db } from '$lib/db';
+import { DEVICE_KINDS, devices, floors, rooms } from '$lib/db/schema';
+import type { LocalAction } from '$lib/enhance';
+import { invalid, reader } from '$lib/form';
+import { PLAN_TYPES, deletePlan, savePlan } from '$lib/plans';
 import { DEFAULT_METERS_PER_UNIT, parseOutline, roomAt, toMeters, type Point } from '$lib/geometry';
 
-export const load = () => ({
-	floors: db.select().from(floors).orderBy(asc(floors.level), asc(floors.id)).all(),
-	rooms: db
-		.select()
-		.from(rooms)
-		.orderBy(asc(rooms.name))
-		.all()
-		.map((r) => ({ ...r, outline: parseOutline(r.outline) })),
-	devices: db.select().from(devices).orderBy(asc(devices.name)).all(),
-	panels: db.query.panels
-		.findMany({
-			orderBy: asc(panels.id),
-			with: {
-				breakers: {
-					orderBy: (b, { asc }) => asc(b.slot),
-					with: { devices: { columns: { id: true } } }
-				}
-			}
-		})
-		.sync()
-});
+const getFloor = async (id: number | null) =>
+	id ? await db.select().from(floors).where(eq(floors.id, id)).get() : undefined;
 
-const getFloor = (id: number | null) =>
-	id ? db.select().from(floors).where(eq(floors.id, id)).get() : undefined;
-
-const floorRooms = (floorId: number) =>
-	db
-		.select({ id: rooms.id, floorId: rooms.floorId, outline: rooms.outline })
-		.from(rooms)
-		.where(eq(rooms.floorId, floorId))
-		.all()
-		.map((r) => ({ ...r, outline: parseOutline(r.outline) }));
+const floorRooms = async (floorId: number) =>
+	(
+		await db
+			.select({ id: rooms.id, floorId: rooms.floorId, outline: rooms.outline })
+			.from(rooms)
+			.where(eq(rooms.floorId, floorId))
+			.all()
+	).map((r) => ({ ...r, outline: parseOutline(r.outline) }));
 
 /** Reads an x/y pair and checks it lies on the floor's drawing area. */
 function readPoint(f: ReturnType<typeof reader>, floor: { planWidth: number; planHeight: number }) {
@@ -52,8 +32,8 @@ function readPoint(f: ReturnType<typeof reader>, floor: { planWidth: number; pla
  * room. Outside every outline, a room already on this floor is kept (useful before outlines
  * are drawn); otherwise the item has no floor to live on, so that's an error.
  */
-function resolveRoom(floorId: number, p: Point, currentRoomId: number | null) {
-	const onFloor = floorRooms(floorId);
+async function resolveRoom(floorId: number, p: Point, currentRoomId: number | null) {
+	const onFloor = await floorRooms(floorId);
 	const hit = roomAt(p, onFloor);
 	if (hit) return { roomId: hit.id };
 	if (currentRoomId && onFloor.some((r) => r.id === currentRoomId)) return { roomId: currentRoomId };
@@ -70,10 +50,10 @@ function height(f: ReturnType<typeof reader>) {
 	return v === null ? null : toMeters(v, f.str('heightUnit'));
 }
 
-export const actions = {
-	saveOutline: async ({ request }) => {
-		const f = reader(await request.formData());
-		const floor = getFloor(f.int('floorId'));
+export const actions: Record<string, LocalAction> = {
+	saveOutline: async ({ data }) => {
+		const f = reader(data);
+		const floor = await getFloor(f.int('floorId'));
 		if (!floor) return invalid('Floor not found.');
 		let outline: Point[] | null = null;
 		try {
@@ -84,32 +64,32 @@ export const actions = {
 		if (!outline) return invalid('A room outline needs at least three corners.');
 		const roomId = f.int('roomId');
 		if (roomId) {
-			db.update(rooms).set({ outline, floorId: floor.id }).where(eq(rooms.id, roomId)).run();
+			await db.update(rooms).set({ outline, floorId: floor.id }).where(eq(rooms.id, roomId));
 			return { roomId };
 		}
 		const name = f.str('name');
 		if (!name) return invalid('Give the room a name.');
-		const [room] = db.insert(rooms).values({ name, floorId: floor.id, outline }).returning().all();
+		const [room] = await db.insert(rooms).values({ name, floorId: floor.id, outline }).returning().all();
 		return { roomId: room.id };
 	},
 
-	updateRoom: async ({ request }) => {
-		const f = reader(await request.formData());
+	updateRoom: async ({ data }) => {
+		const f = reader(data);
 		const id = f.int('id');
 		const name = f.str('name');
 		if (!id || !name) return invalid('Give the room a name.');
-		db.update(rooms).set({ name }).where(eq(rooms.id, id)).run();
+		await db.update(rooms).set({ name }).where(eq(rooms.id, id));
 	},
 
-	clearOutline: async ({ request }) => {
-		const id = reader(await request.formData()).int('id');
-		if (id) db.update(rooms).set({ outline: null }).where(eq(rooms.id, id)).run();
+	clearOutline: async ({ data }) => {
+		const id = reader(data).int('id');
+		if (id) await db.update(rooms).set({ outline: null }).where(eq(rooms.id, id));
 	},
 
-	placeDevice: async ({ request }) => {
-		const f = reader(await request.formData());
-		const floor = getFloor(f.int('floorId'));
-		const device = db
+	placeDevice: async ({ data }) => {
+		const f = reader(data);
+		const floor = await getFloor(f.int('floorId'));
+		const device = await db
 			.select()
 			.from(devices)
 			.where(eq(devices.id, f.int('id') ?? 0))
@@ -117,30 +97,30 @@ export const actions = {
 		if (!floor || !device) return invalid('Item not found.');
 		const p = readPoint(f, floor);
 		if (!p) return invalid('That spot is off the map.');
-		const room = resolveRoom(floor.id, p, device.roomId);
+		const room = await resolveRoom(floor.id, p, device.roomId);
 		if (room.error) return invalid(room.error);
-		db.update(devices)
+		await db
+			.update(devices)
 			.set({ posX: p[0], posY: p[1], roomId: room.roomId })
-			.where(eq(devices.id, device.id))
-			.run();
+			.where(eq(devices.id, device.id));
 	},
 
-	unplaceDevice: async ({ request }) => {
-		const id = reader(await request.formData()).int('id');
-		if (id) db.update(devices).set({ posX: null, posY: null }).where(eq(devices.id, id)).run();
+	unplaceDevice: async ({ data }) => {
+		const id = reader(data).int('id');
+		if (id) await db.update(devices).set({ posX: null, posY: null }).where(eq(devices.id, id));
 	},
 
-	createDevice: async ({ request }) => {
-		const f = reader(await request.formData());
-		const floor = getFloor(f.int('floorId'));
+	createDevice: async ({ data }) => {
+		const f = reader(data);
+		const floor = await getFloor(f.int('floorId'));
 		if (!floor) return invalid('Floor not found.');
 		const p = readPoint(f, floor);
 		if (!p) return invalid('That spot is off the map.');
 		const name = f.str('name');
 		if (!name) return invalid('Give the item a name.');
-		const room = resolveRoom(floor.id, p, f.int('roomId'));
+		const room = await resolveRoom(floor.id, p, f.int('roomId'));
 		if (room.error) return invalid(room.error);
-		const [created] = db
+		const [created] = await db
 			.insert(devices)
 			.values({
 				name,
@@ -156,13 +136,14 @@ export const actions = {
 		return { deviceId: created.id };
 	},
 
-	updateDevice: async ({ request }) => {
-		const f = reader(await request.formData());
+	updateDevice: async ({ data }) => {
+		const f = reader(data);
 		const id = f.int('id');
 		const name = f.str('name');
 		if (!id) return invalid('Item not found.');
 		if (!name) return invalid('Give the item a name.');
-		db.update(devices)
+		await db
+			.update(devices)
 			.set({
 				name,
 				kind: f.oneOf('kind', DEVICE_KINDS, 'outlet'),
@@ -170,13 +151,12 @@ export const actions = {
 				posZ: height(f),
 				notes: f.optStr('notes')
 			})
-			.where(eq(devices.id, id))
-			.run();
+			.where(eq(devices.id, id));
 	},
 
-	updateFloor: async ({ request }) => {
-		const f = reader(await request.formData());
-		const floor = getFloor(f.int('id'));
+	updateFloor: async ({ data }) => {
+		const f = reader(data);
+		const floor = await getFloor(f.int('id'));
 		if (!floor) return invalid('Floor not found.');
 		const name = f.str('name');
 		// Sizes arrive in the unit shown on screen (m or ft).
@@ -186,25 +166,24 @@ export const actions = {
 		if (!name) return invalid('Give the floor a name.');
 		if (!width || !depth || width <= 0 || depth <= 0) return invalid('Width and depth must be above zero.');
 		const mpu = floor.metersPerUnit ?? DEFAULT_METERS_PER_UNIT;
-		db.update(floors)
+		await db
+			.update(floors)
 			.set({ name, planWidth: toMeters(width, unit) / mpu, planHeight: toMeters(depth, unit) / mpu })
-			.where(eq(floors.id, floor.id))
-			.run();
+			.where(eq(floors.id, floor.id));
 	},
 
-	setScale: async ({ request }) => {
-		const f = reader(await request.formData());
-		const floor = getFloor(f.int('id'));
+	setScale: async ({ data }) => {
+		const f = reader(data);
+		const floor = await getFloor(f.int('id'));
 		const metersPerUnit = f.num('metersPerUnit');
 		if (!floor) return invalid('Floor not found.');
 		if (!metersPerUnit || metersPerUnit <= 0) return invalid('Enter the real length of the line.');
-		db.update(floors).set({ metersPerUnit }).where(eq(floors.id, floor.id)).run();
+		await db.update(floors).set({ metersPerUnit }).where(eq(floors.id, floor.id));
 	},
 
-	uploadPlan: async ({ request }) => {
-		const data = await request.formData();
+	uploadPlan: async ({ data }) => {
 		const f = reader(data);
-		const floor = getFloor(f.int('id'));
+		const floor = await getFloor(f.int('id'));
 		if (!floor) return invalid('Floor not found.');
 		const file = data.get('plan');
 		if (!(file instanceof File) || !file.size) return invalid('Choose an image to upload.');
@@ -214,14 +193,14 @@ export const actions = {
 		const planHeight =
 			aspect && aspect > 0.05 && aspect < 20 ? floor.planWidth * aspect : floor.planHeight;
 		const name = await savePlan(floor.id, file);
-		db.update(floors).set({ planImage: name, planHeight }).where(eq(floors.id, floor.id)).run();
-		deletePlan(floor.planImage);
+		await db.update(floors).set({ planImage: name, planHeight }).where(eq(floors.id, floor.id));
+		await deletePlan(floor.planImage);
 	},
 
-	removePlan: async ({ request }) => {
-		const floor = getFloor(reader(await request.formData()).int('id'));
+	removePlan: async ({ data }) => {
+		const floor = await getFloor(reader(data).int('id'));
 		if (!floor) return invalid('Floor not found.');
-		db.update(floors).set({ planImage: null }).where(eq(floors.id, floor.id)).run();
-		deletePlan(floor.planImage);
+		await db.update(floors).set({ planImage: null }).where(eq(floors.id, floor.id));
+		await deletePlan(floor.planImage);
 	}
 };
