@@ -43,7 +43,7 @@ export type DB = typeof raw;
 /** Thrown when another tab already has the database open. */
 export class OtherTabError extends Error {
 	constructor() {
-		super('Breaker Box is already open in another tab. Close it there to use it here.');
+		super('Breakerbook is already open in another tab. Close it there to use it here.');
 	}
 }
 
@@ -101,7 +101,7 @@ export async function exportDatabase(): Promise<Uint8Array> {
 export async function importDatabase(bytes: Uint8Array): Promise<void> {
 	await ready();
 	if (new TextDecoder().decode(bytes.subarray(0, 16)) !== SQLITE_HEADER) {
-		throw new Error("That file isn't a Breaker Box backup.");
+		throw new Error("That file isn't a Breakerbook backup.");
 	}
 	const previous = await call<Uint8Array>({ type: 'export' });
 	try {
@@ -112,7 +112,7 @@ export async function importDatabase(bytes: Uint8Array): Promise<void> {
 		await raw.run(sql`select id from panels limit 1`);
 	} catch {
 		await call({ type: 'import', bytes: previous });
-		throw new Error("That file isn't a Breaker Box backup.");
+		throw new Error("That file isn't a Breakerbook backup.");
 	}
 }
 
