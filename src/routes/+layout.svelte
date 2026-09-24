@@ -2,89 +2,231 @@
 	import '../app.css';
 	import { asset, resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { afterNavigate } from '$app/navigation';
+	import Icon from '$lib/components/Icon.svelte';
+	import { mutate } from '$lib/house';
+	import { updateSettings } from '$lib/db/ops';
+	import { search } from '$lib/search.svelte';
+	import { applyTheme, effectiveTheme } from '$lib/theme';
 
 	let { data, children } = $props();
 
 	const route = $derived(page.route.id ?? '');
 	const links = [
-		{ href: resolve('/'), label: 'Panels', match: (r: string) => r === '/' || r.startsWith('/panels') },
-		{ href: resolve('/map'), label: 'Map', match: (r: string) => r === '/map' },
-		{ href: resolve('/devices'), label: 'Devices', match: (r: string) => r === '/devices' },
-		{ href: resolve('/rooms'), label: 'Rooms', match: (r: string) => r === '/rooms' },
-		{ href: resolve('/backup'), label: 'Backup', match: (r: string) => r === '/backup' }
+		{ href: resolve('/panel'), label: 'Panel', path: '/panel' },
+		{ href: resolve('/map'), label: 'Map', path: '/map' },
+		{ href: resolve('/items'), label: 'Items', path: '/items' },
+		{ href: resolve('/settings'), label: 'Settings', path: '/settings' }
 	];
+	// What the header search filters on each page.
+	const placeholders: Record<string, string> = {
+		'/panel': 'Search breakers, items, rooms',
+		'/map': 'Filter circuits, items, rooms',
+		'/items': 'Search items, rooms, breakers',
+		'/settings': 'Search settings'
+	};
+	// The phone flows are full-screen, with their own back button.
+	const phone = $derived(route.startsWith('/shutoff') || route.startsWith('/trace'));
+
+	// Search belongs to the page it was typed on.
+	afterNavigate(({ from, to }) => {
+		if (from?.route.id !== to?.route.id) search.q = '';
+	});
+
+	const settings = $derived(data.house?.settings);
+	$effect(() => {
+		if (settings) applyTheme(settings.theme);
+	});
+	// Follow OS changes while on System.
+	let osDark = $state(typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches);
+	$effect(() => {
+		const mq = matchMedia('(prefers-color-scheme: dark)');
+		const on = () => (osDark = mq.matches);
+		mq.addEventListener('change', on);
+		return () => mq.removeEventListener('change', on);
+	});
+	const shown = $derived.by(() => {
+		void osDark;
+		return settings ? effectiveTheme(settings.theme) : 'dark';
+	});
+	const themeLabel = $derived(shown === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+	const toggleTheme = () => mutate(() => updateSettings({ theme: shown === 'dark' ? 'light' : 'dark' }));
+
+	const panel = $derived(data.house?.panel);
 </script>
 
 <svelte:head>
 	<link rel="icon" href={asset('/icon.svg')} type="image/svg+xml" />
-	<title>Breaker Box</title>
+	<title>{settings ? `${settings.homeName} · Breakerbook` : 'Breakerbook'}</title>
 </svelte:head>
 
-<header>
-	<a class="brand" href={resolve('/')}>⚡ Breaker Box</a>
-	<nav>
-		{#each links as link (link.href)}
-			<a href={link.href} aria-current={link.match(route) ? 'page' : undefined}>
-				{link.label}
+<div class="app">
+	{#if !phone}
+		<header>
+			<a class="brand" href={resolve('/')}>
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+					><rect x="5" y="2.5" width="14" height="19" rx="2" /><rect x="9" y="6" width="6" height="7" rx="1" fill="currentColor" /><path
+						d="M9 17h6"
+					/></svg
+				>
+				<span>Breakerbook</span>
 			</a>
-		{/each}
-	</nav>
-</header>
+			<nav aria-label="Primary">
+				{#each links as link (link.href)}
+					<a class="nav" class:is-on={route === link.path} href={link.href} aria-current={route === link.path ? 'page' : undefined}>
+						{link.label}
+					</a>
+				{/each}
+			</nav>
+			<div class="grow"></div>
+			<label for="q" class="sr">{placeholders[route] ?? 'Search'}</label>
+			<div class="searchbox">
+				<Icon name="search" size={16} />
+				<input id="q" class="search" type="search" placeholder={placeholders[route] ?? 'Search'} bind:value={search.q} />
+			</div>
+			<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
+				<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
+			</button>
+			{#if panel}
+				<span class="mono meta">{panel.name}{panel.mainAmps ? ` · ${panel.mainAmps}A` : ''}</span>
+			{/if}
+		</header>
 
-{#if data.storage && !data.storage.persistent}
-	<p class="warning" role="status">
-		This browser can't store data for Breaker Box, so changes are lost when you close the tab.
-		<a href={resolve('/backup')}>Download a backup</a> before you leave.
-	</p>
-{/if}
+		{#if data.storage && !data.storage.persistent}
+			<p class="warning" role="status">
+				This browser can't store data for Breakerbook, so changes are lost when you close the tab.
+				<a href={resolve('/settings') + '#data'}>Download a backup</a> before you leave.
+			</p>
+		{/if}
+	{/if}
 
-<!-- The map wants the full width of the window. -->
-<main class:wide={route === '/map'}>
-	{@render children()}
-</main>
+	<div class="body">
+		{@render children()}
+	</div>
+</div>
 
 <style>
+	/* The window never scrolls; each page scrolls its own regions. */
+	.app {
+		height: 100dvh;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+	.body {
+		flex: 1 1 0;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
 	header {
+		height: var(--header-h);
+		flex-shrink: 0;
+		background: var(--hdr);
+		color: var(--hdr-fg);
 		display: flex;
 		align-items: center;
-		gap: 1.5rem;
-		padding: 0.75rem 1.25rem;
-		background: var(--surface);
-		border-bottom: 1px solid var(--border);
-		flex-wrap: wrap;
+		gap: 28px;
+		border-bottom: 1px solid var(--hdr-bd);
+		padding: 0 24px;
 	}
 	.brand {
-		font-weight: 700;
-		color: var(--text);
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		color: var(--amber);
 		text-decoration: none;
+	}
+	.brand span {
+		color: var(--hdr-fg);
+		font-size: 18px;
+		font-weight: 800;
+		font-stretch: 112%;
+		letter-spacing: -0.01em;
 	}
 	nav {
 		display: flex;
-		gap: 1rem;
+		gap: 2px;
+		align-self: stretch;
 	}
-	nav a {
-		color: var(--muted);
+	.nav {
+		display: flex;
+		align-items: center;
+		padding: 0 14px;
+		color: var(--hdr-nav);
 		text-decoration: none;
-		padding: 0.2rem 0;
-		border-bottom: 2px solid transparent;
+		font-size: 14px;
+		font-weight: 600;
+		border-top: 3px solid transparent;
+		border-bottom: 3px solid transparent;
 	}
-	nav a[aria-current='page'] {
-		color: var(--text);
-		border-bottom-color: var(--accent);
+	.nav:hover,
+	.nav.is-on {
+		color: var(--hdr-fg);
+	}
+	.nav.is-on {
+		border-bottom-color: var(--amber);
+	}
+	.grow {
+		flex-grow: 1;
+	}
+	.searchbox {
+		position: relative;
+		display: flex;
+		align-items: center;
+		color: var(--hdr-nav);
+	}
+	.searchbox :global(svg) {
+		position: absolute;
+		left: 12px;
+		pointer-events: none;
+	}
+	.search {
+		width: 340px;
+		height: var(--control-h-sm);
+		border: 1px solid var(--hdr-field-bd);
+		border-radius: var(--r-lg);
+		background: var(--hdr-field);
+		color: var(--hdr-fg);
+		font: inherit;
+		font-size: 14px;
+		padding: 0 12px 0 36px;
+	}
+	.search::placeholder {
+		color: var(--hdr-placeholder);
+	}
+	.search:focus {
+		outline: 2px solid var(--amber);
+		outline-offset: 1px;
+	}
+	.tgl {
+		width: 40px;
+		height: 40px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--hdr-field-bd);
+		border-radius: var(--r-lg);
+		background: transparent;
+		color: var(--hdr-fg);
+		cursor: pointer;
+		padding: 0;
+		flex-shrink: 0;
+	}
+	.tgl:hover {
+		background: var(--hdr-field);
+	}
+	.meta {
+		font-size: 12px;
+		color: var(--hdr-nav);
+		white-space: nowrap;
 	}
 	.warning {
 		margin: 0;
-		padding: 0.6rem 1.25rem;
-		background: var(--warning-bg, #fff4d6);
-		color: var(--text);
-		border-bottom: 1px solid var(--border);
-	}
-	main {
-		padding: 1.25rem;
-		max-width: 1200px;
-		margin: 0 auto;
-	}
-	main.wide {
-		max-width: 1600px;
+		padding: 10px 24px;
+		background: var(--amber-soft);
+		color: var(--ink);
+		border-bottom: 1.5px solid var(--amber);
+		font-size: 14px;
 	}
 </style>

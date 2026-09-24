@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+a{color:var(--ink)}a:hover{color:var(--link-h)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--ink);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--bg);color:var(--ink)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--ink)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label{font-size:12px;font-weight:600;color:var(--muted)}
+.fld select{box-sizing:border-box;width:100%;height:44px;padding:0 10px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+.fld select:focus{outline:2px solid #F2A33A;border-color:var(--ink)}
+.circ{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 10px;box-sizing:border-box;border:1px solid transparent;border-radius:8px;background:transparent;font:inherit;color:var(--ink);text-align:left;cursor:pointer;flex-shrink:0}
+.circ:hover{background:var(--bg)}
+.circ .cn{min-width:44px;height:28px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:var(--bg);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.circ .cl{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.circ .cm{font-size:12px;color:var(--muted)}
+.circ.is-sel{background:#F2A33A;border-color:var(--ink)}
+.circ.is-sel .cm{color:var(--on-amber-muted)}
+.circ.is-unl .cl{font-style:italic;color:var(--warn)}
+.circ.is-sel.is-unl .cl{color:var(--ink)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 14px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(26,27,29,.14)}
+.fdot{width:7px;height:7px;border-radius:50%;background:#E08A12;box-shadow:0 0 0 2px var(--surface)}
+.grid{background-color:var(--grid-bg);background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);background-size:20px 20px}
+.room{position:absolute;box-sizing:border-box;border:2px solid var(--wall);background:var(--room);transition:background .3s,border-color .3s,opacity .3s;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.room:hover{border-color:var(--ink)}
+.room.is-sel{box-shadow:inset 0 0 0 3px var(--ink);background:var(--surface)}
+.room.is-sel .rn{color:var(--ink)}
+.room.is-mute{opacity:.5}
+.room.no-pick{cursor:crosshair}
+.room:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+.bdg{position:absolute;top:-9px;right:-13px;min-width:18px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;pointer-events:none;box-shadow:0 0 0 1.5px var(--surface)}
+.bdg.warn{background:var(--warn);color:var(--surface)}
+.ghead{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;box-sizing:border-box;border:0;border-bottom:1px solid var(--line);background:var(--raised);font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.ghead:hover,.ghead:focus-visible{background:#F2A33A;color:#1A1B1D}
+.ghead:hover .gm,.ghead:focus-visible .gm{color:#3A2A10}
+.ghead.static{cursor:default}.ghead.static:hover{background:var(--raised);color:var(--ink)}
+.bnum{min-width:40px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.bnum.warn{background:var(--warn);color:var(--surface)}
+.gm{font-size:12px;color:var(--muted)}
+.irow2{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:4px 6px;box-sizing:border-box;border:0;border-radius:6px;background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.irow2:hover{background:var(--bg)}
+.irow2 .ico{width:26px;height:26px}
+.linkbtn{padding:0;border:0;background:none;font:inherit;font-size:14px;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;text-align:left}
+.linkbtn:hover{color:var(--ink)}
+.room .rn{position:absolute;left:10px;top:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-stretch:85%;color:var(--soft);pointer-events:none}
+.room.is-lit{background:rgba(242,163,58,.17);border-color:var(--room-lit-bd)}
+.room.is-lit .rn{color:var(--room-lit-ink)}
+.it{position:absolute;width:32px;height:32px;box-sizing:border-box;border-radius:50%;border:1.5px solid var(--ink);background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;transition:opacity .3s,background .3s,transform .12s}
+.it:hover{transform:scale(1.12);z-index:3}
+.it.is-lit{background:#F2A33A;animation:lit 1.4s ease-out 2}
+.it.is-dim{opacity:.28}
+.it.is-pick{box-shadow:0 0 0 3px var(--surface),0 0 0 5.5px var(--ink);z-index:2}
+.it:focus-visible,.circ:focus-visible,.sb:focus-visible,.btn:focus-visible,.ibtn:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+@keyframes lit{0%{box-shadow:0 0 0 0 rgba(242,163,58,.75)}100%{box-shadow:0 0 0 14px rgba(242,163,58,0)}}
+.chipbtn{height:34px;padding:0 12px;border:1px solid var(--chip-bd);border-radius:6px;background:transparent;color:var(--bg);font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.chipbtn:hover{background:var(--chip-h)}
+.pt{height:34px;padding:0 10px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.pt.is-on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.srow{display:flex;align-items:center;gap:10px;width:100%;padding:8px;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:inherit;color:var(--ink);text-align:left;cursor:pointer;min-height:48px}
+.srow:hover{border-color:var(--ink)}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.in{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iw{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zb{width:40px;height:40px;border:0;background:transparent;font:inherit;font-size:18px;color:var(--ink);cursor:pointer}
+.zb:hover{background:var(--bg)}
+input[type=range]{accent-color:var(--ink)}
+.th-light{--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--fed-bd:#1A1B1D;--ghost:rgba(255,255,255,.85);--room:rgba(255,255,255,.55);--ink:#1A1B1D;--tag-fg:#27466F;--handle:#2A2C2F;--chip-h:#2E3034;--plan-ink:#2F3337;--focus:#2F5FA7;--on-amber-muted:#3A2A10;--soft:#44474B;--chip-bd:#4A4D52;--muted:#55595E;--amber-ink:#5A3A0C;--room-lit-ink:#6E3F04;--wall:#6E7378;--link-h:#8A4B06;--enclosure-bd:#9AA0A6;--warn:#A93F1B;--room-lit-bd:#B8700F;--chip-muted:#C9CACC;--field:#CFCBC2;--line-2:#D6D3CC;--tag-bg:#E1E8F2;--line:#E6E3DC;--grid-line:#E7E4DD;--bg:#F1EFEA;--grid-bg:#F7F6F2;--raised:#FBFAF7;--amber-soft:#FFF6E8;--surface:#FFFFFF;}
+.th-dark{--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--fed-bd:#F2A33A;--ghost:rgba(32,34,38,.9);--room:rgba(32,34,38,.72);color-scheme:dark;--ink:#ECEAE4;--tag-fg:#A9C4EA;--handle:#0B0C0D;--chip-h:#D6D3CC;--plan-ink:#C3C6CB;--focus:#7FA8E8;--on-amber-muted:#3A2A10;--soft:#B7BAC0;--chip-bd:#9A9DA2;--muted:#A3A7AD;--amber-ink:#F2C27A;--room-lit-ink:#F5B860;--wall:#5E636A;--link-h:#F5B860;--enclosure-bd:#4A4F55;--warn:#F08A64;--room-lit-bd:#E0922C;--chip-muted:#4A4D52;--field:#3C4046;--line-2:#34373C;--tag-bg:#1F2E45;--line:#2C2F34;--grid-line:#22252A;--bg:#121315;--grid-bg:#15161A;--raised:#1B1D20;--amber-soft:#2A2217;--surface:#202226;}
+.th-light{color-scheme:light}.bk.is-sel,.bk.is-sel .num,.bk.is-sel .amp,.bk.is-sel .lbl,.bk.is-sel.is-unl .lbl{color:#1A1B1D}.circ.is-sel,.circ.is-sel .cl,.circ.is-sel.is-unl .cl{color:#1A1B1D}.it.is-lit{color:#1A1B1D}.th-dark .bk.is-sel{box-shadow:0 0 0 2px #F2A33A;border-color:#121315}.th-dark .circ.is-sel{border-color:#F2A33A}.th-dark .it.is-lit{border-color:#121315}.th-dark .room.is-lit{background:rgba(242,163,58,.12)}.th-dark .btn{border-color:#4A4F55}.th-dark .btn:hover{background:#2A2D31;border-color:#6E737A}.th-dark .btn-pri{border-color:#F2A33A}.th-dark .btn-pri:hover{background:#F6B75C;border-color:#F6B75C;color:#121315}.th-dark .ibtn:hover,.th-dark .srow:hover,.th-dark .bk:hover{border-color:#6E737A}.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}.tgl:hover{background:#26282B}.tgl:focus-visible{outline:3px solid #7FA8E8;outline-offset:2px}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); overflow: hidden; transition: background .2s">
+<header style="height: 60px; flex-shrink: 0; background: var(--hdr); color: #ECEAE4; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--hdr-bd); padding: 0 24px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2A33A" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><rect x="9" y="6" width="6" height="7" rx="1" fill="#F2A33A"></rect><path d="M9 17h6"></path></svg>
+<span style="font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em">Breakerbook</span>
+</div>
+<nav aria-label="Primary" style="display: flex; gap: 2px; height: 100%">
+<a class="nav" href="Panel.dc.html">Panel</a>
+<a class="nav is-on" href="Map.dc.html" aria-current="page">Map</a>
+<a class="nav" href="Items.dc.html">Items</a>
+<a class="nav" href="Settings.dc.html">Settings</a>
+</nav>
+<div style="flex-grow: 1"></div>
+<label for="mq" class="sr">Filter circuits</label>
+<div style="position: relative; display: flex; align-items: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B9BBBF" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; pointer-events: none"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input id="mq" class="search" type="search" placeholder="Filter circuits, items, rooms" value="{{q}}" onChange="{{onSearch}}">
+</div>
+<button type="button" class="tgl" onClick="{{toggleTheme}}" aria-label="{{themeLabel}}" title="{{themeLabel}}"><sc-if value="{{isDark}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{isLight}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></sc-if></button>
+<span class="mono" style="font-size: 12px; color: #B9BBBF">Main panel · 200A</span>
+</header>
+
+<main style="flex-grow: 1; min-height: 0; display: flex">
+
+<aside aria-label="Circuits" style="width: 300px; flex-shrink: 0; background: var(--raised); border-right: 1px solid var(--line-2); display: flex; flex-direction: column; min-height: 0">
+<div style="padding: 20px 20px 6px; display: flex; justify-content: space-between; align-items: baseline">
+<h2 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 108%">Circuits</h2>
+<span class="mono" style="font-size: 12px; color: var(--muted)">{{circCount}}</span>
+</div>
+<p style="margin: 0 20px 12px; font-size: 13px; color: var(--muted); line-height: 1.45">Pick one to light up everything it feeds.</p>
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 0 12px 16px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{circuits}}" as="c" hint-placeholder-count="12">
+<button type="button" class="{{c.cls}}" onClick="{{c.pick}}" aria-pressed="{{c.pressed}}"><span class="cn">{{c.num}}</span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span class="cl">{{c.name}}</span><span class="cm">{{c.meta}}</span></span><sc-if value="{{c.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag">{{c.tag}}</span></sc-if></button>
+</sc-for>
+</div>
+</aside>
+
+<section aria-label="Floor map" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column">
+<div style="height: 60px; flex-shrink: 0; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 12px; background: var(--raised); border-bottom: 1px solid var(--line-2)">
+<div class="seg" role="group" aria-label="Floor">
+<button type="button" class="{{fBsmt}}" onClick="{{goBsmt}}" aria-pressed="{{pBsmt}}">Basement<sc-if value="{{dotBsmt}}" hint-placeholder-val="{{false}}"><span class="fdot"></span></sc-if></button>
+<button type="button" class="{{fMain}}" onClick="{{goMain}}" aria-pressed="{{pMain}}">Main floor<sc-if value="{{dotMain}}" hint-placeholder-val="{{true}}"><span class="fdot"></span></sc-if></button>
+<button type="button" class="{{fUp}}" onClick="{{goUp}}" aria-pressed="{{pUp}}">Upstairs<sc-if value="{{dotUp}}" hint-placeholder-val="{{true}}"><span class="fdot"></span></sc-if></button>
+</div>
+<div style="flex-grow: 1"></div>
+<div class="seg" role="group" aria-label="Tool">
+<button type="button" class="{{tSel}}" onClick="{{pickSelect}}" aria-pressed="{{ptSel}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 8-6 1.5L10 19z"></path></svg>Select</button>
+<button type="button" class="{{tRoom}}" onClick="{{pickRoom}}" aria-pressed="{{ptRoom}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2.5"></rect></svg>Draw room</button>
+<button type="button" class="{{tPlace}}" onClick="{{pickPlace}}" aria-pressed="{{ptPlace}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"></path><circle cx="12" cy="11" r="2"></circle></svg>Place item</button>
+</div>
+<button type="button" class="{{planBtnCls}}" onClick="{{togglePlan}}" aria-expanded="{{planExpanded}}" style="border: 1px solid var(--field)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="m3 16 5-5 4 4 3-3 6 6"></path></svg>Floor plan</button>
+</div>
+
+<div class="grid" style="flex-grow: 1; min-height: 0; position: relative; overflow: hidden">
+<div style="position: absolute; left: 0; top: 20px; width: 820px; height: 760px">
+<sc-if value="{{hasPlan}}" hint-placeholder-val="{{true}}">
+<svg width="820" height="760" viewBox="0 0 820 760" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="square" style="color: var(--plan-ink); position: absolute; left: 0; top: 0; opacity: {{planOp}}">
+<path stroke-width="8" d="M270 40H780V700H535 M490 700H40V40H70"></path>
+<path stroke-width="2" stroke-dasharray="7 6" d="M70 40H270"></path>
+<path stroke-width="5" d="M300 40V150 M300 195V340 M300 190H330 M372 190H440 M440 40V80 M440 128V340 M40 340H225 M268 340H398 M440 340H598 M742 340H780 M460 340V480 M460 540V700 M560 340V398 M560 452V700"></path>
+<path stroke-width="1.5" d="M300 150A45 45 0 0 1 345 195 M440 80A48 48 0 0 1 392 128 M490 700A45 45 0 0 1 535 655 M560 398A54 54 0 0 1 614 452 M225 340A43 43 0 0 0 268 383"></path>
+<path stroke-width="1.5" d="M600 35H700M600 45H700 M35 420V560M45 420V560 M775 440V600M785 440V600 M120 695H380M120 705H380"></path>
+<path stroke-width="1.2" d="M470 362H550M470 376H550M470 390H550M470 404H550M470 418H550M470 432H550M470 446H550M470 460H550 M510 362V460"></path>
+</svg>
+</sc-if>
+
+<sc-for list="{{rooms}}" as="r" hint-placeholder-count="6">
+<button type="button" class="{{r.cls}}" style="left: {{r.x}}px; top: {{r.y}}px; width: {{r.w}}px; height: {{r.h}}px" onClick="{{r.pick}}" aria-label="{{r.aria}}" aria-pressed="{{r.pressed}}"><span class="rn">{{r.n}}</span></button>
+</sc-for>
+
+<sc-if value="{{toolRoom}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 460px; top: 704px; width: 320px; height: 44px; box-sizing: border-box; border: 2px dashed var(--ink); background: rgba(242,163,58,.12); display: flex; align-items: center; justify-content: flex-end; padding: 0 10px">
+<span class="mono" style="font-size: 11px; background: var(--ink); color: var(--surface); padding: 3px 6px; border-radius: 3px">New room</span>
+</div>
+</sc-if>
+
+<sc-for list="{{mapItems}}" as="i" hint-placeholder-count="20">
+<button type="button" class="{{i.cls}}" style="left: {{i.left}}px; top: {{i.top}}px" onClick="{{i.pick}}" aria-label="{{i.aria}}"><sc-if value="{{i.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{i.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{i.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{i.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if><sc-if value="{{i.showBadge}}" hint-placeholder-val="{{false}}"><span class="{{i.bdgCls}}">{{i.bdg}}</span></sc-if></button>
+</sc-for>
+
+<sc-if value="{{toolPlace}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 314px; top: 454px; display: flex; align-items: center; gap: 8px; pointer-events: none">
+<div style="width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%; border: 2px dashed var(--ink); background: var(--ghost); display: flex; align-items: center; justify-content: center; color: var(--ink)"><sc-if value="{{gp.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{gp.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{gp.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{gp.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></div>
+<span style="font-size: 12px; font-weight: 600; background: var(--ink); color: var(--surface); padding: 4px 8px; border-radius: 4px">Click to place</span>
+</div>
+</sc-if>
+</div>
+
+<div style="position: absolute; top: 16px; right: 16px; width: 360px; display: flex; flex-direction: column; gap: 10px; align-items: stretch">
+<sc-if value="{{toolRoom}}" hint-placeholder-val="{{false}}">
+<div style="background: var(--surface); border: 1px solid var(--ink); border-radius: 10px; padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 6px 20px rgba(26,27,29,.12)">
+<span style="flex-grow: 1; font-size: 14px; line-height: 1.4"><strong>Drag on the grid</strong> to draw a room. Release to name it.</span>
+<button type="button" class="btn" style="height: 36px" onClick="{{pickSelect}}">Done</button>
+</div>
+</sc-if>
+<sc-if value="{{toolPlace}}" hint-placeholder-val="{{false}}">
+<div style="background: var(--surface); border: 1px solid var(--ink); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 6px 20px rgba(26,27,29,.12)">
+<span style="font-size: 14px; line-height: 1.4"><strong>Place an item</strong> where it really is, then pick its breaker.</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap" role="group" aria-label="Item type">
+<sc-for list="{{placeTypes}}" as="p" hint-placeholder-count="4">
+<button type="button" class="{{p.cls}}" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}">{{p.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{planOpen}}" hint-placeholder-val="{{false}}">
+<div style="background: var(--surface); border: 1px solid var(--ink); border-radius: 10px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 6px 20px rgba(26,27,29,.12)">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<span style="font-size: 15px; font-weight: 700">Floor plan · {{floorName}}</span>
+<button type="button" class="ibtn" style="width: 36px; height: 36px" aria-label="Close floor plan settings" onClick="{{togglePlan}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<sc-if value="{{hasPlan}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 56px; height: 44px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line-2); display: flex; align-items: center; justify-content: center"><svg width="40" height="34" viewBox="0 0 820 760" fill="none" stroke="currentColor" aria-hidden="true" style="color: var(--plan-ink)"><path stroke-width="30" d="M40 40H780V700H40Z"></path><path stroke-width="20" d="M300 40V340M440 40V340M40 340H780M460 340V700M560 340V700"></path></svg></div>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<span class="mono" style="font-size: 13px; font-weight: 600">main-floor.png</span>
+<span style="font-size: 12px; color: var(--muted)">Rooms traced over it: 7</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between"><label for="op" style="font-size: 12px; font-weight: 600; color: var(--muted)">Image opacity</label><span class="mono" style="font-size: 12px">{{opText}}</span></div>
+<input id="op" type="range" min="0" max="100" step="5" value="{{op}}" onChange="{{onOpacity}}" style="width: 100%">
+</div>
+<div style="display: flex; gap: 8px">
+<button type="button" class="btn" style="flex-grow: 1">Replace image</button>
+<button type="button" class="btn" style="flex-grow: 1" onClick="{{removePlan}}">Remove</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{noPlan}}" hint-placeholder-val="{{false}}">
+<div style="border: 1.5px dashed var(--enclosure-bd); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; background: var(--raised)">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--soft)"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg>
+<span style="font-size: 14px; line-height: 1.4">Drop a PNG, JPG or PDF of the {{floorName}} plan to trace rooms over it.</span>
+<button type="button" class="btn" onClick="{{restorePlan}}">Choose file</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+
+<div style="position: absolute; left: 16px; right: 16px; bottom: 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; pointer-events: none">
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{true}}">
+<div style="pointer-events: auto; display: flex; align-items: center; gap: 12px; background: var(--ink); color: var(--bg); border-radius: 10px; padding: 7px 7px 7px 14px; box-shadow: 0 6px 20px rgba(26,27,29,.2)">
+<span style="width: 10px; height: 10px; border-radius: 50%; background: #F2A33A; flex-shrink: 0"></span>
+<span style="font-size: 14px; font-weight: 700; white-space: nowrap">{{chipTitle}}</span>
+<span style="font-size: 13px; color: var(--chip-muted); white-space: nowrap">{{chipMeta}}</span>
+<sc-for list="{{others}}" as="o" hint-placeholder-count="1">
+<button type="button" class="chipbtn" onClick="{{o.go}}">{{o.label}} →</button>
+</sc-for>
+<button type="button" class="chipbtn" onClick="{{onClear}}">Clear</button>
+</div>
+</sc-if>
+<sc-if value="{{noSel}}" hint-placeholder-val="{{false}}">
+<div style="pointer-events: auto; background: var(--surface); border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--soft)">Pick a circuit, click a room, or click an item.</div>
+</sc-if>
+<div style="pointer-events: auto; display: flex; align-items: center; background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; flex-shrink: 0">
+<button type="button" class="zb" aria-label="Zoom out">−</button>
+<span class="mono" style="font-size: 12px; width: 48px; text-align: center">100%</span>
+<button type="button" class="zb" aria-label="Zoom in">+</button>
+<button type="button" class="zb" aria-label="Fit floor to screen" style="border-left: 1px solid var(--line); width: 44px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
+</div>
+</div>
+</div>
+</section>
+
+<aside aria-label="Inspector" style="width: 320px; flex-shrink: 0; background: var(--surface); border-left: 1px solid var(--line-2); display: flex; flex-direction: column; min-height: 0">
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px">
+
+<sc-if value="{{modeItem}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span class="ov">{{it.typeLabel}}</span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 105%; line-height: 1.2">{{it.n}}</h2>
+<button type="button" class="linkbtn" onClick="{{onItemRoom}}">{{it.where}}</button>
+</div>
+<button type="button" class="ibtn" aria-label="Close item" onClick="{{onCloseItem}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+
+<div style="border: 1.5px solid var(--ink); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 14px; background: var(--amber-soft)">
+<span class="ov" style="color: var(--amber-ink)">Fed by</span>
+<div style="display: flex; gap: 12px; align-items: center">
+<span class="mono" style="min-width: 48px; height: 48px; box-sizing: border-box; padding: 0 6px; background: #F2A33A; color: #1A1B1D; border: 1.5px solid var(--fed-bd); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px">{{it.bNum}}</span>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<span style="font-size: 16px; font-weight: 700">{{it.bName}}</span>
+<span style="font-size: 13px; color: var(--soft)">{{it.bSpec}}</span>
+</div>
+</div>
+<div class="fld">
+<label for="reb">Move to another breaker</label>
+<select id="reb" value="{{it.bVal}}" onChange="{{onReassign}}">
+<sc-for list="{{bOpts}}" as="o" hint-placeholder-count="6"><option value="{{o.value}}">{{o.label}}</option></sc-for>
+</select>
+</div>
+<a href="Panel.dc.html" style="font-size: 14px; font-weight: 600">Open in panel →</a>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="ov">Also on this circuit · {{sibCount}}</span>
+<sc-for list="{{sibs}}" as="s" hint-placeholder-count="4">
+<button type="button" class="srow" onClick="{{s.pick}}"><span class="ico"><sc-if value="{{s.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{s.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{s.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{s.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span class="in">{{s.n}}</span><span class="iw">{{s.where}}</span></span></button>
+</sc-for>
+<sc-if value="{{noSibs}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: var(--muted)">Nothing else on this breaker yet.</span></sc-if>
+</div>
+
+<div style="display: flex; gap: 8px">
+<button type="button" class="btn" style="flex-grow: 1">Move on map</button>
+<button type="button" class="btn" style="flex-grow: 1; color: var(--warn); border-color: var(--warn)">Remove</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{modeBreaker}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="ov">Breaker {{sb.num}}</span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 105%; line-height: 1.2">{{sb.name}}</h2>
+<span style="font-size: 14px; color: var(--muted)">{{sb.spec}} · {{sb.total}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="ov">On {{floorName}} · {{hereCount}}</span>
+<sc-for list="{{hereList}}" as="s" hint-placeholder-count="3">
+<button type="button" class="srow" onClick="{{s.pick}}"><span class="ico"><sc-if value="{{s.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{s.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{s.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{s.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span class="in">{{s.n}}</span><span class="iw">{{s.where}}</span></span></button>
+</sc-for>
+<sc-if value="{{noneHere}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: var(--muted)">Nothing on this floor.</span></sc-if>
+</div>
+<sc-if value="{{hasOthers}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="ov">Elsewhere</span>
+<sc-for list="{{others}}" as="o" hint-placeholder-count="1">
+<button type="button" class="btn" style="justify-content: space-between" onClick="{{o.go}}">{{o.label}}<span aria-hidden="true">→</span></button>
+</sc-for>
+</div>
+</sc-if>
+<a class="btn" href="Panel.dc.html">Edit in panel</a>
+</div>
+</sc-if>
+
+<sc-if value="{{modeRoom}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span class="ov">Room · {{rm.floor}}</span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 105%; line-height: 1.2">{{rm.name}}</h2>
+<span style="font-size: 14px; color: var(--muted)">{{rm.meta}}</span>
+</div>
+<button type="button" class="ibtn" aria-label="Close room" onClick="{{onClear}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<a class="btn" href="Shutoff.dc.html" style="width: 100%; height: 48px; background: #F2A33A; color: #1A1B1D; border-color: #F2A33A"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v9"></path><path d="M6.3 6.3a8 8 0 1 0 11.4 0"></path></svg>Shut off this room · {{rm.nCirc}} breakers</a>
+<sc-if value="{{rm.hasShape}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; gap: 8px">
+<button type="button" class="btn" style="flex-grow: 1; height: 38px">Edit shape</button>
+<button type="button" class="btn" style="flex-grow: 1; height: 38px">Rename</button>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<span class="ov">Circuits in this room · {{rm.nCirc}}</span>
+<sc-for list="{{rm.groups}}" as="g" hint-placeholder-count="3">
+<div style="border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden" onMouseEnter="{{g.enter}}" onMouseLeave="{{g.leave}}">
+<sc-if value="{{g.hasB}}" hint-placeholder-val="{{true}}">
+<button type="button" class="ghead" onClick="{{g.pick}}" onFocus="{{g.enter}}" onBlur="{{g.leave}}" title="Light up this circuit"><span class="bnum">{{g.num}}</span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{g.name}}</span><span class="gm">{{g.spec}}</span></span><span class="gm mono">{{g.count}}</span></button>
+</sc-if>
+<sc-if value="{{g.noB}}" hint-placeholder-val="{{false}}">
+<div class="ghead static"><span class="bnum warn">?</span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px; font-weight: 700; color: var(--warn)">No breaker</span><span class="gm">Not assigned yet</span></span><span class="gm mono">{{g.count}}</span></div>
+</sc-if>
+<div style="padding: 6px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{g.items}}" as="s" hint-placeholder-count="2">
+<button type="button" class="irow2" onClick="{{s.pick}}"><span class="ico"><sc-if value="{{s.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{s.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{s.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{s.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></span><span style="font-size: 13px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.n}}</span></button>
+</sc-for>
+</div>
+<sc-if value="{{g.hasElse}}" hint-placeholder-val="{{false}}">
+<div style="padding: 8px 12px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.4; color: var(--muted); display: flex; gap: 6px; align-items: flex-start"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 1px"><path d="M5 12h14M13 6l6 6-6 6"></path></svg><span>{{g.elseText}}</span></div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{modeNone}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 10px; padding-top: 8px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 105%">Nothing selected</h2>
+<span style="font-size: 14px; color: var(--muted); line-height: 1.5">Pick a circuit on the left to light up everything it feeds, click a room to see its circuits, or click any item to find its breaker.</span>
+</div>
+</sc-if>
+</div>
+
+<div style="border-top: 1px solid var(--line); padding: 14px 20px 16px; display: flex; flex-direction: column; gap: 10px">
+<span class="ov">Legend</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; font-size: 13px">
+<span style="display: flex; align-items: center; gap: 8px"><span class="ico" style="width: 26px; height: 26px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></span>Outlet</span>
+<span style="display: flex; align-items: center; gap: 8px"><span class="ico" style="width: 26px; height: 26px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></span>Light</span>
+<span style="display: flex; align-items: center; gap: 8px"><span class="ico" style="width: 26px; height: 26px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></span>Switch</span>
+<span style="display: flex; align-items: center; gap: 8px"><span class="ico" style="width: 26px; height: 26px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></span>Appliance</span>
+</div>
+</div>
+</aside>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+var FLOORS = { bsmt: 'Basement', main: 'Main floor', up: 'Upstairs' };
+var TYPES = { std: 'Standard', gfci: 'GFCI', afci: 'AFCI', df: 'Dual function' };
+var TAG = { std: '', gfci: 'GF', afci: 'AF', df: 'DF' };
+var TL = { outlet: 'Outlet', light: 'Light', 'switch': 'Switch', appliance: 'Appliance' };
+var BREAKERS = [
+  { s: 1, p: 2, a: 50, t: 'std', l: 'Range' },
+  { s: 2, p: 2, a: 30, t: 'std', l: 'Dryer' },
+  { s: 5, p: 2, a: 40, t: 'std', l: 'A/C condenser' },
+  { s: 6, p: 2, a: 30, t: 'std', l: 'Water heater' },
+  { s: 9, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — west' },
+  { s: 10, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — east' },
+  { s: 11, p: 1, a: 20, t: 'std', l: 'Dishwasher & disposal' },
+  { s: 12, p: 1, a: 20, t: 'std', l: 'Refrigerator' },
+  { s: 13, p: 1, a: 20, t: 'std', l: 'Microwave' },
+  { s: 14, p: 1, a: 15, t: 'afci', l: 'Kitchen & dining lights' },
+  { s: 15, p: 1, a: 15, t: 'afci', l: 'Living room' },
+  { s: 16, p: 1, a: 20, t: 'gfci', l: 'Bathrooms' },
+  { s: 17, p: 1, a: 15, t: 'afci', l: 'Primary bedroom' },
+  { s: 18, p: 1, a: 15, t: 'afci', l: 'Bedroom 2' },
+  { s: 19, p: 1, a: 15, t: 'afci', l: 'Office' },
+  { s: 20, p: 1, a: 20, t: 'std', l: 'Laundry' },
+  { s: 21, p: 1, a: 15, t: 'afci', l: 'Hall & stairs lights' },
+  { s: 22, p: 1, a: 20, t: 'gfci', l: 'Garage' },
+  { s: 23, p: 1, a: 15, t: 'std', l: 'Furnace' },
+  { s: 24, p: 1, a: 20, t: 'gfci', l: 'Exterior outlets' },
+  { s: 25, p: 1, a: 15, t: 'std', l: 'Basement lights' },
+  { s: 26, p: 1, a: 20, t: 'std', l: 'Basement outlets' },
+  { s: 27, p: 1, a: 20, t: 'afci', l: 'Dining room outlets' },
+  { s: 28, p: 1, a: 20, t: 'std', l: 'Sump pump' },
+  { s: 29, p: 1, a: 15, t: 'std', l: '' }
+];
+var RAW = [
+  ['k1','outlet','Counter outlet W1','Kitchen','main',458,110,9],
+  ['k2','outlet','Counter outlet W2','Kitchen','main',458,220,9],
+  ['k3','outlet','Island outlet','Kitchen','main',600,200,9],
+  ['k4','outlet','Counter outlet E1','Kitchen','main',640,58,10],
+  ['k5','outlet','Counter outlet E2','Kitchen','main',762,100,10],
+  ['k6','appliance','Dishwasher','Kitchen','main',540,58,11],
+  ['k7','appliance','Disposal','Kitchen','main',560,112,11],
+  ['k8','appliance','Refrigerator','Kitchen','main',762,300,12],
+  ['k9','appliance','Microwave','Kitchen','main',705,58,13],
+  ['k10','appliance','Range','Kitchen','main',762,190,1],
+  ['k11','light','Recessed lights','Kitchen','main',660,150,14],
+  ['k12','switch','Kitchen light switch','Kitchen','main',458,318,14],
+  ['k13','light','Island pendants','Kitchen','main',540,262,14],
+  ['d1','light','Chandelier','Dining room','main',670,520,14],
+  ['d2','switch','Dining light switch','Dining room','main',578,420,14],
+  ['d3','outlet','Outlet — north wall','Dining room','main',700,358,27],
+  ['d4','outlet','Outlet — east wall','Dining room','main',762,580,27],
+  ['d5','outlet','Outlet — south wall','Dining room','main',660,682,27],
+  ['l1','outlet','Outlet — west wall','Living room','main',58,450,15],
+  ['l2','outlet','Outlet by sofa','Living room','main',160,682,15],
+  ['l3','outlet','Outlet — south wall','Living room','main',340,682,15],
+  ['l4','light','Ceiling fan','Living room','main',250,520,15],
+  ['l5','switch','Fan switch','Living room','main',442,420,15],
+  ['l6','outlet','TV wall outlet','Living room','main',58,600,15],
+  ['h1','light','Entry light','Entry & hall','main',510,630,21],
+  ['h2','switch','Entry switch','Entry & hall','main',478,682,21],
+  ['h3','light','Stair light','Entry & hall','main',510,420,21],
+  ['hb1','outlet','GFCI outlet at vanity','Half bath','main',420,230,16],
+  ['hb2','light','Vanity light','Half bath','main',398,300,16],
+  ['hb3','appliance','Exhaust fan','Half bath','main',335,300,16],
+  ['la1','appliance','Dryer','Laundry','main',330,110,2],
+  ['la2','appliance','Washer','Laundry','main',385,110,20],
+  ['la3','outlet','Laundry outlet','Laundry','main',420,166,20],
+  ['g1','outlet','Outlet — west wall','Garage','main',58,120,22],
+  ['g2','outlet','Workbench outlet','Garage','main',160,58,22],
+  ['g3','light','Garage lights','Garage','main',170,190,22],
+  ['g4','appliance','Door opener','Garage','main',170,270,22],
+  ['g5','switch','Garage light switch','Garage','main',282,310,22],
+  ['e1','appliance','A/C condenser','Outside','main',802,420,5],
+  ['e2','outlet','Front porch outlet','Outside','main',610,722,24],
+  ['e3','outlet','Back patio outlet','Outside','main',20,520,24],
+  ['p1','outlet','Outlet — west wall','Primary bedroom','up',58,150,17],
+  ['p2','outlet','Outlet — north wall','Primary bedroom','up',230,58,17],
+  ['p3','outlet','Bedside outlet','Primary bedroom','up',402,280,17],
+  ['p4','light','Ceiling fan','Primary bedroom','up',230,200,17],
+  ['p5','switch','Fan switch','Primary bedroom','up',402,340,17],
+  ['pb1','outlet','GFCI outlet','Primary bath','up',582,100,16],
+  ['pb2','light','Vanity light','Primary bath','up',530,140,16],
+  ['pb3','appliance','Exhaust fan','Primary bath','up',470,200,16],
+  ['ba1','outlet','GFCI outlet','Hall bath','up',762,70,16],
+  ['ba2','light','Vanity light','Hall bath','up',720,140,16],
+  ['ba3','appliance','Exhaust fan','Hall bath','up',650,200,16],
+  ['hu1','light','Hall light','Upstairs hall','up',600,300,21],
+  ['hu2','switch','Hall switch','Upstairs hall','up',440,300,21],
+  ['r1','outlet','Outlet — west wall','Bedroom 2','up',58,500,18],
+  ['r2','outlet','Outlet — south wall','Bedroom 2','up',190,682,18],
+  ['r3','light','Ceiling light','Bedroom 2','up',190,530,18],
+  ['r4','switch','Light switch','Bedroom 2','up',322,400,18],
+  ['o1','outlet','Outlet — east wall','Office','up',762,450,19],
+  ['o2','outlet','Desk outlet','Office','up',560,682,19],
+  ['o3','outlet','Outlet — west wall','Office','up',358,600,19],
+  ['o4','light','Ceiling light','Office','up',560,530,19],
+  ['o5','switch','Light switch','Office','up',358,430,19],
+  ['u1','appliance','Water heater','Utility','bsmt',90,90,6],
+  ['u2','appliance','Furnace','Utility','bsmt',180,90,23],
+  ['u3','appliance','Sump pump','Utility','bsmt',90,270,28],
+  ['u4','light','Utility light','Utility','bsmt',200,200,25],
+  ['u5','outlet','Utility outlet','Utility','bsmt',322,160,26],
+  ['rr1','light','Recessed lights (north)','Rec room','bsmt',560,250,25],
+  ['rr2','light','Recessed lights (south)','Rec room','bsmt',560,480,25],
+  ['rr3','switch','Light switch','Rec room','bsmt',358,300,25],
+  ['rr4','outlet','Outlet — east wall N','Rec room','bsmt',762,200,26],
+  ['rr5','outlet','Outlet — east wall S','Rec room','bsmt',762,500,26],
+  ['rr6','outlet','Outlet — south wall','Rec room','bsmt',560,682,26],
+  ['s1','light','Storage light','Storage','bsmt',190,510,25],
+  ['s2','outlet','Storage outlet','Storage','bsmt',58,600,26]
+];
+var ITEMS = RAW.map(function (r) { return { id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }; });
+var ROOMS = {
+  main: [
+    { n: 'Garage', x: 40, y: 40, w: 260, h: 300 },
+    { n: 'Laundry', x: 300, y: 40, w: 140, h: 150 },
+    { n: 'Half bath', x: 300, y: 190, w: 140, h: 150 },
+    { n: 'Kitchen', x: 440, y: 40, w: 340, h: 300 },
+    { n: 'Living room', x: 40, y: 340, w: 420, h: 360 },
+    { n: 'Entry & hall', x: 460, y: 340, w: 100, h: 360 },
+    { n: 'Dining room', x: 560, y: 340, w: 220, h: 360 }
+  ],
+  up: [
+    { n: 'Primary bedroom', x: 40, y: 40, w: 380, h: 320 },
+    { n: 'Primary bath', x: 420, y: 40, w: 180, h: 200 },
+    { n: 'Hall bath', x: 600, y: 40, w: 180, h: 200 },
+    { n: 'Upstairs hall', x: 420, y: 240, w: 360, h: 120 },
+    { n: 'Bedroom 2', x: 40, y: 360, w: 300, h: 340 },
+    { n: 'Office', x: 340, y: 360, w: 440, h: 340 }
+  ],
+  bsmt: [
+    { n: 'Utility', x: 40, y: 40, w: 300, h: 280 },
+    { n: 'Storage', x: 40, y: 320, w: 300, h: 380 },
+    { n: 'Rec room', x: 340, y: 40, w: 440, h: 660 }
+  ]
+};
+function flags(t) { return { io: t === 'outlet', il: t === 'light', is: t === 'switch', ia: t === 'appliance' }; }
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var dark = st.dark !== undefined ? st.dark : (this.props.dark !== undefined ? !!this.props.dark : true);
+    var set = function (o) { self.setState(o); };
+    var floor = st.floor || 'main';
+    var selB = st.selB === undefined ? null : st.selB;
+    var selItem = st.selItem === undefined ? null : st.selItem;
+    var selRoom = st.selRoom === undefined ? 'main|Kitchen' : st.selRoom;
+    var hovB = st.hovB === undefined ? null : st.hovB;
+    var tool = st.tool || 'select';
+    var placeType = st.placeType || 'outlet';
+    var qRaw = st.q || '';
+    var q = qRaw.trim().toLowerCase();
+    var reb = st.reb || {};
+    var op = st.op === undefined ? 35 : st.op;
+    var planOpen = !!st.planOpen;
+    var planRemoved = !!st.planRemoved;
+
+    var items = ITEMS.map(function (i) { return Object.assign({}, i, { b: reb[i.id] !== undefined ? reb[i.id] : i.b }); });
+    var bById = {};
+    BREAKERS.forEach(function (b) { bById[b.s] = b; });
+    var bNum = function (b) { return b.p === 2 ? b.s + '/' + (b.s + 2) : String(b.s); };
+    var bName = function (b) { return b.l || 'Unlabeled'; };
+    var bSpec = function (b) { return b.a + 'A · ' + (b.p === 2 ? '2-pole' : TYPES[b.t]); };
+    var where = function (i) { return i.r + ' · ' + FLOORS[i.f]; };
+    var countOf = function (s) { return items.filter(function (i) { return i.b === s; }).length; };
+    var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
+
+    var circuits = BREAKERS.filter(function (b) {
+      if (!q) return true;
+      if (bName(b).toLowerCase().indexOf(q) >= 0 || String(b.s) === q) return true;
+      return items.some(function (i) { return i.b === b.s && (i.n + ' ' + i.r).toLowerCase().indexOf(q) >= 0; });
+    }).map(function (b) {
+      var sel = b.s === selB;
+      return {
+        key: 'c' + b.s, num: bNum(b), name: bName(b),
+        meta: b.a + 'A · ' + plural(countOf(b.s), 'item'),
+        tag: TAG[b.t], hasTag: !!TAG[b.t], pressed: sel ? 'true' : 'false',
+        cls: 'circ' + (sel ? ' is-sel' : '') + (b.l ? '' : ' is-unl'),
+        pick: function () { set({ selB: sel ? null : b.s, selItem: null, selRoom: null }); }
+      };
+    });
+
+    var litOn = function (f) { return selB !== null && items.some(function (i) { return i.f === f && i.b === selB; }); };
+    var roomF = selRoom ? selRoom.split('|')[0] : null, roomN = selRoom ? selRoom.split('|').slice(1).join('|') : null;
+    var roomMode = !!selRoom && selB === null && !selItem;
+    var inRoom = function (i) { return i.f === roomF && i.r === roomN; };
+    var rooms = ROOMS[floor].map(function (r) {
+      var key = floor + '|' + r.n;
+      var isSel = roomMode && key === selRoom;
+      var lit = !roomMode && selB !== null && items.some(function (i) { return i.f === floor && i.r === r.n && i.b === selB; });
+      var n = items.filter(function (i) { return i.f === floor && i.r === r.n; }).length;
+      return Object.assign({ key: r.n }, r, {
+        cls: 'room' + (lit ? ' is-lit' : '') + (isSel ? ' is-sel' : '') + (roomMode && !isSel && roomF === floor ? ' is-mute' : '') + (tool !== 'select' ? ' no-pick' : ''),
+        aria: r.n + ', ' + plural(n, 'item'), pressed: isSel ? 'true' : 'false',
+        pick: function () { if (tool !== 'select') return; set({ selRoom: isSel ? null : key, selB: null, selItem: null, hovB: null }); }
+      });
+    });
+    var mapItems = items.filter(function (i) { return i.f === floor; }).map(function (i) {
+      var lit, dim, badge = false;
+      if (roomMode) {
+        var mine = inRoom(i);
+        lit = hovB !== null && i.b === hovB;
+        dim = !mine && !lit;
+        badge = mine;
+      } else {
+        lit = selB !== null && i.b === selB;
+        dim = selB !== null && !lit;
+      }
+      return Object.assign({
+        showBadge: badge, bdg: i.b != null ? bNum(bById[i.b]) : '?', bdgCls: 'bdg' + (i.b == null ? ' warn' : ''),
+        key: i.id, left: i.x - 16, top: i.y - 16,
+        aria: i.n + ', ' + TL[i.t] + ', ' + i.r + ', breaker ' + i.b,
+        cls: 'it' + (lit ? ' is-lit' : '') + (dim ? ' is-dim' : '') + (i.id === selItem ? ' is-pick' : ''),
+        pick: function () { set({ selItem: i.id, selB: i.b, selRoom: null, hovB: null }); }
+      }, flags(i.t));
+    });
+
+    var sb = selB !== null ? bById[selB] : null;
+    var circ = sb ? items.filter(function (i) { return i.b === selB; }) : [];
+    var here = circ.filter(function (i) { return i.f === floor; });
+    var others = ['bsmt', 'main', 'up'].filter(function (f) { return f !== floor; }).map(function (f) {
+      return { f: f, n: circ.filter(function (i) { return i.f === f; }).length };
+    }).filter(function (o) { return o.n > 0; }).map(function (o) {
+      return { key: o.f, label: o.n + ' on ' + FLOORS[o.f], go: function () { set({ floor: o.f }); } };
+    });
+
+    var it = selItem ? items.filter(function (i) { return i.id === selItem; })[0] : null;
+    var itv = { n: '', typeLabel: '', where: '', bNum: '', bName: '', bSpec: '', bVal: '' };
+    var sibs = [];
+    if (it) {
+      var fb = bById[it.b];
+      itv = { n: it.n, typeLabel: TL[it.t], where: where(it), bNum: bNum(fb), bName: bName(fb), bSpec: bSpec(fb), bVal: String(it.b) };
+      sibs = items.filter(function (i) { return i.b === it.b && i.id !== it.id; }).map(function (i) {
+        return Object.assign({ key: i.id, n: i.n, where: where(i), pick: function () { set({ selItem: i.id, floor: i.f }); } }, flags(i.t));
+      });
+    }
+    var bOpts = BREAKERS.map(function (b) { return { key: 'o' + b.s, value: String(b.s), label: bNum(b) + ' — ' + bName(b) + ' (' + b.a + 'A)' }; });
+    var hereList = here.map(function (i) {
+      return Object.assign({ key: i.id, n: i.n, where: i.r, pick: function () { set({ selItem: i.id }); } }, flags(i.t));
+    });
+
+    var fc = function (f) { return 'sb' + (floor === f ? ' is-on' : ''); };
+    var tc = function (t) { return 'sb' + (tool === t ? ' is-on' : ''); };
+    var hasPlan = floor === 'main' && !planRemoved;
+    var modeItem = !!it;
+    var modeBreaker = !it && !!sb;
+    var modeRoom = !it && !sb && roomMode;
+    var rm = { floor: '', name: '', meta: '', nCirc: '0', groups: [], hasShape: false };
+    if (modeRoom) {
+      var ri = items.filter(inRoom);
+      var keys = [];
+      ri.forEach(function (i) { var k = i.b == null ? 'none' : i.b; if (keys.indexOf(k) < 0) keys.push(k); });
+      keys.sort(function (a, b) { return a === 'none' ? 1 : b === 'none' ? -1 : a - b; });
+      var groups = keys.map(function (k) {
+        var its = ri.filter(function (i) { return (i.b == null ? 'none' : i.b) === k; });
+        var g = { key: 'g' + k, hasB: k !== 'none', noB: k === 'none', count: String(its.length),
+          items: its.map(function (i) { return Object.assign({ key: i.id, n: i.n, pick: function () { set({ selItem: i.id, selB: i.b, selRoom: null, hovB: null }); } }, flags(i.t)); }),
+          hasElse: false, elseText: '', num: '', name: '', spec: '',
+          enter: function () { if (k !== 'none') set({ hovB: k }); }, leave: function () { set({ hovB: null }); },
+          pick: function () { set({ selB: k, selRoom: null, selItem: null, hovB: null }); } };
+        if (k !== 'none') {
+          var b = bById[k];
+          var out = items.filter(function (i) { return i.b === k && !inRoom(i); });
+          var names = [];
+          out.forEach(function (i) { var nm = i.f === roomF ? i.r : i.r + ' (' + FLOORS[i.f] + ')'; if (names.indexOf(nm) < 0) names.push(nm); });
+          g.num = bNum(b); g.name = bName(b); g.spec = bSpec(b);
+          g.hasElse = out.length > 0;
+          g.elseText = 'Also feeds ' + plural(out.length, 'item') + ' in ' + names.slice(0, 2).join(', ') + (names.length > 2 ? ' and ' + (names.length - 2) + ' more' : '');
+        }
+        return g;
+      });
+      var nB = keys.filter(function (k) { return k !== 'none'; }).length;
+      rm = { floor: FLOORS[roomF], name: roomN, nCirc: String(nB), groups: groups,
+        meta: plural(ri.length, 'item') + ' on ' + plural(nB, 'circuit'),
+        hasShape: ROOMS[roomF].some(function (r) { return r.n === roomN; }) };
+    }
+
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light',
+      isDark: dark, isLight: !dark,
+      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: function () { set({ dark: !dark }); },
+      q: qRaw,
+      onSearch: function (e) { set({ q: e.target.value }); },
+      circuits: circuits,
+      circCount: circuits.length + ' of ' + BREAKERS.length,
+      fBsmt: fc('bsmt'), fMain: fc('main'), fUp: fc('up'),
+      pBsmt: floor === 'bsmt' ? 'true' : 'false', pMain: floor === 'main' ? 'true' : 'false', pUp: floor === 'up' ? 'true' : 'false',
+      goBsmt: function () { set({ floor: 'bsmt', selRoom: null, hovB: null }); }, goMain: function () { set({ floor: 'main', selRoom: null, hovB: null }); }, goUp: function () { set({ floor: 'up', selRoom: null, hovB: null }); },
+      dotBsmt: litOn('bsmt'), dotMain: litOn('main'), dotUp: litOn('up'),
+      tSel: tc('select'), tRoom: tc('room'), tPlace: tc('place'),
+      ptSel: tool === 'select' ? 'true' : 'false', ptRoom: tool === 'room' ? 'true' : 'false', ptPlace: tool === 'place' ? 'true' : 'false',
+      pickSelect: function () { set({ tool: 'select' }); },
+      pickRoom: function () { set({ tool: 'room' }); },
+      pickPlace: function () { set({ tool: 'place' }); },
+      toolRoom: tool === 'room', toolPlace: tool === 'place',
+      placeTypes: [['outlet', 'Outlet'], ['light', 'Light'], ['switch', 'Switch'], ['appliance', 'Appliance']].map(function (p) {
+        return { key: p[0], label: p[1], cls: 'pt' + (placeType === p[0] ? ' is-on' : ''), pressed: placeType === p[0] ? 'true' : 'false', pick: function () { set({ placeType: p[0] }); } };
+      }),
+      gp: flags(placeType),
+      planBtnCls: 'sb' + (planOpen ? ' is-on' : ''),
+      planExpanded: planOpen ? 'true' : 'false',
+      togglePlan: function () { set({ planOpen: !planOpen }); },
+      planOpen: planOpen,
+      hasPlan: hasPlan, noPlan: !hasPlan,
+      planOp: op / 100, op: op, opText: op + '%',
+      onOpacity: function (e) { set({ op: Number(e.target.value) }); },
+      removePlan: function () { set({ planRemoved: true }); },
+      restorePlan: function () { set({ planRemoved: false, floor: 'main' }); },
+      floorName: FLOORS[floor],
+      rooms: rooms,
+      mapItems: mapItems,
+      hasSel: !!sb || modeRoom, noSel: !sb && !modeRoom,
+      chipTitle: sb ? 'Breaker ' + bNum(sb) + ' · ' + bName(sb) : (modeRoom ? rm.name + ' · ' + rm.floor : ''),
+      chipMeta: sb ? (here.length + ' of ' + circ.length + ' on this floor') : (modeRoom ? rm.meta : ''),
+      others: others,
+      hasOthers: others.length > 0,
+      onClear: function () { set({ selB: null, selItem: null, selRoom: null, hovB: null }); },
+      modeItem: modeItem, modeBreaker: modeBreaker, modeRoom: modeRoom, modeNone: !modeItem && !modeBreaker && !modeRoom, rm: rm,
+      onItemRoom: function () { if (it) set({ selRoom: it.f + '|' + it.r, selItem: null, selB: null, floor: it.f, hovB: null }); },
+      it: itv,
+      onCloseItem: function () { set({ selItem: null }); },
+      onReassign: function (e) {
+        var v = Number(e.target.value);
+        var nr = Object.assign({}, reb); nr[selItem] = v;
+        set({ reb: nr, selB: v });
+      },
+      bOpts: bOpts,
+      sibs: sibs, sibCount: String(sibs.length), noSibs: sibs.length === 0,
+      sb: sb ? { num: bNum(sb), name: bName(sb), spec: bSpec(sb), total: plural(circ.length, 'item') } : { num: '', name: '', spec: '', total: '' },
+      hereList: hereList, hereCount: String(here.length), noneHere: here.length === 0
+    };
+  }
+}
+</script>
+</body>
+</html>

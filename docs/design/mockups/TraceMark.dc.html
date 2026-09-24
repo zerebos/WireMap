@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Trace a breaker</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;color-scheme:light}
+.th-dark{--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.lrow{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 12px;box-sizing:border-box;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.lrow:hover{border-color:var(--btn-bd-h)}
+.lrow.is-unl .ln{font-style:italic;color:var(--warn)}
+.mrow{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:8px 12px;box-sizing:border-box;border:1.5px solid var(--line-2);border-radius:10px;background:var(--surface);font:inherit;color:var(--ink);text-align:left;cursor:pointer;transition:background .15s,border-color .15s}
+.mrow.is-on{background:var(--amber-soft);border-color:#F2A33A}
+.chk{width:26px;height:26px;box-sizing:border-box;border-radius:50%;border:2px solid var(--field);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#1A1B1D}
+.mrow.is-on .chk{background:#F2A33A;border-color:#F2A33A}
+.mrow .chk svg{opacity:0}
+.mrow.is-on .chk svg{opacity:1}
+.lrow:focus-visible,.mrow:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.cell{height:6px;border-radius:1px;background:var(--line-2)}
+.cell.is-t{background:#F2A33A;box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px #F2A33A}
+.sub{font-size:12px;color:var(--muted)}
+.sub.mv{color:var(--warn);font-weight:600}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar>span{display:block;height:100%;background:#F2A33A;border-radius:3px}
+.tagx{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;padding:3px 6px;border-radius:4px;background:var(--line);color:var(--soft);white-space:nowrap}
+.tagx.new{background:#F2A33A;color:#1A1B1D}
+.tagx.mv{background:transparent;border:1px solid var(--warn);color:var(--warn)}
+.fb{flex:1 1 0;justify-content:center}
+.backc{display:flex;align-items:center;gap:14px;padding:14px;border-radius:10px;border:1.5px solid #F2A33A;background:var(--amber-soft)}
+.backc.is-done{border:1px solid var(--line-2);background:var(--surface)}
+.dotc{min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:#F2A33A;color:#1A1B1D;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 390px; height: 844px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); overflow: hidden; position: relative">
+
+<sc-if value="{{isPick}}" hint-placeholder-val="{{true}}">
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column">
+<header style="flex-shrink: 0; padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line); background: var(--raised)">
+<div style="display: flex; align-items: center; gap: 10px">
+<a class="ibtn" href="Panel.dc.html" aria-label="Back to panel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 108%">Trace circuits</h1>
+<span style="font-size: 13px; color: var(--muted)">Flip one breaker, tap what goes dark.</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-weight: 700">{{checkedText}}</span><span class="mono" style="color: var(--muted)">Main panel</span></div>
+<div class="bar"><span style="width: {{checkedPct}}%"></span></div>
+</div>
+</header>
+<sc-if value="{{toast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="margin: 12px 16px 0; padding: 10px 14px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>{{toastText}}</div>
+</sc-if>
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span class="ov">Not checked yet · {{todoCount}}</span>
+<sc-for list="{{todo}}" as="b" hint-placeholder-count="4">
+<button type="button" class="{{b.cls}}" onClick="{{b.pick}}"><span class="bnum" style="height: 32px; min-width: 48px; font-size: 13px">{{b.num}}</span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span class="ln" style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><span class="sub">{{b.meta}}</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color: var(--muted); flex-shrink: 0"><path d="m9 6 6 6-6 6"></path></svg></button>
+</sc-for>
+<span class="ov" style="margin-top: 10px">Checked · {{doneCount}}</span>
+<sc-for list="{{done}}" as="b" hint-placeholder-count="4">
+<button type="button" class="{{b.cls}}" onClick="{{b.pick}}"><span class="bnum" style="height: 32px; min-width: 48px; font-size: 13px">{{b.num}}</span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span class="ln" style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</span><span class="sub">{{b.meta}}</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color: var(--muted); flex-shrink: 0"><path d="m9 6 6 6-6 6"></path></svg></button>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+<div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(0,0,0,.55)"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="sheet-t" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 18px 18px 0 0; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 -8px 30px rgba(0,0,0,.3)">
+<div style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: var(--line-2)"></div>
+<div style="display: flex; gap: 20px; align-items: center">
+<div aria-hidden="true" style="width: 110px; flex-shrink: 0; padding: 10px; box-sizing: border-box; border-radius: 8px; background: var(--bg); border: 1px solid var(--line-2); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px">
+<sc-for list="{{cells}}" as="c" hint-placeholder-count="40"><span class="{{c.cls}}"></span></sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span class="ov">Step 1 of 3</span>
+<h2 id="sheet-t" style="margin: 0; font-size: 24px; font-weight: 800; font-stretch: 105%; line-height: 1.15">Flip {{sh.num}} off</h2>
+<span style="font-size: 14px; font-weight: 600">{{sh.pos}}</span>
+<span style="font-size: 13px; color: var(--muted); line-height: 1.45">{{sh.name}}. Everything it feeds will lose power — save your work on anything plugged in.</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<button type="button" class="btn btn-pri" style="width: 100%; height: 52px; font-size: 15px" onClick="{{startMark}}">It’s off — start marking</button>
+<button type="button" class="btn" style="width: 100%" onClick="{{closeSheet}}">Cancel</button>
+</div>
+</div>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{isMark}}" hint-placeholder-val="{{false}}">
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column">
+<header style="flex-shrink: 0; padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line); background: var(--raised)">
+<div style="display: flex; align-items: center; gap: 10px">
+<button type="button" class="ibtn" aria-label="Back to breaker list" onClick="{{toPick}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></button>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<span class="ov">Step 2 of 3</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 108%">{{tbTitle}} is off</h1>
+</div>
+</div>
+<span style="font-size: 14px; line-height: 1.45">Walk the house and tap everything that lost power. Test outlets with a lamp or tester.</span>
+<div class="seg" role="group" aria-label="Floor">
+<sc-for list="{{floorTabs}}" as="t" hint-placeholder-count="3">
+<button type="button" class="{{t.cls}}" onClick="{{t.pick}}" aria-pressed="{{t.pressed}}">{{t.label}}<sc-if value="{{t.hasCount}}" hint-placeholder-val="{{false}}"><span class="dotc">{{t.count}}</span></sc-if></button>
+</sc-for>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 18px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="ov">{{g.room}}</span>
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+<button type="button" class="{{i.cls}}" onClick="{{i.toggle}}" aria-pressed="{{i.pressed}}"><span class="ico"><sc-if value="{{i.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{i.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{i.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{i.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{i.n}}</span><span class="{{i.subCls}}">{{i.sub}}</span></span><span class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg></span></button>
+</sc-for>
+</div>
+</sc-for>
+<button type="button" class="btn" style="width: 100%; border-style: dashed"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add something not listed</button>
+</div>
+<footer style="flex-shrink: 0; padding: 12px 16px 20px; border-top: 1px solid var(--line); background: var(--raised); display: flex; align-items: center; gap: 12px">
+<span style="flex-grow: 1; font-size: 15px; font-weight: 700">{{markedText}}</span>
+<button type="button" class="btn btn-pri" style="height: 50px; font-size: 15px" onClick="{{toName}}">{{reviewLabel}}</button>
+</footer>
+</div>
+</sc-if>
+
+<sc-if value="{{isName}}" hint-placeholder-val="{{false}}">
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column">
+<header style="flex-shrink: 0; padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); background: var(--raised)">
+<button type="button" class="ibtn" aria-label="Back to marking" onClick="{{toMark}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></button>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span class="ov">Step 3 of 3</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 108%">Save {{tbTitleLower}}</h1>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 20px">
+<div class="{{backCls}}">
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span id="l-back" style="font-size: 15px; font-weight: 700">{{backTitle}}</span><span style="font-size: 13px; color: var(--muted)">{{backSub}}</span></span>
+<button type="button" role="switch" class="{{backSw}}" aria-checked="{{backOnText}}" aria-labelledby="l-back" onClick="{{toggleBack}}"><span class="kn"></span></button>
+</div>
+<div class="fld">
+<label for="t-label" style="font-size: 14px; color: var(--ink)">What does it power?</label>
+<input id="t-label" class="inp" style="height: 50px; font-size: 16px" type="text" value="{{label}}" onChange="{{onLabel}}" placeholder="{{labelPh}}">
+<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px">
+<sc-for list="{{suggest}}" as="s" hint-placeholder-count="3"><button type="button" class="chip" style="height: 36px" onClick="{{s.pick}}">{{s.label}}</button></sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span class="ov">{{feedsTitle}}</span>
+<sc-for list="{{summary}}" as="i" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface)"><span class="ico"><sc-if value="{{i.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{i.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{i.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{i.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{i.n}}</span><span class="sub">{{i.where}}</span></span><span class="{{i.tagCls}}">{{i.tag}}</span></div>
+</sc-for>
+<sc-if value="{{nothing}}" hint-placeholder-val="{{false}}"><span style="font-size: 14px; color: var(--muted); line-height: 1.45">Nothing marked. It’ll be saved as a spare so you don’t trace it again.</span></sc-if>
+<sc-if value="{{hasMoves}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; color: var(--muted); line-height: 1.45">{{movesNote}}</span></sc-if>
+</div>
+</div>
+<footer style="flex-shrink: 0; padding: 12px 16px 20px; border-top: 1px solid var(--line); background: var(--raised); display: flex; flex-direction: column; gap: 8px">
+<button type="button" class="btn btn-pri" style="width: 100%; height: 52px; font-size: 15px" onClick="{{saveNext}}">Save &amp; trace the next one</button>
+<a class="btn" style="width: 100%" href="Panel.dc.html">Save and finish</a>
+</footer>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+var FLOORS = { bsmt: 'Basement', main: 'Main floor', up: 'Upstairs' };
+var TYPES = { std: 'Standard', gfci: 'GFCI', afci: 'AFCI', df: 'Dual function' };
+var TAG = { std: '', gfci: 'GF', afci: 'AF', df: 'DF' };
+var TL = { outlet: 'Outlet', light: 'Light', 'switch': 'Switch', appliance: 'Appliance' };
+var BREAKERS = [
+  { s: 1, p: 2, a: 50, t: 'std', l: 'Range' },
+  { s: 2, p: 2, a: 30, t: 'std', l: 'Dryer' },
+  { s: 5, p: 2, a: 40, t: 'std', l: 'A/C condenser' },
+  { s: 6, p: 2, a: 30, t: 'std', l: 'Water heater' },
+  { s: 9, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — west' },
+  { s: 10, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — east' },
+  { s: 11, p: 1, a: 20, t: 'std', l: 'Dishwasher & disposal' },
+  { s: 12, p: 1, a: 20, t: 'std', l: 'Refrigerator' },
+  { s: 13, p: 1, a: 20, t: 'std', l: 'Microwave' },
+  { s: 14, p: 1, a: 15, t: 'afci', l: 'Kitchen & dining lights' },
+  { s: 15, p: 1, a: 15, t: 'afci', l: 'Living room' },
+  { s: 16, p: 1, a: 20, t: 'gfci', l: 'Bathrooms' },
+  { s: 17, p: 1, a: 15, t: 'afci', l: 'Primary bedroom' },
+  { s: 18, p: 1, a: 15, t: 'afci', l: 'Bedroom 2' },
+  { s: 19, p: 1, a: 15, t: 'afci', l: 'Office' },
+  { s: 20, p: 1, a: 20, t: 'std', l: 'Laundry' },
+  { s: 21, p: 1, a: 15, t: 'afci', l: 'Hall & stairs lights' },
+  { s: 22, p: 1, a: 20, t: 'gfci', l: 'Garage' },
+  { s: 23, p: 1, a: 15, t: 'std', l: 'Furnace' },
+  { s: 24, p: 1, a: 20, t: 'gfci', l: 'Exterior outlets' },
+  { s: 25, p: 1, a: 15, t: 'std', l: 'Basement lights' },
+  { s: 26, p: 1, a: 20, t: 'std', l: 'Basement outlets' },
+  { s: 27, p: 1, a: 20, t: 'afci', l: 'Dining room outlets' },
+  { s: 28, p: 1, a: 20, t: 'std', l: 'Sump pump' },
+  { s: 29, p: 1, a: 15, t: 'std', l: '' }
+];
+var RAW = [
+  ['k1','outlet','Counter outlet W1','Kitchen','main',458,110,9],
+  ['k2','outlet','Counter outlet W2','Kitchen','main',458,220,9],
+  ['k3','outlet','Island outlet','Kitchen','main',600,200,9],
+  ['k4','outlet','Counter outlet E1','Kitchen','main',640,58,10],
+  ['k5','outlet','Counter outlet E2','Kitchen','main',762,100,10],
+  ['k6','appliance','Dishwasher','Kitchen','main',540,58,11],
+  ['k7','appliance','Disposal','Kitchen','main',560,112,11],
+  ['k8','appliance','Refrigerator','Kitchen','main',762,300,12],
+  ['k9','appliance','Microwave','Kitchen','main',705,58,13],
+  ['k10','appliance','Range','Kitchen','main',762,190,1],
+  ['k11','light','Recessed lights','Kitchen','main',660,150,14],
+  ['k12','switch','Kitchen light switch','Kitchen','main',458,318,14],
+  ['k13','light','Island pendants','Kitchen','main',540,262,14],
+  ['d1','light','Chandelier','Dining room','main',670,520,14],
+  ['d2','switch','Dining light switch','Dining room','main',578,420,14],
+  ['d3','outlet','Outlet — north wall','Dining room','main',700,358,27],
+  ['d4','outlet','Outlet — east wall','Dining room','main',762,580,27],
+  ['d5','outlet','Outlet — south wall','Dining room','main',660,682,27],
+  ['l1','outlet','Outlet — west wall','Living room','main',58,450,15],
+  ['l2','outlet','Outlet by sofa','Living room','main',160,682,15],
+  ['l3','outlet','Outlet — south wall','Living room','main',340,682,15],
+  ['l4','light','Ceiling fan','Living room','main',250,520,15],
+  ['l5','switch','Fan switch','Living room','main',442,420,15],
+  ['l6','outlet','TV wall outlet','Living room','main',58,600,15],
+  ['h1','light','Entry light','Entry & hall','main',510,630,21],
+  ['h2','switch','Entry switch','Entry & hall','main',478,682,21],
+  ['h3','light','Stair light','Entry & hall','main',510,420,21],
+  ['hb1','outlet','GFCI outlet at vanity','Half bath','main',420,230,16],
+  ['hb2','light','Vanity light','Half bath','main',398,300,16],
+  ['hb3','appliance','Exhaust fan','Half bath','main',335,300,16],
+  ['la1','appliance','Dryer','Laundry','main',330,110,2],
+  ['la2','appliance','Washer','Laundry','main',385,110,20],
+  ['la3','outlet','Laundry outlet','Laundry','main',420,166,20],
+  ['g1','outlet','Outlet — west wall','Garage','main',58,120,22],
+  ['g2','outlet','Workbench outlet','Garage','main',160,58,22],
+  ['g3','light','Garage lights','Garage','main',170,190,22],
+  ['g4','appliance','Door opener','Garage','main',170,270,22],
+  ['g5','switch','Garage light switch','Garage','main',282,310,22],
+  ['e1','appliance','A/C condenser','Outside','main',802,420,5],
+  ['e2','outlet','Front porch outlet','Outside','main',610,722,24],
+  ['e3','outlet','Back patio outlet','Outside','main',20,520,24],
+  ['p1','outlet','Outlet — west wall','Primary bedroom','up',58,150,17],
+  ['p2','outlet','Outlet — north wall','Primary bedroom','up',230,58,17],
+  ['p3','outlet','Bedside outlet','Primary bedroom','up',402,280,17],
+  ['p4','light','Ceiling fan','Primary bedroom','up',230,200,17],
+  ['p5','switch','Fan switch','Primary bedroom','up',402,340,17],
+  ['pb1','outlet','GFCI outlet','Primary bath','up',582,100,16],
+  ['pb2','light','Vanity light','Primary bath','up',530,140,16],
+  ['pb3','appliance','Exhaust fan','Primary bath','up',470,200,16],
+  ['ba1','outlet','GFCI outlet','Hall bath','up',762,70,16],
+  ['ba2','light','Vanity light','Hall bath','up',720,140,16],
+  ['ba3','appliance','Exhaust fan','Hall bath','up',650,200,16],
+  ['hu1','light','Hall light','Upstairs hall','up',600,300,21],
+  ['hu2','switch','Hall switch','Upstairs hall','up',440,300,21],
+  ['r1','outlet','Outlet — west wall','Bedroom 2','up',58,500,18],
+  ['r2','outlet','Outlet — south wall','Bedroom 2','up',190,682,18],
+  ['r3','light','Ceiling light','Bedroom 2','up',190,530,18],
+  ['r4','switch','Light switch','Bedroom 2','up',322,400,18],
+  ['o1','outlet','Outlet — east wall','Office','up',762,450,19],
+  ['o2','outlet','Desk outlet','Office','up',560,682,19],
+  ['o3','outlet','Outlet — west wall','Office','up',358,600,19],
+  ['o4','light','Ceiling light','Office','up',560,530,19],
+  ['o5','switch','Light switch','Office','up',358,430,19],
+  ['u1','appliance','Water heater','Utility','bsmt',90,90,6],
+  ['u2','appliance','Furnace','Utility','bsmt',180,90,23],
+  ['u3','appliance','Sump pump','Utility','bsmt',90,270,28],
+  ['u4','light','Utility light','Utility','bsmt',200,200,25],
+  ['u5','outlet','Utility outlet','Utility','bsmt',322,160,26],
+  ['rr1','light','Recessed lights (north)','Rec room','bsmt',560,250,25],
+  ['rr2','light','Recessed lights (south)','Rec room','bsmt',560,480,25],
+  ['rr3','switch','Light switch','Rec room','bsmt',358,300,25],
+  ['rr4','outlet','Outlet — east wall N','Rec room','bsmt',762,200,26],
+  ['rr5','outlet','Outlet — east wall S','Rec room','bsmt',762,500,26],
+  ['rr6','outlet','Outlet — south wall','Rec room','bsmt',560,682,26],
+  ['s1','light','Storage light','Storage','bsmt',190,510,25],
+  ['s2','outlet','Storage outlet','Storage','bsmt',58,600,26]
+];
+var ITEMS = RAW.map(function (r) { return { id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }; });
+var ROOMS = {
+  main: [
+    { n: 'Garage', x: 40, y: 40, w: 260, h: 300 },
+    { n: 'Laundry', x: 300, y: 40, w: 140, h: 150 },
+    { n: 'Half bath', x: 300, y: 190, w: 140, h: 150 },
+    { n: 'Kitchen', x: 440, y: 40, w: 340, h: 300 },
+    { n: 'Living room', x: 40, y: 340, w: 420, h: 360 },
+    { n: 'Entry & hall', x: 460, y: 340, w: 100, h: 360 },
+    { n: 'Dining room', x: 560, y: 340, w: 220, h: 360 }
+  ],
+  up: [
+    { n: 'Primary bedroom', x: 40, y: 40, w: 380, h: 320 },
+    { n: 'Primary bath', x: 420, y: 40, w: 180, h: 200 },
+    { n: 'Hall bath', x: 600, y: 40, w: 180, h: 200 },
+    { n: 'Upstairs hall', x: 420, y: 240, w: 360, h: 120 },
+    { n: 'Bedroom 2', x: 40, y: 360, w: 300, h: 340 },
+    { n: 'Office', x: 340, y: 360, w: 440, h: 340 }
+  ],
+  bsmt: [
+    { n: 'Utility', x: 40, y: 40, w: 300, h: 280 },
+    { n: 'Storage', x: 40, y: 320, w: 300, h: 380 },
+    { n: 'Rec room', x: 340, y: 40, w: 440, h: 660 }
+  ]
+};
+function flags(t) { return { io: t === 'outlet', il: t === 'light', is: t === 'switch', ia: t === 'appliance' }; }
+
+
+var EXTRA = [
+  ['x1','outlet','Attic outlet','Attic','up',null,null,null],
+  ['x2','light','Front closet light','Entry & hall','main',null,null,21],
+  ['x3','outlet','Outlet behind shelving','Storage','bsmt',120,420,null]
+];
+EXTRA.forEach(function (r) { ITEMS.push({ id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }); });
+var CRIT = {
+  k8: 'Food stays safe about 4 hours if the door stays shut.',
+  u3: 'It can’t pump while it’s off — keep it short if rain is coming.',
+  u2: 'No heat or air while it’s off.'
+};
+
+var START = 'mark';
+var CHECKED0 = [1, 2, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 20, 22];
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var set = function (o) { self.setState(o); };
+    var dark = this.props.dark !== undefined ? !!this.props.dark : true;
+    var d = function (k, v) { return st[k] === undefined ? v : st[k]; };
+    var step = d('step', START);
+    var tb = d('tb', 29);
+    var sheetFor = d('sheetFor', START === 'pick' ? 29 : null);
+    var marked = d('marked', START === 'pick' ? {} : { x3: true, s2: true });
+    var floor = d('floor', 'bsmt');
+    var label = d('label', '');
+    var backOn = d('backOn', false);
+    var checked = d('checked', CHECKED0);
+    var labels = d('labels', {});
+    var assign = d('assign', {});
+    var toast = d('toast', '');
+
+    var items = ITEMS.map(function (i) { return Object.assign({}, i, assign[i.id] !== undefined ? { b: assign[i.id] } : {}); });
+    var bById = {};
+    BREAKERS.forEach(function (b) { bById[b.s] = Object.assign({}, b, labels[b.s] !== undefined ? { l: labels[b.s] } : {}); });
+    var bNum = function (b) { return b.p === 2 ? b.s + '/' + (b.s + 2) : String(b.s); };
+    var bName = function (b) { return b.l || 'Unlabeled'; };
+    var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
+    var pos = function (b) { var row = Math.ceil(b.s / 2); return (b.s % 2 ? 'Left' : 'Right') + ' column, row ' + row + (b.p === 2 ? '–' + (row + 1) : ''); };
+    var countOf = function (s) { return items.filter(function (i) { return i.b === s; }).length; };
+
+    var listRow = function (b) {
+      var isChk = checked.indexOf(b.s) >= 0;
+      return { key: 'b' + b.s, num: bNum(b), name: bName(b), cls: 'lrow' + (b.l ? '' : ' is-unl'),
+        meta: (isChk ? 'Checked' : 'Not checked') + ' · ' + plural(countOf(b.s), 'item'),
+        pick: function () { set({ sheetFor: b.s, toast: '' }); } };
+    };
+    var all = BREAKERS.map(function (b) { return bById[b.s]; });
+    var todo = all.filter(function (b) { return checked.indexOf(b.s) < 0; });
+    todo.sort(function (a, b) { return (a.l ? 1 : 0) - (b.l ? 1 : 0) || a.s - b.s; });
+    var done = all.filter(function (b) { return checked.indexOf(b.s) >= 0; });
+
+    var shB = sheetFor != null ? bById[sheetFor] : null;
+    var cells = [];
+    for (var s = 1; s <= 40; s++) {
+      var hit = shB && (s === shB.s || (shB.p === 2 && s === shB.s + 2));
+      cells.push({ key: 'c' + s, cls: 'cell' + (hit ? ' is-t' : '') });
+    }
+
+    var tB = bById[tb];
+    var FO = ['bsmt', 'main', 'up'];
+    var floorTabs = FO.map(function (f) {
+      var n = items.filter(function (i) { return i.f === f && marked[i.id]; }).length;
+      return { key: f, label: FLOORS[f] === 'Main floor' ? 'Main' : FLOORS[f], cls: 'sb fb' + (floor === f ? ' is-on' : ''), pressed: floor === f ? 'true' : 'false', hasCount: n > 0, count: String(n), pick: function () { set({ floor: f }); } };
+    });
+    var roomOrder = ROOMS[floor].map(function (r) { return r.n; });
+    items.forEach(function (i) { if (i.f === floor && roomOrder.indexOf(i.r) < 0) roomOrder.push(i.r); });
+    var groups = roomOrder.map(function (rn) {
+      var its = items.filter(function (i) { return i.f === floor && i.r === rn; }).map(function (i) {
+        var on = !!marked[i.id];
+        var sub, subCls = 'sub';
+        if (i.b === tb) sub = 'Already on ' + bNum(tB);
+        else if (i.b == null) sub = on ? 'New — will be added to ' + bNum(tB) : 'No breaker yet';
+        else { var ob = bById[i.b]; sub = on ? 'Moves from ' + bNum(ob) + ' · ' + bName(ob) : 'On ' + bNum(ob) + ' · ' + bName(ob); if (on) subCls = 'sub mv'; }
+        return Object.assign({ key: i.id, n: i.n, sub: sub, subCls: subCls, cls: 'mrow' + (on ? ' is-on' : ''), pressed: on ? 'true' : 'false',
+          toggle: function () { var m = Object.assign({}, marked); if (m[i.id]) delete m[i.id]; else m[i.id] = true; set({ marked: m }); } }, flags(i.t));
+      });
+      return { key: rn, room: rn, items: its };
+    }).filter(function (g) { return g.items.length > 0; });
+    var mk = items.filter(function (i) { return marked[i.id]; });
+
+    var roomCount = {};
+    mk.forEach(function (i) { roomCount[i.r] = (roomCount[i.r] || 0) + 1; });
+    var rooms = Object.keys(roomCount).sort(function (a, b) { return roomCount[b] - roomCount[a]; });
+    var suggestions = [];
+    if (rooms.length) {
+      suggestions.push(rooms.length === 1 ? rooms[0] : rooms.slice(0, 2).join(' & '));
+      var types = {};
+      mk.forEach(function (i) { types[i.t] = true; });
+      var tk = Object.keys(types);
+      if (tk.length === 1) suggestions.push(rooms[0] + ' ' + { outlet: 'outlets', light: 'lights', 'switch': 'switches', appliance: 'appliances' }[tk[0]]);
+      var fl = mk[0].f;
+      if (mk.every(function (i) { return i.f === fl; })) suggestions.push(FLOORS[fl]);
+    } else suggestions.push('Spare');
+    var moves = mk.filter(function (i) { return i.b != null && i.b !== tb; });
+    var movedFrom = [];
+    moves.forEach(function (i) { var n = bNum(bById[i.b]); if (movedFrom.indexOf(n) < 0) movedFrom.push(n); });
+    var summary = mk.map(function (i) {
+      var tag, tagCls = 'tagx';
+      if (i.b === tb) tag = 'Same';
+      else if (i.b == null) { tag = 'New'; tagCls = 'tagx new'; }
+      else { tag = 'From ' + bNum(bById[i.b]); tagCls = 'tagx mv'; }
+      return Object.assign({ key: i.id, n: i.n, where: i.r + ' · ' + FLOORS[i.f], tag: tag, tagCls: tagCls }, flags(i.t));
+    });
+    var finalLabel = label.trim() || suggestions[0];
+
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light',
+      isPick: step === 'pick', isMark: step === 'mark', isName: step === 'name',
+      checkedText: checked.length + ' of ' + BREAKERS.length + ' breakers checked',
+      checkedPct: Math.round(checked.length / BREAKERS.length * 100),
+      todo: todo.map(listRow), done: done.map(listRow), todoCount: String(todo.length), doneCount: String(done.length),
+      toast: !!toast, toastText: toast,
+      sheetOpen: !!shB, cells: cells,
+      sh: shB ? { num: 'breaker ' + bNum(shB), pos: pos(shB), name: bName(shB) === 'Unlabeled' ? 'Unlabeled breaker' : bName(shB) } : { num: '', pos: '', name: '' },
+      closeSheet: function () { set({ sheetFor: null }); },
+      startMark: function () {
+        var pre = {};
+        items.forEach(function (i) { if (i.b === shB.s) pre[i.id] = true; });
+        var f = 'main';
+        var first = items.filter(function (i) { return i.b === shB.s; })[0];
+        if (first) f = first.f;
+        set({ step: 'mark', tb: shB.s, sheetFor: null, marked: pre, floor: f, label: '', backOn: false });
+      },
+      tbTitle: 'Breaker ' + bNum(tB), tbTitleLower: 'breaker ' + bNum(tB),
+      toPick: function () { set({ step: 'pick' }); },
+      floorTabs: floorTabs, groups: groups,
+      markedText: mk.length === 0 ? 'Nothing marked yet' : plural(mk.length, 'item') + ' marked',
+      reviewLabel: mk.length === 0 ? 'Nothing lost power' : 'Review',
+      toName: function () { set({ step: 'name' }); },
+      toMark: function () { set({ step: 'mark' }); },
+      backCls: 'backc' + (backOn ? ' is-done' : ''),
+      backTitle: backOn ? bNum(tB) + ' is back on' : 'Flip ' + bNum(tB) + ' back on',
+      backSub: backOn ? 'Thanks — nothing left dark.' : pos(tB),
+      backSw: 'sw' + (backOn ? ' is-on' : ''), backOnText: backOn ? 'true' : 'false',
+      toggleBack: function () { set({ backOn: !backOn }); },
+      label: label, labelPh: suggestions[0],
+      onLabel: function (e) { set({ label: e.target.value }); },
+      suggest: suggestions.map(function (sg) { return { key: sg, label: sg, pick: function () { set({ label: sg }); } }; }),
+      feedsTitle: 'Feeds ' + plural(mk.length, 'item'),
+      summary: summary, nothing: mk.length === 0,
+      hasMoves: moves.length > 0,
+      movesNote: plural(moves.length, 'item') + ' will move off ' + movedFrom.join(', ') + '. Worth re-tracing ' + (movedFrom.length === 1 ? 'that breaker' : 'those') + ' next.',
+      saveNext: function () {
+        var a = Object.assign({}, assign);
+        items.forEach(function (i) { if (marked[i.id]) a[i.id] = tb; else if (i.b === tb) a[i.id] = null; });
+        var lb = Object.assign({}, labels); lb[tb] = finalLabel;
+        var ch = checked.indexOf(tb) >= 0 ? checked : checked.concat([tb]);
+        set({ step: 'pick', assign: a, labels: lb, checked: ch, sheetFor: null, toast: 'Breaker ' + bNum(tB) + ' saved as “' + finalLabel + '”' });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

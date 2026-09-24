@@ -2,4 +2,4 @@
 	let { data } = $props();
 </script>
 
-<p>map</p>
+<p>settings</p>

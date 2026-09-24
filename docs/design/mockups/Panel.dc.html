@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Panel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+a{color:var(--ink)}a:hover{color:var(--link-h)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.bk{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding:0 6px 0 8px;border:1px solid var(--breaker-bd);border-radius:4px;background:var(--raised);font:inherit;color:var(--ink);cursor:pointer;text-align:left;transition:opacity .2s,background .15s}
+.bk-1{height:30px}
+.bk-2{height:62px}
+.bk-r{flex-direction:row-reverse;padding:0 8px 0 6px;text-align:right}
+.bk .num{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted);width:34px;flex-shrink:0}
+.bk-r .num{text-align:right}
+.bk .lbl{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-stretch:80%;font-size:14px;font-weight:500}
+.bk .amp{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;width:22px;text-align:center;flex-shrink:0}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.bk .hdl{width:30px;height:22px;background:var(--handle);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:space-around;flex-shrink:0;position:relative}
+.bk-2 .hdl{height:54px}
+.bk-2 .hdl::after{content:'';position:absolute;left:4px;right:4px;top:50%;height:3px;margin-top:-1.5px;background:var(--tie);border-radius:1px}
+.bk .tog{width:14px;height:8px;background:var(--toggle);border-radius:2px}
+.bk-1 .tog2{display:none}
+.bk:hover{border-color:var(--ink)}
+.bk.is-sel{background:#F2A33A;border-color:var(--ink);box-shadow:0 0 0 2px var(--ink)}
+.bk.is-sel .num{color:var(--ink)}
+.bk.is-dim{opacity:.3}
+.bk.is-unl .lbl{color:var(--warn);font-style:italic}
+.bk.is-sel.is-unl .lbl{color:var(--ink)}
+.bk-empty{border:1px dashed var(--enclosure-bd);background:transparent;cursor:default}
+.bk-empty:hover{border-color:var(--enclosure-bd)}
+.bk:focus-visible,.btn:focus-visible,.ibtn:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.fld select,.fld textarea{box-sizing:border-box;width:100%;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+.fld select{height:44px;padding:0 10px}
+.fld textarea{padding:10px 12px;resize:vertical;line-height:1.45}
+.fld select:focus,.fld textarea:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.fld .v{height:44px;box-sizing:border-box;display:flex;align-items:center;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;padding:0 12px;background:var(--bg);border-radius:6px;white-space:nowrap}
+.ttl{width:100%;box-sizing:border-box;border:0;border-bottom:2px solid transparent;padding:2px 0 6px;background:transparent;font-family:inherit;font-size:32px;font-weight:800;font-stretch:108%;letter-spacing:-0.02em;color:var(--ink)}
+.ttl:hover{border-bottom-color:var(--line-2)}
+.ttl:focus{outline:none;border-bottom-color:#F2A33A}
+.ttl::placeholder{color:var(--warn);font-style:italic;font-weight:600}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;gap:8px;box-sizing:border-box;border:1px solid var(--ink);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--bg);color:var(--ink)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0}
+.ibtn:hover{border-color:var(--ink)}
+.irow{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);min-width:0}
+.ico{width:34px;height:34px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.in{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iw{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc{font-size:13px;font-weight:600;flex-shrink:0;padding:6px 2px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.dot.is-dirty{background:#D98A1E}
+.th-light{--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--fed-bd:#1A1B1D;--ghost:rgba(255,255,255,.85);--room:rgba(255,255,255,.55);--ink:#1A1B1D;--tag-fg:#27466F;--handle:#2A2C2F;--bus-ink:#2F3337;--focus:#2F5FA7;--ok:#3F8A5A;--soft:#44474B;--muted:#55595E;--toggle:#7A7F85;--link-h:#8A4B06;--tie:#8A8F95;--enclosure-bd:#9AA0A6;--warn:#A93F1B;--breaker-bd:#AEB4BA;--bus:#B3B9BF;--enclosure:#C4C9CE;--dash:#C9C5BC;--field:#CFCBC2;--line-2:#D6D3CC;--tag-bg:#E1E8F2;--enclosure-hi:#E3E6E9;--line:#E6E3DC;--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;}
+.th-dark{--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--fed-bd:#F2A33A;--ghost:rgba(32,34,38,.9);--room:rgba(32,34,38,.72);color-scheme:dark;--ink:#ECEAE4;--tag-fg:#A9C4EA;--handle:#0B0C0D;--bus-ink:#C3C6CB;--focus:#7FA8E8;--ok:#5DBB80;--soft:#B7BAC0;--muted:#A3A7AD;--toggle:#5E636A;--link-h:#F5B860;--tie:#6E737A;--enclosure-bd:#4A4F55;--warn:#F08A64;--breaker-bd:#3A3E43;--bus:#34383D;--enclosure:#25282C;--dash:#44484E;--field:#3C4046;--line-2:#34373C;--tag-bg:#1F2E45;--enclosure-hi:#34383D;--line:#2C2F34;--bg:#121315;--raised:#1B1D20;--surface:#202226;}
+.th-light{color-scheme:light}.bk.is-sel,.bk.is-sel .num,.bk.is-sel .amp,.bk.is-sel .lbl,.bk.is-sel.is-unl .lbl{color:#1A1B1D}.circ.is-sel,.circ.is-sel .cl,.circ.is-sel.is-unl .cl{color:#1A1B1D}.it.is-lit{color:#1A1B1D}.th-dark .bk.is-sel{box-shadow:0 0 0 2px #F2A33A;border-color:#121315}.th-dark .circ.is-sel{border-color:#F2A33A}.th-dark .it.is-lit{border-color:#121315}.th-dark .room.is-lit{background:rgba(242,163,58,.12)}.th-dark .btn{border-color:#4A4F55}.th-dark .btn:hover{background:#2A2D31;border-color:#6E737A}.th-dark .btn-pri{border-color:#F2A33A}.th-dark .btn-pri:hover{background:#F6B75C;border-color:#F6B75C;color:#121315}.th-dark .ibtn:hover,.th-dark .srow:hover,.th-dark .bk:hover{border-color:#6E737A}.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}.tgl:hover{background:#26282B}.tgl:focus-visible{outline:3px solid #7FA8E8;outline-offset:2px}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); overflow: hidden; transition: background .2s">
+<header style="height: 60px; flex-shrink: 0; background: var(--hdr); color: #ECEAE4; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--hdr-bd); padding: 0 24px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2A33A" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><rect x="9" y="6" width="6" height="7" rx="1" fill="#F2A33A"></rect><path d="M9 17h6"></path></svg>
+<span style="font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em">Breakerbook</span>
+</div>
+<nav aria-label="Primary" style="display: flex; gap: 2px; height: 100%">
+<a class="nav is-on" href="Panel.dc.html" aria-current="page">Panel</a>
+<a class="nav" href="Map.dc.html">Map</a>
+<a class="nav" href="Items.dc.html">Items</a>
+<a class="nav" href="Settings.dc.html">Settings</a>
+</nav>
+<div style="flex-grow: 1"></div>
+<label for="q" class="sr">Search breakers, items and rooms</label>
+<div style="position: relative; display: flex; align-items: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B9BBBF" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; pointer-events: none"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input id="q" class="search" type="search" placeholder="Search breakers, items, rooms" value="{{q}}" onChange="{{onSearch}}">
+</div>
+<button type="button" class="tgl" onClick="{{toggleTheme}}" aria-label="{{themeLabel}}" title="{{themeLabel}}"><sc-if value="{{isDark}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{isLight}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></sc-if></button>
+<span class="mono" style="font-size: 12px; color: #B9BBBF">Main panel · 200A</span>
+</header>
+
+<main style="flex-grow: 1; min-height: 0; display: flex; gap: 32px; padding: 28px 32px; box-sizing: border-box">
+
+<section aria-label="Breaker panel" style="width: 640px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em">Main panel</h1>
+<span class="mono" style="font-size: 12px; color: var(--muted)">200A main · {{used}} of 40 spaces used</span>
+</div>
+<div style="display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--soft)">
+<span style="display: flex; gap: 6px; align-items: center"><span class="tag">GF</span>GFCI</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="tag">AF</span>AFCI</span>
+<span style="display: flex; gap: 6px; align-items: center"><span class="tag">DF</span>Dual function</span>
+<a class="btn" href="TracePick.dc.html" style="height: 36px; padding: 0 12px; font-size: 13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"></path></svg>Trace</a>
+</div>
+</div>
+
+<sc-if value="{{searching}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 6px 6px 14px; background: var(--ink); color: var(--bg); border-radius: 8px; font-size: 13px">
+<span>{{matchText}}</span>
+<button type="button" class="btn" style="height: 32px; background: transparent; color: var(--bg); border-color: var(--muted)" onClick="{{clearSearch}}">Clear</button>
+</div>
+</sc-if>
+
+<div style="background: var(--enclosure); border: 1px solid var(--enclosure-bd); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: inset 0 1px 0 var(--enclosure-hi)">
+<div style="align-self: center; display: flex; align-items: center; gap: 14px; background: var(--raised); border: 1px solid var(--enclosure-bd); border-radius: 6px; padding: 8px 18px 8px 8px">
+<div style="width: 64px; height: 44px; background: var(--handle); border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; position: relative">
+<span style="width: 18px; height: 26px; background: var(--toggle); border-radius: 2px"></span>
+<span style="width: 18px; height: 26px; background: var(--toggle); border-radius: 2px"></span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<span class="mono" style="font-size: 11px; color: var(--muted); letter-spacing: 0.08em">MAIN</span>
+<span style="font-size: 20px; font-weight: 800; font-stretch: 112%">200A</span>
+</div>
+</div>
+
+<div style="display: flex; gap: 8px">
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{left}}" as="b" hint-placeholder-count="16">
+<sc-if value="{{b.empty}}" hint-placeholder-val="{{false}}">
+<div class="{{b.cls}}"><span class="num">{{b.num}}</span><span class="lbl" style="color: var(--muted); font-style: italic">Open</span></div>
+</sc-if>
+<sc-if value="{{b.real}}" hint-placeholder-val="{{true}}">
+<button type="button" class="{{b.cls}}" onClick="{{b.pick}}" aria-label="{{b.aria}}" aria-pressed="{{b.pressed}}"><span class="num">{{b.num}}</span><span class="lbl">{{b.label}}</span><sc-if value="{{b.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag">{{b.tag}}</span></sc-if><span class="amp">{{b.amps}}</span><span class="hdl"><span class="tog"></span><span class="tog tog2"></span></span></button>
+</sc-if>
+</sc-for>
+</div>
+
+<div aria-hidden="true" style="width: 28px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; background: var(--bus); border-radius: 4px">
+<sc-for list="{{legs}}" as="leg" hint-placeholder-count="20">
+<div class="mono" style="height: 30px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: var(--bus-ink)">{{leg.name}}</div>
+</sc-for>
+</div>
+
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{right}}" as="b" hint-placeholder-count="16">
+<sc-if value="{{b.empty}}" hint-placeholder-val="{{false}}">
+<div class="{{b.cls}}"><span class="num">{{b.num}}</span><span class="lbl" style="color: var(--muted); font-style: italic">Open</span></div>
+</sc-if>
+<sc-if value="{{b.real}}" hint-placeholder-val="{{true}}">
+<button type="button" class="{{b.cls}}" onClick="{{b.pick}}" aria-label="{{b.aria}}" aria-pressed="{{b.pressed}}"><span class="num">{{b.num}}</span><span class="lbl">{{b.label}}</span><sc-if value="{{b.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag">{{b.tag}}</span></sc-if><span class="amp">{{b.amps}}</span><span class="hdl"><span class="tog"></span><span class="tog tog2"></span></span></button>
+</sc-if>
+</sc-for>
+</div>
+</div>
+</div>
+</section>
+
+<section aria-label="Breaker details" style="flex: 1 1 0; min-width: 0; background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 22px 28px 22px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<span class="mono" style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase">{{slotText}}</span>
+<div style="display: flex; gap: 6px">
+<button type="button" class="ibtn" aria-label="Previous breaker" onClick="{{onPrev}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></button>
+<button type="button" class="ibtn" aria-label="Next breaker" onClick="{{onNext}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<label for="f-label" class="sr">Breaker label</label>
+<input id="f-label" class="ttl" type="text" value="{{selLabel}}" onChange="{{onLabel}}" placeholder="Unlabeled — what does it power?">
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<div class="fld"><label for="f-amp">Amperage</label><select id="f-amp" value="{{selAmps}}" onChange="{{onAmps}}"><option value="15">15 A</option><option value="20">20 A</option><option value="30">30 A</option><option value="40">40 A</option><option value="50">50 A</option></select></div>
+<div class="fld"><label for="f-type">Protection</label><select id="f-type" value="{{selType}}" onChange="{{onType}}"><option value="std">Standard</option><option value="gfci">GFCI</option><option value="afci">AFCI</option><option value="df">Dual function</option></select></div>
+<div class="fld"><span class="k">Poles</span><span class="v">{{poles}}</span></div>
+<div class="fld"><span class="k">Min. wire (copper)</span><span class="v">{{wire}}</span></div>
+</div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 22px 28px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: baseline; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 108%">Powers</h2>
+<span style="font-size: 13px; color: var(--muted)">{{powerSummary}}</span>
+</div>
+<button type="button" class="btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add item</button>
+</div>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted)">{{g.name}} · {{g.count}}</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="2">
+<div class="irow">
+<span class="ico"><sc-if value="{{i.io}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{i.il}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{i.is}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{i.ia}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span class="in">{{i.n}}</span><span class="iw">{{i.where}}</span></span>
+<a class="loc" href="Map.dc.html">Locate</a>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+
+<sc-if value="{{noItems}}" hint-placeholder-val="{{false}}">
+<div style="border: 1.5px dashed var(--dash); border-radius: 10px; padding: 28px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start">
+<span style="font-size: 17px; font-weight: 700">Nothing mapped to this breaker yet</span>
+<span style="font-size: 14px; color: var(--muted); max-width: 460px; line-height: 1.5">Flip it off, walk the house, and add whatever went dark. Anything you add here shows up on the map too.</span>
+<button type="button" class="btn btn-pri">Add the first item</button>
+</div>
+</sc-if>
+
+<div class="fld">
+<label for="f-notes">Notes</label>
+<textarea id="f-notes" rows="3" placeholder="Anything worth knowing when this one trips"></textarea>
+</div>
+</div>
+
+<div style="padding: 14px 28px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<span style="font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px"><span class="{{dotCls}}"></span>{{saveText}}</span>
+<div style="display: flex; gap: 8px">
+<a class="btn" href="Map.dc.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg>Show on map</a>
+<button type="button" class="btn btn-pri" onClick="{{onSave}}">Save changes</button>
+</div>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+var FLOORS = { bsmt: 'Basement', main: 'Main floor', up: 'Upstairs' };
+var TAG = { std: '', gfci: 'GF', afci: 'AF', df: 'DF' };
+var WIRE = { 15: '14 AWG', 20: '12 AWG', 30: '10 AWG', 40: '8 AWG', 50: '6 AWG' };
+var BREAKERS = [
+  { s: 1, p: 2, a: 50, t: 'std', l: 'Range' },
+  { s: 2, p: 2, a: 30, t: 'std', l: 'Dryer' },
+  { s: 5, p: 2, a: 40, t: 'std', l: 'A/C condenser' },
+  { s: 6, p: 2, a: 30, t: 'std', l: 'Water heater' },
+  { s: 9, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — west' },
+  { s: 10, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — east' },
+  { s: 11, p: 1, a: 20, t: 'std', l: 'Dishwasher & disposal' },
+  { s: 12, p: 1, a: 20, t: 'std', l: 'Refrigerator' },
+  { s: 13, p: 1, a: 20, t: 'std', l: 'Microwave' },
+  { s: 14, p: 1, a: 15, t: 'afci', l: 'Kitchen & dining lights' },
+  { s: 15, p: 1, a: 15, t: 'afci', l: 'Living room' },
+  { s: 16, p: 1, a: 20, t: 'gfci', l: 'Bathrooms' },
+  { s: 17, p: 1, a: 15, t: 'afci', l: 'Primary bedroom' },
+  { s: 18, p: 1, a: 15, t: 'afci', l: 'Bedroom 2' },
+  { s: 19, p: 1, a: 15, t: 'afci', l: 'Office' },
+  { s: 20, p: 1, a: 20, t: 'std', l: 'Laundry' },
+  { s: 21, p: 1, a: 15, t: 'afci', l: 'Hall & stairs lights' },
+  { s: 22, p: 1, a: 20, t: 'gfci', l: 'Garage' },
+  { s: 23, p: 1, a: 15, t: 'std', l: 'Furnace' },
+  { s: 24, p: 1, a: 20, t: 'gfci', l: 'Exterior outlets' },
+  { s: 25, p: 1, a: 15, t: 'std', l: 'Basement lights' },
+  { s: 26, p: 1, a: 20, t: 'std', l: 'Basement outlets' },
+  { s: 27, p: 1, a: 20, t: 'afci', l: 'Dining room outlets' },
+  { s: 28, p: 1, a: 20, t: 'std', l: 'Sump pump' },
+  { s: 29, p: 1, a: 15, t: 'std', l: '' }
+];
+var RAW = [
+  ['k1','outlet','Counter outlet W1','Kitchen','main',458,110,9],
+  ['k2','outlet','Counter outlet W2','Kitchen','main',458,220,9],
+  ['k3','outlet','Island outlet','Kitchen','main',600,200,9],
+  ['k4','outlet','Counter outlet E1','Kitchen','main',640,58,10],
+  ['k5','outlet','Counter outlet E2','Kitchen','main',762,100,10],
+  ['k6','appliance','Dishwasher','Kitchen','main',540,58,11],
+  ['k7','appliance','Disposal','Kitchen','main',560,112,11],
+  ['k8','appliance','Refrigerator','Kitchen','main',762,300,12],
+  ['k9','appliance','Microwave','Kitchen','main',705,58,13],
+  ['k10','appliance','Range','Kitchen','main',762,190,1],
+  ['k11','light','Recessed lights','Kitchen','main',660,150,14],
+  ['k12','switch','Kitchen light switch','Kitchen','main',458,318,14],
+  ['k13','light','Island pendants','Kitchen','main',540,262,14],
+  ['d1','light','Chandelier','Dining room','main',670,520,14],
+  ['d2','switch','Dining light switch','Dining room','main',578,420,14],
+  ['d3','outlet','Outlet — north wall','Dining room','main',700,358,27],
+  ['d4','outlet','Outlet — east wall','Dining room','main',762,580,27],
+  ['d5','outlet','Outlet — south wall','Dining room','main',660,682,27],
+  ['l1','outlet','Outlet — west wall','Living room','main',58,450,15],
+  ['l2','outlet','Outlet by sofa','Living room','main',160,682,15],
+  ['l3','outlet','Outlet — south wall','Living room','main',340,682,15],
+  ['l4','light','Ceiling fan','Living room','main',250,520,15],
+  ['l5','switch','Fan switch','Living room','main',442,420,15],
+  ['l6','outlet','TV wall outlet','Living room','main',58,600,15],
+  ['h1','light','Entry light','Entry & hall','main',510,630,21],
+  ['h2','switch','Entry switch','Entry & hall','main',478,682,21],
+  ['h3','light','Stair light','Entry & hall','main',510,420,21],
+  ['hb1','outlet','GFCI outlet at vanity','Half bath','main',420,230,16],
+  ['hb2','light','Vanity light','Half bath','main',398,300,16],
+  ['hb3','appliance','Exhaust fan','Half bath','main',335,300,16],
+  ['la1','appliance','Dryer','Laundry','main',330,110,2],
+  ['la2','appliance','Washer','Laundry','main',385,110,20],
+  ['la3','outlet','Laundry outlet','Laundry','main',420,166,20],
+  ['g1','outlet','Outlet — west wall','Garage','main',58,120,22],
+  ['g2','outlet','Workbench outlet','Garage','main',160,58,22],
+  ['g3','light','Garage lights','Garage','main',170,190,22],
+  ['g4','appliance','Door opener','Garage','main',170,270,22],
+  ['g5','switch','Garage light switch','Garage','main',282,310,22],
+  ['e1','appliance','A/C condenser','Outside','main',802,420,5],
+  ['e2','outlet','Front porch outlet','Outside','main',610,722,24],
+  ['e3','outlet','Back patio outlet','Outside','main',20,520,24],
+  ['p1','outlet','Outlet — west wall','Primary bedroom','up',58,150,17],
+  ['p2','outlet','Outlet — north wall','Primary bedroom','up',230,58,17],
+  ['p3','outlet','Bedside outlet','Primary bedroom','up',402,280,17],
+  ['p4','light','Ceiling fan','Primary bedroom','up',230,200,17],
+  ['p5','switch','Fan switch','Primary bedroom','up',402,340,17],
+  ['pb1','outlet','GFCI outlet','Primary bath','up',582,100,16],
+  ['pb2','light','Vanity light','Primary bath','up',530,140,16],
+  ['pb3','appliance','Exhaust fan','Primary bath','up',470,200,16],
+  ['ba1','outlet','GFCI outlet','Hall bath','up',762,70,16],
+  ['ba2','light','Vanity light','Hall bath','up',720,140,16],
+  ['ba3','appliance','Exhaust fan','Hall bath','up',650,200,16],
+  ['hu1','light','Hall light','Upstairs hall','up',600,300,21],
+  ['hu2','switch','Hall switch','Upstairs hall','up',440,300,21],
+  ['r1','outlet','Outlet — west wall','Bedroom 2','up',58,500,18],
+  ['r2','outlet','Outlet — south wall','Bedroom 2','up',190,682,18],
+  ['r3','light','Ceiling light','Bedroom 2','up',190,530,18],
+  ['r4','switch','Light switch','Bedroom 2','up',322,400,18],
+  ['o1','outlet','Outlet — east wall','Office','up',762,450,19],
+  ['o2','outlet','Desk outlet','Office','up',560,682,19],
+  ['o3','outlet','Outlet — west wall','Office','up',358,600,19],
+  ['o4','light','Ceiling light','Office','up',560,530,19],
+  ['o5','switch','Light switch','Office','up',358,430,19],
+  ['u1','appliance','Water heater','Utility','bsmt',90,90,6],
+  ['u2','appliance','Furnace','Utility','bsmt',180,90,23],
+  ['u3','appliance','Sump pump','Utility','bsmt',90,270,28],
+  ['u4','light','Utility light','Utility','bsmt',200,200,25],
+  ['u5','outlet','Utility outlet','Utility','bsmt',322,160,26],
+  ['rr1','light','Recessed lights (north)','Rec room','bsmt',560,250,25],
+  ['rr2','light','Recessed lights (south)','Rec room','bsmt',560,480,25],
+  ['rr3','switch','Light switch','Rec room','bsmt',358,300,25],
+  ['rr4','outlet','Outlet — east wall N','Rec room','bsmt',762,200,26],
+  ['rr5','outlet','Outlet — east wall S','Rec room','bsmt',762,500,26],
+  ['rr6','outlet','Outlet — south wall','Rec room','bsmt',560,682,26],
+  ['s1','light','Storage light','Storage','bsmt',190,510,25],
+  ['s2','outlet','Storage outlet','Storage','bsmt',58,600,26]
+];
+var ITEMS = RAW.map(function (r) { return { id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }; });
+function flags(t) { return { io: t === 'outlet', il: t === 'light', is: t === 'switch', ia: t === 'appliance' }; }
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var dark = st.dark !== undefined ? st.dark : (this.props.dark !== undefined ? !!this.props.dark : true);
+    var selId = st.sel === undefined ? 16 : st.sel;
+    var qRaw = st.q || '';
+    var q = qRaw.trim().toLowerCase();
+    var edits = st.edits || {};
+    var set = function (o) { self.setState(o); };
+
+    var bs = BREAKERS.map(function (b) { return Object.assign({}, b, edits[b.s] || {}); });
+    var byId = {}, cover = {};
+    bs.forEach(function (b) { byId[b.s] = b; cover[b.s] = b; if (b.p === 2) cover[b.s + 2] = b; });
+    var itemsOf = function (s) { return ITEMS.filter(function (i) { return i.b === s; }); };
+    var match = function (b) {
+      if (!q) return true;
+      if ((b.l || 'unlabeled').toLowerCase().indexOf(q) >= 0 || String(b.s) === q) return true;
+      return itemsOf(b.s).some(function (i) { return (i.n + ' ' + i.r).toLowerCase().indexOf(q) >= 0; });
+    };
+    var legOf = function (s) { return Math.ceil(s / 2) % 2 === 1 ? 'L1' : 'L2'; };
+
+    var mk = function (slot, side) {
+      var b = cover[slot];
+      var base = 'bk' + (side === 'r' ? ' bk-r' : '');
+      if (!b) return { key: 'e' + slot, empty: true, real: false, num: String(slot), cls: base + ' bk-1 bk-empty' };
+      var sel = b.s === selId, m = match(b);
+      return {
+        key: 'b' + b.s, empty: false, real: true,
+        num: b.p === 2 ? b.s + '/' + (b.s + 2) : String(b.s),
+        label: b.l || 'Unlabeled', amps: String(b.a), tag: TAG[b.t], hasTag: !!TAG[b.t],
+        pressed: sel ? 'true' : 'false',
+        aria: 'Breaker ' + b.s + ', ' + (b.l || 'unlabeled') + ', ' + b.a + ' amp',
+        cls: base + ' bk-' + b.p + (sel ? ' is-sel' : '') + (m ? '' : ' is-dim') + (b.l ? '' : ' is-unl'),
+        pick: function () { set({ sel: b.s }); }
+      };
+    };
+    var col = function (start, side) {
+      var out = [];
+      for (var s = start; s <= 40; s += 2) { var b = cover[s]; if (b && b.s !== s) continue; out.push(mk(s, side)); }
+      return out;
+    };
+    var legs = [];
+    for (var r = 1; r <= 20; r++) legs.push({ key: 'r' + r, name: r % 2 === 1 ? 'L1' : 'L2' });
+    var used = bs.reduce(function (a, b) { return a + b.p; }, 0);
+    var nMatch = bs.filter(match).length;
+
+    var sb = byId[selId];
+    var its = itemsOf(selId);
+    var order = ['bsmt', 'main', 'up'];
+    var fl = [];
+    its.forEach(function (i) { if (fl.indexOf(i.f) < 0) fl.push(i.f); });
+    fl.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
+    var summary = its.length === 0 ? 'No items yet' : (its.length + (its.length === 1 ? ' item' : ' items') + ' · ' + fl.map(function (f) { return FLOORS[f]; }).join(', '));
+    var groups = [['outlet', 'Outlets'], ['light', 'Lights'], ['switch', 'Switches'], ['appliance', 'Appliances']].map(function (g) {
+      var list = its.filter(function (i) { return i.t === g[0]; }).map(function (i) {
+        return Object.assign({ key: i.id, n: i.n, where: i.r + ' · ' + FLOORS[i.f] }, flags(i.t));
+      });
+      return { key: g[0], name: g[1], count: list.length, items: list };
+    }).filter(function (g) { return g.count > 0; });
+
+    var ids = bs.map(function (b) { return b.s; });
+    var idx = ids.indexOf(selId);
+    var setEdit = function (k, v) {
+      var e = Object.assign({}, edits);
+      var patch = {}; patch[k] = v;
+      e[selId] = Object.assign({}, e[selId] || {}, patch);
+      set({ edits: e, dirty: true });
+    };
+    var dirty = !!st.dirty;
+
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light',
+      isDark: dark, isLight: !dark,
+      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: function () { set({ dark: !dark }); },
+      q: qRaw,
+      onSearch: function (e) { set({ q: e.target.value }); },
+      clearSearch: function () { set({ q: '' }); },
+      searching: !!q,
+      matchText: nMatch + ' of ' + bs.length + ' breakers match “' + qRaw.trim() + '”',
+      used: String(used),
+      left: col(1, 'l'),
+      right: col(2, 'r'),
+      legs: legs,
+      slotText: sb.p === 2 ? ('Slots ' + sb.s + ' + ' + (sb.s + 2) + ' · Legs L1 + L2') : ('Slot ' + sb.s + ' · Leg ' + legOf(sb.s)),
+      selLabel: sb.l || '',
+      selAmps: String(sb.a),
+      selType: sb.t,
+      poles: sb.p === 2 ? '2-pole · 240V' : '1-pole · 120V',
+      wire: WIRE[sb.a] || '—',
+      onLabel: function (e) { setEdit('l', e.target.value); },
+      onAmps: function (e) { setEdit('a', Number(e.target.value)); },
+      onType: function (e) { setEdit('t', e.target.value); },
+      onPrev: function () { set({ sel: ids[(idx - 1 + ids.length) % ids.length] }); },
+      onNext: function () { set({ sel: ids[(idx + 1) % ids.length] }); },
+      powerSummary: summary,
+      groups: groups,
+      noItems: its.length === 0,
+      dotCls: 'dot' + (dirty ? ' is-dirty' : ''),
+      saveText: dirty ? 'Unsaved changes' : (st.saved ? 'Saved just now' : 'All changes saved'),
+      onSave: function () { set({ dirty: false, saved: true }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
