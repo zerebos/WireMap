@@ -33,6 +33,17 @@ export async function createBreaker(values: typeof t.breakers.$inferInsert): Pro
 	return row.id;
 }
 
+/**
+ * Splits a full-size 1-pole breaker into tandem halves (DESIGN.md §5.15): it becomes half A and
+ * an empty, unlabeled half B is added. Returns half B's id.
+ */
+export async function makeTandem(id: number): Promise<number> {
+	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
+	if (!b) throw new Error('No such breaker');
+	await db.update(t.breakers).set({ half: 'A' }).where(eq(t.breakers.id, id));
+	return createBreaker({ panelId: b.panelId, slot: b.slot, half: 'B', poles: 1, amps: b.amps, kind: 'standard', label: '' });
+}
+
 export async function deleteBreaker(id: number) {
 	await db.delete(t.breakers).where(eq(t.breakers.id, id));
 }

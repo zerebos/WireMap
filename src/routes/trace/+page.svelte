@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Trace a breaker (docs/design/DESIGN.md §5.6): pick & flip → mark what died → name & save.
 	// /trace?b=<breakerId> opens the flip sheet for that breaker.
+	import { compareBreakers } from '$lib/panel';
 	import { tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
@@ -32,7 +33,7 @@
 	let toast = $state('');
 	let busy = $state(false);
 
-	const order = (a: Breaker, b: Breaker) => a.panelId - b.panelId || a.slot - b.slot;
+	const order = (a: Breaker, b: Breaker) => compareBreakers(a, b);
 	const all = $derived([...data.house.breakers].sort(order));
 	const isChecked = (b: Breaker) => b.lastCheckedAt !== null;
 	const todo = $derived(all.filter((b) => !isChecked(b)).sort((a, b) => (a.label ? 1 : 0) - (b.label ? 1 : 0) || order(a, b)));

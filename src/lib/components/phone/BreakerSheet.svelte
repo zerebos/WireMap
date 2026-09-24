@@ -10,9 +10,21 @@
 	import { access } from '$lib/access.svelte';
 	import { trapTab } from './trap';
 
-	let { ix, breaker, panel, onclose }: { ix: HouseIndex; breaker: Breaker; panel: Panel; onclose: () => void } = $props();
+	let {
+		ix,
+		breaker,
+		panel,
+		onclose,
+		onpick
+	}: { ix: HouseIndex; breaker: Breaker; panel: Panel; onclose: () => void; onpick: (b: Breaker) => void } = $props();
 
 	const items = $derived(ix.itemsOf(breaker.id));
+	/** The other half of a tandem slot. */
+	const mate = $derived(
+		breaker.half
+			? (ix.house.breakers.find((b) => b.panelId === breaker.panelId && b.slot === breaker.slot && b.half && b.id !== breaker.id) ?? null)
+			: null
+	);
 	const spec = $derived(
 		breaker.poles === 2 ? `${breaker.amps}A · 2-pole · 240V` : `${breaker.amps}A · ${PROTECTION_LABELS[breaker.kind]} · 120V`
 	);
@@ -46,6 +58,12 @@
 			</div>
 			<button type="button" class="ibtn" aria-label="Close" bind:this={closeBtn} onclick={onclose}><Icon name="close" size={16} /></button>
 		</div>
+		{#if mate}
+			<button type="button" class="mate" onclick={() => onpick(mate)}>
+				<span>Shares slot {breaker.slot} with <strong>{slotLabel(mate, panel)}</strong> · {ix.labelOf(mate)}</span>
+				<span aria-hidden="true">→</span>
+			</button>
+		{/if}
 		<div class="acts" class:two={access.guest}>
 			<a class="btn" href={resolve('/map') + `?circuit=${breaker.id}`}>Show on map</a>
 			<a class="btn" href={resolve('/shutoff') + `?breaker=${breaker.id}`}>Shut off</a>
@@ -177,5 +195,24 @@
 		font-size: 14px;
 		color: var(--muted);
 		padding: 8px 0;
+	}
+	.mate {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		min-height: 40px;
+		padding: 0 12px;
+		border: 1px solid var(--line-2);
+		border-radius: var(--r-lg);
+		background: var(--raised);
+		font: inherit;
+		font-size: 13px;
+		color: var(--ink);
+		text-align: left;
+		cursor: pointer;
+	}
+	.mate:hover {
+		border-color: var(--btn-bd-h);
 	}
 </style>

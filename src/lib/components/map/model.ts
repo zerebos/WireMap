@@ -1,4 +1,5 @@
 // Shared logic for the Map screen (docs/design/DESIGN.md §5.2).
+import { compareBreakers } from '$lib/panel';
 import type { Breaker, Floor, Room } from '$lib/db/schema';
 import type { HouseIndex, HouseItem } from '$lib/house';
 import { mutate, plural } from '$lib/house';
@@ -70,7 +71,7 @@ export function roomGroups(ix: HouseIndex, room: Room): Group[] {
 	}
 	const breakers = [...byB.keys()]
 		.map((id) => ix.breakerById.get(id)!)
-		.sort((a, b) => a.panelId - b.panelId || a.slot - b.slot);
+		.sort(compareBreakers);
 	const groups: Group[] = breakers.map((b) => {
 		const out = ix.itemsOf(b.id).filter((i) => i.roomId !== room.id);
 		const names: string[] = [];

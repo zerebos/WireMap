@@ -7,7 +7,7 @@
 	import PhoneFrame from '$lib/components/phone/PhoneFrame.svelte';
 	import { useBack } from '$lib/components/phone/back.svelte';
 	import { index, plural, type HouseItem } from '$lib/house';
-	import { physicalPosition } from '$lib/panel';
+	import { physicalPosition, compareBreakers } from '$lib/panel';
 	import type { Breaker } from '$lib/db/schema';
 
 	let { data } = $props();
@@ -54,7 +54,7 @@
 		return [...ids]
 			.map((id) => ix.breakerById.get(id))
 			.filter((b): b is Breaker => !!b)
-			.sort((a, b) => a.panelId - b.panelId || a.slot - b.slot);
+			.sort(compareBreakers);
 	});
 	const ids = $derived(new Set(breakers.map((b) => b.id)));
 	const unknown = $derived(scope.filter((i) => i.breakerIds.length === 0));

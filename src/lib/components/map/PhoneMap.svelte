@@ -2,6 +2,7 @@
 	// The Map on a phone (DESIGN.md §5.12): floor tabs, a circuit picker, the floor scaled to fit
 	// the width (pinch to zoom), and what's selected in a panel underneath. For finding things
 	// only; layout editing is desktop-only.
+	import { compareBreakers } from '$lib/panel';
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
 	import type { Room } from '$lib/db/schema';
@@ -25,7 +26,7 @@
 	const floor = $derived(floorId === null ? null : (ix.floorById.get(floorId) ?? null));
 	const floorRooms = $derived(ix.house.rooms.filter((r) => r.floorId === floorId));
 	const floorItems = $derived(ix.house.items.filter((i) => i.floorId === floorId && i.x !== null && i.y !== null));
-	const breakers = $derived([...ix.house.breakers].sort((a, b) => a.panelId - b.panelId || a.slot - b.slot));
+	const breakers = $derived([...ix.house.breakers].sort(compareBreakers));
 
 	// ---- Selection
 	const selRoom = $derived(sel.kind === 'room' ? (ix.roomById.get(sel.id) ?? null) : null);
@@ -163,7 +164,7 @@
 			const ba = first(a);
 			const bb = first(b);
 			if (!ba || !bb) return (ba ? 0 : 1) - (bb ? 0 : 1);
-			return ba.panelId - bb.panelId || ba.slot - bb.slot;
+			return compareBreakers(ba, bb);
 		});
 	});
 	const roomCircuits = $derived(selRoom ? roomBreakerCount(roomGroups(ix, selRoom)) : 0);
