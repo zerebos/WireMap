@@ -5,11 +5,12 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import NewBreakerForm, { blankBreaker, type NewBreaker } from '$lib/components/panel/NewBreakerForm.svelte';
 	import PanelEmpty from '$lib/components/panel/PanelEmpty.svelte';
+	import RemoveBreakerDialog from '$lib/components/panel/RemoveBreakerDialog.svelte';
 	import { tick } from 'svelte';
 	import { AMPS, ITEM_TYPES, ITEM_TYPE_LABELS, MIN_WIRE, PROTECTIONS, PROTECTION_LABELS, PROTECTION_TAGS } from '$lib/constants';
 	import type { Protection } from '$lib/constants';
 	import type { Breaker } from '$lib/db/schema';
-	import { createBreaker, createItem, updateBreaker } from '$lib/db/ops';
+	import { createBreaker, createItem, deleteBreaker, updateBreaker } from '$lib/db/ops';
 	import { index, mutate, plural } from '$lib/house';
 	import { checkFit, legOfRow, nextInColumn, occupiedSlots, position, rowCount, slotAt, slotLabel, slotText, spacesUsed } from '$lib/panel';
 	import { query, search } from '$lib/search.svelte';
@@ -22,20 +23,24 @@
 	const breakers = $derived(panel ? house.breakers.filter((b) => b.panelId === panel.id) : []);
 
 	// ---- Unsaved edits, per breaker. The breaker face shows them live.
-	type Draft = { label: string; amps: number; kind: Protection; notes: string };
+	type Draft = { label: string; amps: number; kind: Protection; poles: number; notes: string };
 	let drafts = $state<Record<number, Draft>>({});
 	let savedJustNow = $state(false);
 
 	const view = (b: Breaker): Breaker => {
 		const d = drafts[b.id];
-		return d ? { ...b, label: d.label, amps: d.amps, kind: d.kind, notes: d.notes } : b;
+		return d ? { ...b, label: d.label, amps: d.amps, kind: d.kind, poles: d.poles, notes: d.notes } : b;
 	};
 	const isChanged = (b: Breaker, d: Draft) =>
-		d.label.trim() !== b.label || d.amps !== b.amps || d.kind !== b.kind || (d.notes.trim() || null) !== (b.notes ?? null);
+		d.label.trim() !== b.label ||
+		d.amps !== b.amps ||
+		d.kind !== b.kind ||
+		d.poles !== b.poles ||
+		(d.notes.trim() || null) !== (b.notes ?? null);
 	const dirty = $derived(breakers.some((b) => drafts[b.id] && isChanged(b, drafts[b.id])));
 
 	function edit(b: Breaker, patch: Partial<Draft>) {
-		const current = drafts[b.id] ?? { label: b.label, amps: b.amps, kind: b.kind, notes: b.notes ?? '' };
+		const current = drafts[b.id] ?? { label: b.label, amps: b.amps, kind: b.kind, poles: b.poles, notes: b.notes ?? '' };
 		drafts[b.id] = { ...current, ...patch };
 		savedJustNow = false;
 	}
@@ -45,7 +50,13 @@
 		await mutate(async () => {
 			for (const b of changed) {
 				const d = drafts[b.id];
-				await updateBreaker(b.id, { label: d.label.trim(), amps: d.amps, kind: d.kind, notes: d.notes.trim() || null });
+				await updateBreaker(b.id, {
+					label: d.label.trim(),
+					amps: d.amps,
+					kind: d.kind,
+					poles: d.poles,
+					notes: d.notes.trim() || null
+				});
 			}
 		});
 		drafts = {};
@@ -58,6 +69,7 @@
 	const sel = $derived(selRaw ? view(selRaw) : undefined);
 
 	function pick(id: number) {
+		moving = false;
 		const url = new URL(page.url);
 		url.searchParams.set('b', String(id));
 		url.searchParams.delete('slot');
@@ -76,15 +88,16 @@
 	let form = $state<NewBreaker>(blankBreaker());
 	let formEl = $state<ReturnType<typeof NewBreakerForm>>();
 
-	/** Why a 2-pole breaker can't start at the new slot, or null if it can. */
-	const no2Why = $derived.by(() => {
-		if (!panel || newSlot === null || !checkFit({ slot: newSlot, poles: 2 }, panel, breakers)) return null;
-		const below = nextInColumn(newSlot, panel);
-		if (below > panel.slotCount || position(below, panel).side !== position(newSlot, panel).side) {
+	/** Why a 2-pole breaker (the breaker `id`, or a new one) can't start at `slot`, or null if it can. */
+	function why2(slot: number, id?: number): string | null {
+		if (!panel || !checkFit({ id, slot, poles: 2 }, panel, placed)) return null;
+		const below = nextInColumn(slot, panel);
+		if (below > panel.slotCount || position(below, panel).side !== position(slot, panel).side) {
 			return 'A 2-pole breaker needs the slot below, and this is the bottom row.';
 		}
 		return `A 2-pole breaker needs slot ${below}, which is taken.`;
-	});
+	}
+	const no2Why = $derived(newSlot === null ? null : why2(newSlot));
 	const newPoles = $derived(no2Why ? 1 : form.poles);
 	const newSlots = $derived(panel && newSlot !== null ? occupiedSlots({ slot: newSlot, poles: newPoles }, panel) : []);
 
@@ -123,8 +136,54 @@
 			await pick(id);
 		}
 	}
+
+	// ---- Moving the selected breaker: every open slot it fits in becomes a target.
+	let moving = $state(false);
+	const fits = (slot: number) => !!sel && !!panel && !checkFit({ id: sel.id, slot, poles: sel.poles }, panel, placed);
+	async function moveTo(slot: number) {
+		if (!sel) return;
+		const id = sel.id;
+		moving = false;
+		await mutate(() => updateBreaker(id, { slot }));
+		await tick();
+		document.querySelector<HTMLElement>(`[data-breaker="${id}"]`)?.focus();
+	}
+
+	// ---- Removing the selected breaker. Its items stay, with no breaker if it was their only one.
+	let removeDlg = $state<ReturnType<typeof RemoveBreakerDialog>>();
+	const removeQuestion = $derived.by(() => {
+		if (!sel || !panel) return '';
+		const label = sel.label.trim();
+		return `Remove breaker ${slotLabel(sel, panel)}${label ? ` “${label}”` : ''}?`;
+	});
+	const removeDetail = $derived.by(() => {
+		const orphans = selItems.filter((i) => i.breakerIds.length === 1).length;
+		if (!orphans) return '';
+		const n = plural(selItems.length, 'item');
+		return orphans === selItems.length
+			? `Its ${n} will be left with no breaker.`
+			: `${orphans} of its ${n} will be left with no breaker.`;
+	});
+	async function removeSelected() {
+		if (!sel) return;
+		const id = sel.id;
+		const i = breakers.findIndex((b) => b.id === id);
+		const neighbor = breakers[i + 1] ?? breakers[i - 1];
+		await mutate(() => deleteBreaker(id));
+		delete drafts[id];
+		if (neighbor) {
+			await pick(neighbor.id);
+		} else {
+			const url = new URL(page.url);
+			url.searchParams.delete('b');
+			await goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+		}
+	}
+
 	function onkeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && newSlot !== null && !e.defaultPrevented) cancelSlot();
+		if (e.key !== 'Escape' || e.defaultPrevented) return;
+		if (moving) moving = false;
+		else if (newSlot !== null) cancelSlot();
 	}
 	function step(by: number) {
 		if (!sel) return;
@@ -144,9 +203,11 @@
 
 	// ---- The panel face: each column top to bottom; a 2-pole breaker fills two rows.
 	type Cell = { slot: number; breaker: Breaker | null };
+	// Breakers as shown, with unsaved edits (a pole change moves the face live).
+	const placed = $derived(breakers.map(view));
 	const cover = $derived.by(() => {
 		const m = new Map<number, Breaker>();
-		if (panel) for (const b of breakers) for (const s of occupiedSlots(b, panel)) m.set(s, b);
+		if (panel) for (const b of placed) for (const s of occupiedSlots(b, panel)) m.set(s, b);
 		return m;
 	});
 	const rows = $derived(panel ? rowCount(panel) : 0);
@@ -169,6 +230,7 @@
 
 	// ---- What the selected breaker powers.
 	const selItems = $derived(sel ? ix.itemsOf(sel.id) : []);
+	const selNo2 = $derived(sel ? why2(sel.slot, sel.id) : null);
 	const summary = $derived.by(() => {
 		if (!selItems.length) return 'No items yet';
 		const floors = house.floors.filter((f) => selItems.some((i) => i.floorId === f.id)).map((f) => f.name);
@@ -222,6 +284,13 @@
 				</div>
 			{/if}
 
+			{#if moving && sel}
+				<div class="results inv" role="status">
+					<span>Moving breaker {slotLabel(sel, panel)} · click an open slot · Esc to cancel</span>
+					<button type="button" class="chipbtn" onclick={() => (moving = false)}>Cancel</button>
+				</div>
+			{/if}
+
 			<div class="enclosure">
 				<div class="main-bk">
 					<div class="main-hdl"><span></span><span></span></div>
@@ -235,7 +304,23 @@
 					{#snippet col(cells: Cell[], side: 'l' | 'r')}
 						<div class="col">
 							{#each cells as cell (cell.slot)}
-								{#if !cell.breaker}
+								{#if !cell.breaker && moving}
+									{@const ok = fits(cell.slot)}
+									<button
+										type="button"
+										class="bk bk-1 bk-open"
+										class:bk-r={side === 'r'}
+										class:is-target={ok}
+										class:is-dim={!ok}
+										data-slot={cell.slot}
+										disabled={!ok}
+										aria-label="Move here: slot {cell.slot}"
+										onclick={() => moveTo(cell.slot)}
+									>
+										<span class="num">{cell.slot}</span>
+										<span class="lbl">{ok ? 'Move here' : 'Open'}</span>
+									</button>
+								{:else if !cell.breaker}
 									{@const isNew = cell.slot === newSlot}
 									{@const two = isNew && newSlots.length === 2}
 									<button
@@ -259,10 +344,12 @@
 										class="bk bk-{b.poles === 2 ? 2 : 1}"
 										class:bk-r={side === 'r'}
 										class:is-sel={newSlot === null && b.id === sel?.id}
-										class:is-dim={!matches(cell.breaker)}
+										class:is-moving={moving && b.id === sel?.id}
+										class:is-dim={!matches(cell.breaker) || (moving && b.id !== sel?.id)}
 										class:is-unl={!b.label.trim()}
 										aria-pressed={newSlot === null && b.id === sel?.id}
 										aria-label="Breaker {slotLabel(b, panel)}, {b.label.trim() || 'unlabeled'}, {b.amps} amp"
+										data-breaker={b.id}
 										onclick={() => pick(b.id)}
 									>
 										<span class="num">{slotLabel(b, panel)}</span>
@@ -309,6 +396,7 @@
 					<div class="row">
 						<span class="mono slot">{slotText(sel, panel)}</span>
 						<div class="nav">
+							<button type="button" class="btn" aria-pressed={moving} onclick={() => (moving = !moving)}>Move…</button>
 							<button type="button" class="ibtn" aria-label="Previous breaker" onclick={() => step(-1)}><Icon name="prev" /></button>
 							<button type="button" class="ibtn" aria-label="Next breaker" onclick={() => step(1)}><Icon name="next" /></button>
 						</div>
@@ -350,14 +438,32 @@
 							</select>
 						</div>
 						<div class="fld">
-							<span class="k">Poles</span>
-							<span class="v">{sel.poles === 2 ? '2-pole · 240V' : '1-pole · 120V'}</span>
+							<span class="k" id="f-pl">Poles</span>
+							<div class="seg" role="group" aria-labelledby="f-pl">
+								<button
+									type="button"
+									class="sb"
+									class:is-on={sel.poles === 1}
+									aria-pressed={sel.poles === 1}
+									onclick={() => edit(selRaw!, { poles: 1 })}>1-pole</button
+								>
+								<button
+									type="button"
+									class="sb"
+									class:is-on={sel.poles === 2}
+									aria-pressed={sel.poles === 2}
+									disabled={!!selNo2}
+									aria-describedby={selNo2 ? 'f-no2' : undefined}
+									onclick={() => edit(selRaw!, { poles: 2 })}>2-pole</button
+								>
+							</div>
 						</div>
 						<div class="fld">
 							<span class="k">Min. wire (copper)</span>
 							<span class="v">{MIN_WIRE[sel.amps] ?? '—'}</span>
 						</div>
 					</div>
+					{#if selNo2}<span class="why" id="f-no2">{selNo2}</span>{/if}
 				</div>
 
 				<div class="dbody">
@@ -411,10 +517,13 @@
 				</div>
 
 				<div class="dfoot">
-					<span class="status" role="status">
-						<span class="dot" class:is-dirty={dirty}></span>
-						{dirty ? 'Unsaved changes' : savedJustNow ? 'Saved just now' : 'All changes saved'}
-					</span>
+					<div class="fleft">
+						<button type="button" class="rm" onclick={() => removeDlg?.open()}>Remove breaker</button>
+						<span class="status" role="status">
+							<span class="dot" class:is-dirty={dirty}></span>
+							{dirty ? 'Unsaved changes' : savedJustNow ? 'Saved just now' : 'All changes saved'}
+						</span>
+					</div>
 					<div class="acts">
 						<a class="btn" href={resolve('/map') + `?circuit=${sel.id}`}><Icon name="map" size={16} />Show on map</a>
 						<button type="button" class="btn btn-pri" onclick={save} disabled={!dirty}>Save changes</button>
@@ -423,6 +532,7 @@
 			{/if}
 		</section>
 	</main>
+	<RemoveBreakerDialog bind:this={removeDlg} question={removeQuestion} detail={removeDetail} onremove={removeSelected} />
 {/if}
 
 <style>
@@ -700,6 +810,22 @@
 	.bk.is-dim {
 		opacity: 0.3;
 	}
+	.bk.is-moving {
+		box-shadow: none;
+		outline: 2px dashed var(--amber);
+		outline-offset: 2px;
+	}
+	.bk-open:disabled {
+		cursor: default;
+	}
+	.bk-open.is-target .lbl {
+		font-style: normal;
+		font-weight: 600;
+		color: var(--ink);
+	}
+	.bk-open.is-target {
+		border-color: var(--ink);
+	}
 	.bk.is-unl .lbl {
 		color: var(--warn);
 		font-style: italic;
@@ -784,6 +910,26 @@
 	.nav {
 		display: flex;
 		gap: 6px;
+	}
+	.nav .btn[aria-pressed='true'] {
+		border-color: var(--ink);
+		background: var(--hover);
+	}
+	.dhead .seg .sb {
+		flex: 1 1 0;
+		justify-content: center;
+	}
+	.dhead .sb:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+	.dhead .sb:disabled:hover {
+		color: var(--soft);
+	}
+	.why {
+		font-size: 13px;
+		color: var(--muted);
+		margin-top: -6px;
 	}
 	.ttl {
 		width: 100%;
@@ -918,6 +1064,26 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
+	}
+	.fleft {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+	}
+	.rm {
+		height: 44px;
+		padding: 0 2px;
+		border: 0;
+		background: none;
+		font: inherit;
+		font-size: 14px;
+		font-weight: 600;
+		color: var(--warn);
+		cursor: pointer;
+	}
+	.rm:hover {
+		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 	.status {
 		font-size: 13px;
