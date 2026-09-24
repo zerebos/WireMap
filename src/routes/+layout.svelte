@@ -139,10 +139,11 @@
 					<Icon name="search" size={16} />
 					<input id="q" class="search" type="search" placeholder={placeholders[tabOf(route)] ?? 'Search'} bind:value={search.q} />
 				</div>
-				<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
-					<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
-				</button>
-				{#if access.guest}
+				{#if !access.guest}
+					<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
+						<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
+					</button>
+				{:else}
 					<span class="mono ro">READ-ONLY</span>
 					<a class="btn signin" href={resolve('/signin')}>Sign in</a>
 				{/if}

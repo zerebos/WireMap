@@ -196,7 +196,7 @@
 		if (e.button !== 0 || inOverlay(e) || !floor) return;
 		suppressClick = false;
 		if ((e.target as Element).closest('.it')) return;
-		if (tool === 'room' && !pendingRect) {
+		if (tool === 'room' && !pendingRect && !access.guest) {
 			const a = snap(toPlan(e));
 			drag = { kind: 'draw', a, b: a };
 			grid!.setPointerCapture(e.pointerId);
@@ -264,7 +264,7 @@
 	}
 
 	async function saveRoom() {
-		if (!pendingRect || !floor) return;
+		if (!pendingRect || !floor || access.guest) return;
 		const name = newName.trim();
 		if (!name) return void (nameError = 'Give the room a name.');
 		if (floorRooms.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
@@ -320,7 +320,7 @@
 	// A floor with a plan but no rooms opens straight into drawing, over the plan.
 	const drawFirst = $derived(noRooms && !!floor?.planImage ? floorId : null);
 	$effect(() => {
-		if (drawFirst !== null) setTool('room');
+		if (drawFirst !== null && !access.guest) setTool('room');
 	});
 	let cardInput: HTMLInputElement | undefined = $state();
 	let cardError = $state('');

@@ -615,6 +615,11 @@
 												<span class="amp">{b.amps}</span>
 												<span class="hdl"></span>
 											</button>
+										{:else if access.guest}
+											<div class="th th-open" class:r={side === 'r'}>
+												<span class="num">{spaceLabel({ slot: cell.slot, half: i === 0 ? 'A' : 'B' }, panel)}</span>
+												<span class="lbl">Open</span>
+											</div>
 										{:else}
 											{@const half = i === 0 ? ('A' as const) : ('B' as const)}
 											{@const ok = moving && fits(cell.slot, half)}
