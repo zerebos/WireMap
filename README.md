@@ -1,9 +1,14 @@
-# Breaker Box
+# Breakerbook
 
-Self-hosted breaker panel manager. Click a breaker on the visual panel to see and edit what it
-powers: outlets, switches, lights, appliances. The **Map** page shows each floor of the house:
-draw rooms, upload a floor plan image, place items where they really are, and click a breaker
-to light up everything it feeds (or an item to see its breaker).
+Breaker panel manager for a US home. The **Panel** is drawn like the real one: click a breaker to
+see and edit what it powers. The **Map** shows each floor with its rooms and items where they
+really are. Pick a circuit to light up everything it feeds, or click a room to see every breaker
+it depends on. **Items** is the full inventory, with the ones that still need a breaker or a spot
+on the map flagged. Two phone flows help at the panel itself. **Shut off** lists the breakers to
+flip for a room, in panel order. **Trace** walks you through mapping an unknown breaker: flip it,
+tap what went dark, then name it.
+
+The UI follows the design handoff in [`docs/design/`](docs/design/README.md).
 
 Everything runs in your browser. There's no server to host: the data is a SQLite database kept
 in the browser's private storage (OPFS), and the app works offline once it has loaded, so it's
@@ -20,17 +25,18 @@ bun install
 bun run dev          # http://localhost:5173
 ```
 
-The first visit creates the database, applies the migrations and adds an example house.
+The first visit creates the database, applies the migrations and adds the example house from
+`docs/design/seed.json`.
 
 ## Your data
 
 - It's stored per browser and per device. Your phone and your laptop each have their own copy.
-- The **Backup** page downloads everything (including floor plan images) as one `.sqlite` file,
+- **Settings → Data & backups** downloads everything (including floor plan images) as one `.sqlite` file,
   and restores from one. That's also how you move to another device. Keep a backup somewhere
   safe: browsers can clear site data, and Safari does after a week without a visit unless the
-  app is on your home screen. The Backup page can ask the browser to keep the data permanently.
+  app is on your home screen. That page can also ask the browser to keep the data permanently.
 - A backup is a standard SQLite file. You can open it with any SQLite tool, or with Drizzle
-  Studio: `DATABASE_URL=breaker-box-2026-09-24.sqlite bun run db:studio`.
+  Studio: `DATABASE_URL=Home-2026-09-24.sqlite bun run db:studio`.
 - Only one tab can have the app open at a time; a second tab says so.
 - If the browser can't store data at all (some private windows), the app still works but warns
   that changes are lost when the tab closes.
@@ -57,29 +63,57 @@ so it works as a demo.
 
 ## Data model
 
-- **panels**: name, location, main breaker amps, slot count. `fed_by_breaker_id` is there for sub-panels.
-- **breakers**: slot, poles (1 or 2), amps, type (standard/GFCI/AFCI/dual), label, color tag.
-  Slots use the usual US numbering: odd on the left, even on the right; a 2-pole breaker takes
-  its slot and the one below it.
-- **floors** / **rooms**: floors carry a level, elevation, a drawing area (`plan_width` ×
-  `plan_height` in plan units), an optional plan image stretched over that area (stored in
-  **plan_images**, so a backup is one file), and a scale
-  (`meters_per_unit`, 1 unit = 1 cm until you measure one). Rooms carry an optional outline
-  polygon in the same plan units.
-- **devices**: kind, name, breaker, room, plus optional `pos_x/pos_y` (plan units) and `pos_z`
-  (height above the floor in metres). A device's floor comes from its room; dropping it inside a
-  room outline on the map sets the room.
+See [`docs/design/DATA-MODEL.md`](docs/design/DATA-MODEL.md). In short:
+
+- **panels**: name, main breaker amps, spaces (`slot_count`), slot numbering ("odd left, even
+  right" or "down the left, then the right"), location. `fed_by_breaker_id` is there for subpanels.
+- **breakers**: slot, poles (1 or 2; a 2-pole breaker also takes the slot below), amps,
+  protection (standard/GFCI/AFCI/dual), label, notes, when it was last traced, spare.
+- **floors**: stacking order, an optional plan image (stored in **plan_images**, so a backup is
+  one file) and its opacity, and a drawing area (`plan_width` × `plan_height` map units) with a scale.
+- **rooms**: floor, name, interior/exterior, and an outline polygon in map units.
+- **items**: outlet, light, switch or appliance, with a floor, a room, a position on the map,
+  notes, and a "critical" flag with a note (fridge, sump pump…) that the shut-off flow calls out.
+- **item_breakers**: which breakers feed an item. Usually one, sometimes none, occasionally two
+  (a switch box on two circuits).
+- **settings**: home name, start page, theme, leg markers, map fading.
 
 ## Using the map
 
-- **Draw room**: click the corners, then click the first corner (or press Enter). Corners snap to
-  other rooms' corners and walls; Shift keeps a line straight, Alt turns snapping off. Select a
-  room to drag its corners, drag a midpoint to add a corner, or double-click a corner to remove it.
-- **Set scale**: click both ends of a wall you know the length of and enter it.
-- **Add item**: click where it is; kind and breaker stick between items for quick mapping.
-  Items that aren't placed yet are listed beside the map: pick one, then click where it goes.
-- The small panel beside the map works both ways: click a breaker to highlight its items, click
-  an item to highlight its breaker.
+- **Select**: pick a circuit on the left to light up what it feeds, click an item to find its
+  breaker, or click a room to see every circuit in it (and shut the room off from your phone).
+- **Draw room**: drag a rectangle on the grid, then name it. **Edit shape** on a selected room
+  lets you drag its corners.
+- **Place item**: pick a type and click where it is. It lands in the room under it.
+- **Floor plan**: upload a PNG, JPG or WebP to trace over, and set how strongly it shows.
+
+## Roadmap
+
+These are in the design but need a server version of the app, so Settings shows them as
+disabled placeholders for now:
+
+- **Access**: sign-in, users and passwords, and a read-only guest view (for a tablet mounted by
+  the panel).
+- **Automatic backups**: nightly backups kept for a set number of days.
+- **Tracing from a phone**: the design has you scan a QR code on the computer and walk the
+  house with your phone. Each browser keeps its own copy of the data, so the phone can't see the
+  computer's house yet. For now Trace runs on the device you start it from, and the QR code is a
+  placeholder.
+- **Owner account** in first-run setup: the fields are shown but disabled.
+
+The local-first version is meant for prototyping and demoing; a server version is the likely
+long-term direction.
+
+Designed as open questions in `docs/design/DESIGN.md` §8 and not built yet:
+
+- A fuller display of items on more than one breaker.
+- Exterior areas and detached buildings.
+- Phone layouts of Panel and Map.
+- Subpanels.
+
+Keyboard access on the map: drawing rooms and placing items work only with a pointer, as in the design. A keyboard way to do both needs designing.
+
+Also still to come from before: a 3D view and PDF floor plans.
 
 ## Changing the schema
 

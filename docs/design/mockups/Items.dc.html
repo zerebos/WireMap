@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Items</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;color-scheme:light}
+.th-dark{--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.trow{display:grid;grid-template-columns:32px 36px minmax(0,2.2fr) minmax(0,1.3fr) 100px minmax(0,1.9fr) 112px;align-items:center;column-gap:12px;padding:0 16px;min-height:50px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.trow:hover{background:var(--hover)}
+.trow.is-chk,.trow.is-open{background:var(--sel-row)}
+.thead{min-height:42px;background:var(--raised);border-bottom:1px solid var(--line-2);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.thead:hover{background:var(--raised)}
+.th{height:42px;padding:0;border:0;background:transparent;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-align:left}
+.th:hover{color:var(--ink)}
+.rname{width:100%;padding:8px 0;border:0;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rname:hover{text-decoration:underline}
+.cell{font-size:14px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dim{color:var(--muted)}
+.warnc{color:var(--warn);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:#F2A33A;cursor:pointer}
+.fsel{width:auto;height:38px;min-width:150px}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); overflow: hidden">
+<header style="height: 60px; flex-shrink: 0; background: var(--hdr); color: #ECEAE4; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--hdr-bd); padding: 0 24px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2A33A" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><rect x="9" y="6" width="6" height="7" rx="1" fill="#F2A33A"></rect><path d="M9 17h6"></path></svg>
+<span style="font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em">Breakerbook</span>
+</div>
+<nav aria-label="Primary" style="display: flex; gap: 2px; height: 100%">
+<a class="nav" href="Panel.dc.html">Panel</a>
+<a class="nav" href="Map.dc.html">Map</a>
+<a class="nav is-on" href="Items.dc.html" aria-current="page">Items</a>
+<a class="nav" href="Settings.dc.html">Settings</a>
+</nav>
+<div style="flex-grow: 1"></div>
+<label for="hq" class="sr">Search items, rooms, breakers</label>
+<div style="position: relative; display: flex; align-items: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B9BBBF" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; pointer-events: none"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input id="hq" class="search" type="search" placeholder="Search items, rooms, breakers" value="{{q}}" onChange="{{onSearch}}">
+</div>
+<button type="button" class="tgl" onClick="{{toggleTheme}}" aria-label="{{themeLabel}}" title="{{themeLabel}}"><sc-if value="{{isDark}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{isLight}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></sc-if></button>
+<span class="mono" style="font-size: 12px; color: #B9BBBF">Main panel · 200A</span>
+</header>
+
+<main style="flex-grow: 1; min-height: 0; display: flex; gap: 24px; padding: 24px 32px; box-sizing: border-box">
+<section aria-label="All items" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em">Items</h1>
+<span class="mono" style="font-size: 12px; color: var(--muted)">{{totalText}}</span>
+</div>
+<div style="display: flex; gap: 8px">
+<button type="button" class="btn">Export CSV</button>
+<button type="button" class="btn btn-pri" onClick="{{onAdd}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add item</button>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<div class="seg" role="group" aria-label="Item type">
+<sc-for list="{{types}}" as="t" hint-placeholder-count="5">
+<button type="button" class="{{t.cls}}" onClick="{{t.pick}}" aria-pressed="{{t.pressed}}">{{t.label}}<span class="ct">{{t.count}}</span></button>
+</sc-for>
+</div>
+<label for="ff" class="sr">Floor</label>
+<select id="ff" class="inp fsel" value="{{floor}}" onChange="{{onFloorF}}"><option value="all">All floors</option><option value="bsmt">Basement</option><option value="main">Main floor</option><option value="up">Upstairs</option></select>
+<label for="fb" class="sr">Breaker</label>
+<select id="fb" class="inp fsel" value="{{brk}}" onChange="{{onBrkF}}"><option value="all">All breakers</option><option value="none">No breaker</option><sc-for list="{{bOpts}}" as="o" hint-placeholder-count="6"><option value="{{o.value}}">{{o.label}}</option></sc-for></select>
+<button type="button" class="{{attnCls}}" onClick="{{toggleAttn}}" aria-pressed="{{attnPressed}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"></path><path d="M12 10v4M12 17.5v.01"></path></svg>Needs attention · {{attnCount}}</button>
+<sc-if value="{{filtered}}" hint-placeholder-val="{{false}}">
+<button type="button" class="btn" style="height: 38px; border-color: transparent; background: transparent; text-decoration: underline" onClick="{{clearFilters}}">Clear filters</button>
+</sc-if>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+<div class="trow thead">
+<span style="display: flex; align-items: center"><input type="checkbox" checked="{{allChecked}}" onChange="{{onAll}}" aria-label="Select all shown items"></span>
+<span class="sr">Type</span><span></span>
+<button type="button" class="th" onClick="{{sortName}}">Name<span aria-hidden="true">{{arName}}</span></button>
+<button type="button" class="th" onClick="{{sortRoom}}">Room<span aria-hidden="true">{{arRoom}}</span></button>
+<button type="button" class="th" onClick="{{sortFloor}}">Floor<span aria-hidden="true">{{arFloor}}</span></button>
+<button type="button" class="th" onClick="{{sortBrk}}">Breaker<span aria-hidden="true">{{arBrk}}</span></button>
+<span>On map</span>
+</div>
+<div style="flex-grow: 1; min-height: 0; overflow: auto">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="14">
+<div class="{{r.cls}}">
+<span style="display: flex; align-items: center"><input type="checkbox" checked="{{r.checked}}" onChange="{{r.onCheck}}" aria-label="{{r.checkLabel}}"></span>
+<span class="ico" title="{{r.typeLabel}}"><sc-if value="{{r.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{r.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{r.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{r.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></span>
+<button type="button" class="rname" onClick="{{r.onOpen}}">{{r.name}}</button>
+<span class="cell">{{r.room}}</span>
+<span class="cell dim">{{r.floor}}</span>
+<span class="cell" style="display: flex; align-items: center; gap: 8px">
+<sc-if value="{{r.hasB}}" hint-placeholder-val="{{true}}"><span class="bnum">{{r.bNum}}</span><span class="cell">{{r.bName}}</span><sc-if value="{{r.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag">{{r.tag}}</span></sc-if></sc-if>
+<sc-if value="{{r.noB}}" hint-placeholder-val="{{false}}"><span class="warnc">No breaker</span></sc-if>
+</span>
+<span class="cell">
+<sc-if value="{{r.placed}}" hint-placeholder-val="{{true}}"><a href="Map.dc.html" style="font-size: 13px; font-weight: 600">Locate</a></sc-if>
+<sc-if value="{{r.unplaced}}" hint-placeholder-val="{{false}}"><span class="warnc">Not placed</span></sc-if>
+</span>
+</div>
+</sc-for>
+<sc-if value="{{noRows}}" hint-placeholder-val="{{false}}">
+<div style="padding: 64px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+<span style="font-size: 17px; font-weight: 700">No items match these filters</span>
+<span style="font-size: 14px; color: var(--muted)">Try a different floor or breaker, or clear everything.</span>
+<button type="button" class="btn" onClick="{{clearFilters}}">Clear filters</button>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{anyChecked}}" hint-placeholder-val="{{false}}">
+<div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--ink); color: var(--bg)">
+<span style="font-size: 14px; font-weight: 700">{{nChecked}} selected</span>
+<div style="flex-grow: 1"></div>
+<label for="bulk" style="font-size: 13px; font-weight: 600">Move to breaker</label>
+<select id="bulk" class="inp" style="width: 260px; height: 38px" value="" onChange="{{onBulk}}"><option value="">Choose…</option><option value="none">No breaker</option><sc-for list="{{bOpts}}" as="o" hint-placeholder-count="6"><option value="{{o.value}}">{{o.label}}</option></sc-for></select>
+<button type="button" class="btn" style="height: 38px" onClick="{{clearChecked}}">Clear selection</button>
+</div>
+</sc-if>
+</div>
+</section>
+
+<sc-if value="{{hasOpen}}" hint-placeholder-val="{{true}}">
+<aside aria-label="Item details" style="width: 380px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 18px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span class="ov">{{d.heading}}</span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 105%; line-height: 1.2">{{d.title}}</h2>
+</div>
+<button type="button" class="ibtn" aria-label="Close item details" onClick="{{onClose}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+<sc-if value="{{d.noB}}" hint-placeholder-val="{{true}}">
+<div style="background: var(--amber-soft); border: 1px solid #F2A33A; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; font-weight: 700; color: var(--amber-ink)">Not on a breaker yet</span>
+<span style="font-size: 13px; line-height: 1.45">Flip breakers off one at a time until this goes dead, then pick that breaker below.</span>
+</div>
+</sc-if>
+<div class="fld"><label for="d-name">Name</label><input id="d-name" class="inp" type="text" value="{{d.name}}" onChange="{{onName}}" placeholder="e.g. Outlet by the couch"></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div class="fld"><label for="d-type">Type</label><select id="d-type" class="inp" value="{{d.t}}" onChange="{{onType}}"><option value="outlet">Outlet</option><option value="light">Light</option><option value="switch">Switch</option><option value="appliance">Appliance</option></select></div>
+<div class="fld"><label for="d-floor">Floor</label><select id="d-floor" class="inp" value="{{d.f}}" onChange="{{onFloor}}"><option value="bsmt">Basement</option><option value="main">Main floor</option><option value="up">Upstairs</option></select></div>
+</div>
+<div class="fld"><label for="d-room">Room</label><select id="d-room" class="inp" value="{{d.r}}" onChange="{{onRoom}}"><sc-for list="{{roomOpts}}" as="o" hint-placeholder-count="5"><option value="{{o.value}}">{{o.value}}</option></sc-for></select></div>
+<div class="fld"><label for="d-brk">Breaker</label><select id="d-brk" class="inp" value="{{d.bVal}}" onChange="{{onBrk}}"><option value="">— No breaker —</option><sc-for list="{{bOpts}}" as="o" hint-placeholder-count="6"><option value="{{o.value}}">{{o.label}}</option></sc-for></select></div>
+<div style="border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 12px">
+<span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg></span>
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 14px; font-weight: 600">{{d.mapTitle}}</span><span style="font-size: 12px; color: var(--muted)">{{d.mapSub}}</span></span>
+<a class="btn" style="height: 38px; padding: 0 12px" href="Map.dc.html">{{d.mapAction}}</a>
+</div>
+<div class="fld"><label for="d-notes">Notes</label><textarea id="d-notes" class="inp" rows="3" placeholder="Wiring quirks, fixture model, anything useful"></textarea></div>
+</div>
+<div style="padding: 14px 20px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px">
+<button type="button" class="btn btn-warn" onClick="{{onDelete}}">Delete</button>
+<div style="flex-grow: 1"></div>
+<button type="button" class="btn" onClick="{{onClose}}">Close</button>
+<button type="button" class="btn btn-pri" onClick="{{onClose}}">Save</button>
+</div>
+</aside>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+var FLOORS = { bsmt: 'Basement', main: 'Main floor', up: 'Upstairs' };
+var TYPES = { std: 'Standard', gfci: 'GFCI', afci: 'AFCI', df: 'Dual function' };
+var TAG = { std: '', gfci: 'GF', afci: 'AF', df: 'DF' };
+var TL = { outlet: 'Outlet', light: 'Light', 'switch': 'Switch', appliance: 'Appliance' };
+var BREAKERS = [
+  { s: 1, p: 2, a: 50, t: 'std', l: 'Range' },
+  { s: 2, p: 2, a: 30, t: 'std', l: 'Dryer' },
+  { s: 5, p: 2, a: 40, t: 'std', l: 'A/C condenser' },
+  { s: 6, p: 2, a: 30, t: 'std', l: 'Water heater' },
+  { s: 9, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — west' },
+  { s: 10, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — east' },
+  { s: 11, p: 1, a: 20, t: 'std', l: 'Dishwasher & disposal' },
+  { s: 12, p: 1, a: 20, t: 'std', l: 'Refrigerator' },
+  { s: 13, p: 1, a: 20, t: 'std', l: 'Microwave' },
+  { s: 14, p: 1, a: 15, t: 'afci', l: 'Kitchen & dining lights' },
+  { s: 15, p: 1, a: 15, t: 'afci', l: 'Living room' },
+  { s: 16, p: 1, a: 20, t: 'gfci', l: 'Bathrooms' },
+  { s: 17, p: 1, a: 15, t: 'afci', l: 'Primary bedroom' },
+  { s: 18, p: 1, a: 15, t: 'afci', l: 'Bedroom 2' },
+  { s: 19, p: 1, a: 15, t: 'afci', l: 'Office' },
+  { s: 20, p: 1, a: 20, t: 'std', l: 'Laundry' },
+  { s: 21, p: 1, a: 15, t: 'afci', l: 'Hall & stairs lights' },
+  { s: 22, p: 1, a: 20, t: 'gfci', l: 'Garage' },
+  { s: 23, p: 1, a: 15, t: 'std', l: 'Furnace' },
+  { s: 24, p: 1, a: 20, t: 'gfci', l: 'Exterior outlets' },
+  { s: 25, p: 1, a: 15, t: 'std', l: 'Basement lights' },
+  { s: 26, p: 1, a: 20, t: 'std', l: 'Basement outlets' },
+  { s: 27, p: 1, a: 20, t: 'afci', l: 'Dining room outlets' },
+  { s: 28, p: 1, a: 20, t: 'std', l: 'Sump pump' },
+  { s: 29, p: 1, a: 15, t: 'std', l: '' }
+];
+var RAW = [
+  ['k1','outlet','Counter outlet W1','Kitchen','main',458,110,9],
+  ['k2','outlet','Counter outlet W2','Kitchen','main',458,220,9],
+  ['k3','outlet','Island outlet','Kitchen','main',600,200,9],
+  ['k4','outlet','Counter outlet E1','Kitchen','main',640,58,10],
+  ['k5','outlet','Counter outlet E2','Kitchen','main',762,100,10],
+  ['k6','appliance','Dishwasher','Kitchen','main',540,58,11],
+  ['k7','appliance','Disposal','Kitchen','main',560,112,11],
+  ['k8','appliance','Refrigerator','Kitchen','main',762,300,12],
+  ['k9','appliance','Microwave','Kitchen','main',705,58,13],
+  ['k10','appliance','Range','Kitchen','main',762,190,1],
+  ['k11','light','Recessed lights','Kitchen','main',660,150,14],
+  ['k12','switch','Kitchen light switch','Kitchen','main',458,318,14],
+  ['k13','light','Island pendants','Kitchen','main',540,262,14],
+  ['d1','light','Chandelier','Dining room','main',670,520,14],
+  ['d2','switch','Dining light switch','Dining room','main',578,420,14],
+  ['d3','outlet','Outlet — north wall','Dining room','main',700,358,27],
+  ['d4','outlet','Outlet — east wall','Dining room','main',762,580,27],
+  ['d5','outlet','Outlet — south wall','Dining room','main',660,682,27],
+  ['l1','outlet','Outlet — west wall','Living room','main',58,450,15],
+  ['l2','outlet','Outlet by sofa','Living room','main',160,682,15],
+  ['l3','outlet','Outlet — south wall','Living room','main',340,682,15],
+  ['l4','light','Ceiling fan','Living room','main',250,520,15],
+  ['l5','switch','Fan switch','Living room','main',442,420,15],
+  ['l6','outlet','TV wall outlet','Living room','main',58,600,15],
+  ['h1','light','Entry light','Entry & hall','main',510,630,21],
+  ['h2','switch','Entry switch','Entry & hall','main',478,682,21],
+  ['h3','light','Stair light','Entry & hall','main',510,420,21],
+  ['hb1','outlet','GFCI outlet at vanity','Half bath','main',420,230,16],
+  ['hb2','light','Vanity light','Half bath','main',398,300,16],
+  ['hb3','appliance','Exhaust fan','Half bath','main',335,300,16],
+  ['la1','appliance','Dryer','Laundry','main',330,110,2],
+  ['la2','appliance','Washer','Laundry','main',385,110,20],
+  ['la3','outlet','Laundry outlet','Laundry','main',420,166,20],
+  ['g1','outlet','Outlet — west wall','Garage','main',58,120,22],
+  ['g2','outlet','Workbench outlet','Garage','main',160,58,22],
+  ['g3','light','Garage lights','Garage','main',170,190,22],
+  ['g4','appliance','Door opener','Garage','main',170,270,22],
+  ['g5','switch','Garage light switch','Garage','main',282,310,22],
+  ['e1','appliance','A/C condenser','Outside','main',802,420,5],
+  ['e2','outlet','Front porch outlet','Outside','main',610,722,24],
+  ['e3','outlet','Back patio outlet','Outside','main',20,520,24],
+  ['p1','outlet','Outlet — west wall','Primary bedroom','up',58,150,17],
+  ['p2','outlet','Outlet — north wall','Primary bedroom','up',230,58,17],
+  ['p3','outlet','Bedside outlet','Primary bedroom','up',402,280,17],
+  ['p4','light','Ceiling fan','Primary bedroom','up',230,200,17],
+  ['p5','switch','Fan switch','Primary bedroom','up',402,340,17],
+  ['pb1','outlet','GFCI outlet','Primary bath','up',582,100,16],
+  ['pb2','light','Vanity light','Primary bath','up',530,140,16],
+  ['pb3','appliance','Exhaust fan','Primary bath','up',470,200,16],
+  ['ba1','outlet','GFCI outlet','Hall bath','up',762,70,16],
+  ['ba2','light','Vanity light','Hall bath','up',720,140,16],
+  ['ba3','appliance','Exhaust fan','Hall bath','up',650,200,16],
+  ['hu1','light','Hall light','Upstairs hall','up',600,300,21],
+  ['hu2','switch','Hall switch','Upstairs hall','up',440,300,21],
+  ['r1','outlet','Outlet — west wall','Bedroom 2','up',58,500,18],
+  ['r2','outlet','Outlet — south wall','Bedroom 2','up',190,682,18],
+  ['r3','light','Ceiling light','Bedroom 2','up',190,530,18],
+  ['r4','switch','Light switch','Bedroom 2','up',322,400,18],
+  ['o1','outlet','Outlet — east wall','Office','up',762,450,19],
+  ['o2','outlet','Desk outlet','Office','up',560,682,19],
+  ['o3','outlet','Outlet — west wall','Office','up',358,600,19],
+  ['o4','light','Ceiling light','Office','up',560,530,19],
+  ['o5','switch','Light switch','Office','up',358,430,19],
+  ['u1','appliance','Water heater','Utility','bsmt',90,90,6],
+  ['u2','appliance','Furnace','Utility','bsmt',180,90,23],
+  ['u3','appliance','Sump pump','Utility','bsmt',90,270,28],
+  ['u4','light','Utility light','Utility','bsmt',200,200,25],
+  ['u5','outlet','Utility outlet','Utility','bsmt',322,160,26],
+  ['rr1','light','Recessed lights (north)','Rec room','bsmt',560,250,25],
+  ['rr2','light','Recessed lights (south)','Rec room','bsmt',560,480,25],
+  ['rr3','switch','Light switch','Rec room','bsmt',358,300,25],
+  ['rr4','outlet','Outlet — east wall N','Rec room','bsmt',762,200,26],
+  ['rr5','outlet','Outlet — east wall S','Rec room','bsmt',762,500,26],
+  ['rr6','outlet','Outlet — south wall','Rec room','bsmt',560,682,26],
+  ['s1','light','Storage light','Storage','bsmt',190,510,25],
+  ['s2','outlet','Storage outlet','Storage','bsmt',58,600,26]
+];
+var ITEMS = RAW.map(function (r) { return { id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }; });
+var ROOMS = {
+  main: [
+    { n: 'Garage', x: 40, y: 40, w: 260, h: 300 },
+    { n: 'Laundry', x: 300, y: 40, w: 140, h: 150 },
+    { n: 'Half bath', x: 300, y: 190, w: 140, h: 150 },
+    { n: 'Kitchen', x: 440, y: 40, w: 340, h: 300 },
+    { n: 'Living room', x: 40, y: 340, w: 420, h: 360 },
+    { n: 'Entry & hall', x: 460, y: 340, w: 100, h: 360 },
+    { n: 'Dining room', x: 560, y: 340, w: 220, h: 360 }
+  ],
+  up: [
+    { n: 'Primary bedroom', x: 40, y: 40, w: 380, h: 320 },
+    { n: 'Primary bath', x: 420, y: 40, w: 180, h: 200 },
+    { n: 'Hall bath', x: 600, y: 40, w: 180, h: 200 },
+    { n: 'Upstairs hall', x: 420, y: 240, w: 360, h: 120 },
+    { n: 'Bedroom 2', x: 40, y: 360, w: 300, h: 340 },
+    { n: 'Office', x: 340, y: 360, w: 440, h: 340 }
+  ],
+  bsmt: [
+    { n: 'Utility', x: 40, y: 40, w: 300, h: 280 },
+    { n: 'Storage', x: 40, y: 320, w: 300, h: 380 },
+    { n: 'Rec room', x: 340, y: 40, w: 440, h: 660 }
+  ]
+};
+function flags(t) { return { io: t === 'outlet', il: t === 'light', is: t === 'switch', ia: t === 'appliance' }; }
+
+
+var EXTRA = [
+  ['x1','outlet','Attic outlet','Attic','up',null,null,null],
+  ['x2','light','Front closet light','Entry & hall','main',null,null,21],
+  ['x3','outlet','Outlet behind shelving','Storage','bsmt',120,420,null]
+];
+EXTRA.forEach(function (r) { ITEMS.push({ id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }); });
+var FORDER = ['bsmt', 'main', 'up'];
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var dark = st.dark !== undefined ? st.dark : (this.props.dark !== undefined ? !!this.props.dark : true);
+    var set = function (o) { self.setState(o); };
+    var qRaw = st.q || '', q = qRaw.trim().toLowerCase();
+    var type = st.type || 'all', floor = st.floor || 'all', brk = st.brk || 'all', attn = !!st.attn;
+    var sk = st.sk || 'room', sd = st.sd || 1;
+    var checked = st.checked || {};
+    var open = st.open === undefined ? 'x1' : st.open;
+    var edits = st.edits || {}, removed = st.removed || {};
+
+    var bById = {};
+    BREAKERS.forEach(function (b) { bById[b.s] = b; });
+    var bNum = function (b) { return b.p === 2 ? b.s + '/' + (b.s + 2) : String(b.s); };
+    var bName = function (b) { return b.l || 'Unlabeled'; };
+    var added = st.added || [];
+    var items = ITEMS.concat(added).filter(function (i) { return !removed[i.id]; }).map(function (i) { return Object.assign({}, i, edits[i.id] || {}); });
+    var needs = function (i) { return i.b === null || i.b === undefined || i.x === null || i.x === undefined; };
+
+    var base = items.filter(function (i) {
+      if (floor !== 'all' && i.f !== floor) return false;
+      if (brk === 'none' && i.b != null) return false;
+      if (brk !== 'all' && brk !== 'none' && String(i.b) !== brk) return false;
+      if (attn && !needs(i)) return false;
+      if (q) {
+        var hay = (i.n + ' ' + i.r + ' ' + FLOORS[i.f] + ' ' + (i.b != null ? bName(bById[i.b]) + ' ' + i.b : 'no breaker')).toLowerCase();
+        if (hay.indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+    var typeDefs = [['all', 'All'], ['outlet', 'Outlets'], ['light', 'Lights'], ['switch', 'Switches'], ['appliance', 'Appliances']];
+    var types = typeDefs.map(function (t) {
+      var n = t[0] === 'all' ? base.length : base.filter(function (i) { return i.t === t[0]; }).length;
+      return { key: t[0], label: t[1], count: String(n), cls: 'sb' + (type === t[0] ? ' is-on' : ''), pressed: type === t[0] ? 'true' : 'false', pick: function () { set({ type: t[0] }); } };
+    });
+    var list = base.filter(function (i) { return type === 'all' || i.t === type; });
+    var keyOf = function (i) {
+      if (sk === 'name') return i.n.toLowerCase();
+      if (sk === 'floor') return FORDER.indexOf(i.f);
+      if (sk === 'breaker') return i.b == null ? 999 : i.b;
+      return FORDER.indexOf(i.f) + '|' + i.r.toLowerCase();
+    };
+    list.sort(function (a, b) {
+      var ka = keyOf(a), kb = keyOf(b);
+      var c = ka < kb ? -1 : ka > kb ? 1 : 0;
+      return c * sd || a.n.localeCompare(b.n);
+    });
+    var TLAB = { outlet: 'Outlet', light: 'Light', 'switch': 'Switch', appliance: 'Appliance' };
+    var rows = list.map(function (i) {
+      var bk = i.b != null ? bById[i.b] : null;
+      var isChk = !!checked[i.id];
+      return Object.assign({
+        key: i.id, name: i.n, room: i.r, floor: FLOORS[i.f], typeLabel: TLAB[i.t],
+        hasB: !!bk, noB: !bk, bNum: bk ? bNum(bk) : '', bName: bk ? bName(bk) : '',
+        tag: bk ? TAG[bk.t] : '', hasTag: !!(bk && TAG[bk.t]),
+        placed: i.x != null, unplaced: i.x == null,
+        checked: isChk, checkLabel: 'Select ' + i.n,
+        cls: 'trow' + (isChk ? ' is-chk' : '') + (i.id === open ? ' is-open' : ''),
+        onCheck: function () { var c = Object.assign({}, checked); if (c[i.id]) delete c[i.id]; else c[i.id] = true; set({ checked: c }); },
+        onOpen: function () { set({ open: i.id }); }
+      }, flags(i.t));
+    });
+    var nChecked = Object.keys(checked).length;
+    var allChecked = rows.length > 0 && rows.every(function (r) { return r.checked; });
+    var sortBy = function (k) { return function () { set(sk === k ? { sd: -sd } : { sk: k, sd: 1 }); }; };
+    var ar = function (k) { return sk === k ? (sd === 1 ? '↑' : '↓') : ''; };
+    var bOpts = BREAKERS.map(function (b) { return { key: 'o' + b.s, value: String(b.s), label: bNum(b) + ' — ' + bName(b) + ' (' + b.a + 'A)' }; });
+
+    var it = open ? items.filter(function (i) { return i.id === open; })[0] : null;
+    var setEdit = function (patch) {
+      var e = Object.assign({}, edits);
+      e[open] = Object.assign({}, e[open] || {}, patch);
+      set({ edits: e });
+    };
+    var d = { heading: '', title: '', name: '', t: 'outlet', f: 'main', r: '', bVal: '', noB: false, mapTitle: '', mapSub: '', mapAction: '' };
+    var roomOpts = [];
+    if (it) {
+      var names = ROOMS[it.f].map(function (r) { return r.n; });
+      if (it.f === 'main') names.push('Outside');
+      if (names.indexOf(it.r) < 0) names.unshift(it.r);
+      roomOpts = names.map(function (n) { return { key: n, value: n }; });
+      var placed = it.x != null;
+      d = {
+        heading: TLAB[it.t] + ' · ' + FLOORS[it.f], title: it.n || 'Untitled item', name: it.n, t: it.t, f: it.f, r: it.r,
+        bVal: it.b != null ? String(it.b) : '', noB: it.b == null,
+        mapTitle: placed ? 'Placed on ' + FLOORS[it.f] : 'Not on the map yet',
+        mapSub: placed ? it.r : 'Drop it where it really is',
+        mapAction: placed ? 'Locate' : 'Place on map'
+      };
+    }
+    var filtered = type !== 'all' || floor !== 'all' || brk !== 'all' || attn || !!q;
+    var attnCount = items.filter(needs).length;
+
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light', isDark: dark, isLight: !dark,
+      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: function () { set({ dark: !dark }); },
+      q: qRaw, onSearch: function (e) { set({ q: e.target.value }); },
+      totalText: items.length + ' items · ' + attnCount + ' need attention',
+      types: types,
+      floor: floor, onFloorF: function (e) { set({ floor: e.target.value }); },
+      brk: brk, onBrkF: function (e) { set({ brk: e.target.value }); },
+      attnCls: 'chip' + (attn ? ' is-on' : ''), attnPressed: attn ? 'true' : 'false', attnCount: String(attnCount),
+      toggleAttn: function () { set({ attn: !attn }); },
+      filtered: filtered,
+      clearFilters: function () { set({ type: 'all', floor: 'all', brk: 'all', attn: false, q: '' }); },
+      allChecked: allChecked,
+      onAll: function () {
+        var c = {};
+        if (!allChecked) rows.forEach(function (r) { c[r.key] = true; });
+        set({ checked: c });
+      },
+      sortName: sortBy('name'), sortRoom: sortBy('room'), sortFloor: sortBy('floor'), sortBrk: sortBy('breaker'),
+      arName: ar('name'), arRoom: ar('room'), arFloor: ar('floor'), arBrk: ar('breaker'),
+      rows: rows, noRows: rows.length === 0,
+      anyChecked: nChecked > 0, nChecked: String(nChecked),
+      clearChecked: function () { set({ checked: {} }); },
+      onBulk: function (e) {
+        var v = e.target.value;
+        if (!v) return;
+        var e2 = Object.assign({}, edits);
+        Object.keys(checked).forEach(function (id) { e2[id] = Object.assign({}, e2[id] || {}, { b: v === 'none' ? null : Number(v) }); });
+        set({ edits: e2, checked: {} });
+      },
+      bOpts: bOpts,
+      hasOpen: !!it, d: d, roomOpts: roomOpts,
+      onClose: function () { set({ open: null }); },
+      onAdd: function () {
+        var id = 'n' + (added.length + 1);
+        set({ added: added.concat([{ id: id, t: 'outlet', n: '', r: 'Kitchen', f: 'main', x: null, y: null, b: null }]), open: id, type: 'all', attn: false, q: '' });
+      },
+      onName: function (e) { setEdit({ n: e.target.value }); },
+      onType: function (e) { setEdit({ t: e.target.value }); },
+      onFloor: function (e) {
+        var f = e.target.value;
+        var rn = ROOMS[f].map(function (r) { return r.n; });
+        setEdit({ f: f, r: rn.indexOf(it.r) >= 0 ? it.r : rn[0], x: null, y: null });
+      },
+      onRoom: function (e) { setEdit({ r: e.target.value }); },
+      onBrk: function (e) { setEdit({ b: e.target.value === '' ? null : Number(e.target.value) }); },
+      onDelete: function () { var r = Object.assign({}, removed); r[open] = true; set({ removed: r, open: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

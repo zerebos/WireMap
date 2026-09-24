@@ -1,0 +1,238 @@
+/*
+ * Breakerbook design tokens.
+ * Source of truth for every color, font, radius and size in the UI.
+ * Components use ONLY these variables. Never hard-code a hex value in a component.
+ *
+ * Theming: set data-theme="light" | "dark" on <html>. With no attribute
+ * (the "System" setting) the OS preference decides. Dark is the default look.
+ */
+
+:root {
+  /* ---- Constant across themes ---- */
+  --amber: #F2A33A;        /* THE accent: selected, powered, "off" in checklists. Nothing else is amber. */
+  --amber-h: #F6B75C;      /* amber hover */
+  --on-amber: #1A1B1D;     /* text/icons on amber, always this, in both themes */
+  --dirty: #D98A1E;        /* unsaved-changes dot */
+  --hdr-fg: #ECEAE4;       /* app header text */
+  --hdr-nav: #B9BBBF;      /* inactive nav links, header meta */
+  --hdr-field: #26282B;    /* header search field */
+  --hdr-field-bd: #3A3C40;
+  --hdr-placeholder: #9A9DA2;
+  --scrim: rgba(0, 0, 0, .55);
+
+  /* ---- Type ---- */
+  --font-ui: 'Archivo', 'Helvetica Neue', sans-serif;      /* variable: wdth 62–125, wght 100–900 */
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;  /* 400, 600 */
+  /* Archivo width usage: breaker labels 80%, room labels 85%, body 100%, h2 105–108%, h1/wordmark 112% */
+
+  /* ---- Radii ---- */
+  --r-xs: 3px;   /* tags */
+  --r-sm: 4px;   /* breakers, slot chips */
+  --r-md: 6px;   /* buttons, inputs, icon tiles */
+  --r-lg: 8px;   /* segmented controls, search */
+  --r-xl: 10px;  /* rows, cards in lists */
+  --r-2xl: 12px; /* page panels, panel enclosure */
+
+  /* ---- Sizes ---- */
+  --header-h: 60px;
+  --control-h: 44px;      /* buttons, inputs, selects (desktop and phone) */
+  --control-h-sm: 38px;   /* compact controls: filters, segmented */
+  --breaker-h: 30px;      /* one slot row; a 2-pole breaker is 2 × 30 + 2 gap = 62 */
+  --breaker-gap: 2px;
+  --map-marker: 32px;     /* item markers on the map */
+}
+
+:root,
+:root[data-theme="light"] {
+  /* Surfaces */
+  --bg: #F1EFEA;
+  --raised: #FBFAF7;
+  --surface: #FFFFFF;
+  --hover: #F1EFEA;
+  --sel-row: #FFF6E8;
+  /* Text */
+  --ink: #1A1B1D;
+  --soft: #44474B;
+  --muted: #55595E;
+  --link-h: #8A4B06;
+  /* Lines & fields */
+  --line: #E6E3DC;
+  --line-2: #D6D3CC;
+  --field: #CFCBC2;
+  --dash: #C9C5BC;
+  --btn-bd: #1A1B1D;
+  --btn-bd-h: #1A1B1D;
+  --track: #CFCBC2;
+  /* Status */
+  --warn: #A93F1B;
+  --ok: #3F8A5A;
+  --focus: #2F5FA7;
+  --tag-bg: #E1E8F2;
+  --tag-fg: #27466F;
+  /* Amber support (the accent itself is constant, below) */
+  --amber-soft: #FFF6E8;
+  --amber-ink: #5A3A0C;
+  --on-amber-muted: #3A2A10;
+  --fed-bd: #1A1B1D;
+  /* Primary button */
+  --pri: #1A1B1D;
+  --pri-h: #34363A;
+  --pri-fg: #FFFFFF;
+  /* App header (dark in both themes) */
+  --hdr: #1A1B1D;
+  --hdr-bd: #1A1B1D;
+  /* Panel enclosure & breakers */
+  --enclosure: #C4C9CE;
+  --enclosure-bd: #9AA0A6;
+  --enclosure-hi: #E3E6E9;
+  --bus: #B3B9BF;
+  --bus-ink: #2F3337;
+  --breaker-bd: #AEB4BA;
+  --handle: #2A2C2F;
+  --toggle: #7A7F85;
+  --tie: #8A8F95;
+  /* Map */
+  --grid-bg: #F7F6F2;
+  --grid-line: #E7E4DD;
+  --wall: #6E7378;
+  --room: rgba(255,255,255,.55);
+  --room-lit-bd: #B8700F;
+  --room-lit-ink: #6E3F04;
+  --plan-ink: #2F3337;
+  --ghost: rgba(255,255,255,.85);
+  /* Inverted status chip (map bottom bar, search results bar) */
+  --chip-muted: #C9CACC;
+  --chip-bd: #4A4D52;
+  --chip-h: #2E3034;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  /* Surfaces */
+  --bg: #121315;
+  --raised: #1B1D20;
+  --surface: #202226;
+  --hover: #2A2D31;
+  --sel-row: #2A2217;
+  /* Text */
+  --ink: #ECEAE4;
+  --soft: #B7BAC0;
+  --muted: #A3A7AD;
+  --link-h: #F5B860;
+  /* Lines & fields */
+  --line: #2C2F34;
+  --line-2: #34373C;
+  --field: #3C4046;
+  --dash: #44484E;
+  --btn-bd: #4A4F55;
+  --btn-bd-h: #6E737A;
+  --track: #4A4F55;
+  /* Status */
+  --warn: #F08A64;
+  --ok: #5DBB80;
+  --focus: #7FA8E8;
+  --tag-bg: #1F2E45;
+  --tag-fg: #A9C4EA;
+  /* Amber support (the accent itself is constant, below) */
+  --amber-soft: #2A2217;
+  --amber-ink: #F2C27A;
+  --on-amber-muted: #3A2A10;
+  --fed-bd: #F2A33A;
+  /* Primary button */
+  --pri: #F2A33A;
+  --pri-h: #F6B75C;
+  --pri-fg: #121315;
+  /* App header (dark in both themes) */
+  --hdr: #0B0C0D;
+  --hdr-bd: #2C2F34;
+  /* Panel enclosure & breakers */
+  --enclosure: #25282C;
+  --enclosure-bd: #4A4F55;
+  --enclosure-hi: #34383D;
+  --bus: #34383D;
+  --bus-ink: #C3C6CB;
+  --breaker-bd: #3A3E43;
+  --handle: #0B0C0D;
+  --toggle: #5E636A;
+  --tie: #6E737A;
+  /* Map */
+  --grid-bg: #15161A;
+  --grid-line: #22252A;
+  --wall: #5E636A;
+  --room: rgba(32,34,38,.72);
+  --room-lit-bd: #E0922C;
+  --room-lit-ink: #F5B860;
+  --plan-ink: #C3C6CB;
+  --ghost: rgba(32,34,38,.9);
+  /* Inverted status chip (map bottom bar, search results bar) */
+  --chip-muted: #4A4D52;
+  --chip-bd: #9A9DA2;
+  --chip-h: #D6D3CC;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    /* Surfaces */
+    --bg: #121315;
+    --raised: #1B1D20;
+    --surface: #202226;
+    --hover: #2A2D31;
+    --sel-row: #2A2217;
+    /* Text */
+    --ink: #ECEAE4;
+    --soft: #B7BAC0;
+    --muted: #A3A7AD;
+    --link-h: #F5B860;
+    /* Lines & fields */
+    --line: #2C2F34;
+    --line-2: #34373C;
+    --field: #3C4046;
+    --dash: #44484E;
+    --btn-bd: #4A4F55;
+    --btn-bd-h: #6E737A;
+    --track: #4A4F55;
+    /* Status */
+    --warn: #F08A64;
+    --ok: #5DBB80;
+    --focus: #7FA8E8;
+    --tag-bg: #1F2E45;
+    --tag-fg: #A9C4EA;
+    /* Amber support (the accent itself is constant, below) */
+    --amber-soft: #2A2217;
+    --amber-ink: #F2C27A;
+    --on-amber-muted: #3A2A10;
+    --fed-bd: #F2A33A;
+    /* Primary button */
+    --pri: #F2A33A;
+    --pri-h: #F6B75C;
+    --pri-fg: #121315;
+    /* App header (dark in both themes) */
+    --hdr: #0B0C0D;
+    --hdr-bd: #2C2F34;
+    /* Panel enclosure & breakers */
+    --enclosure: #25282C;
+    --enclosure-bd: #4A4F55;
+    --enclosure-hi: #34383D;
+    --bus: #34383D;
+    --bus-ink: #C3C6CB;
+    --breaker-bd: #3A3E43;
+    --handle: #0B0C0D;
+    --toggle: #5E636A;
+    --tie: #6E737A;
+    /* Map */
+    --grid-bg: #15161A;
+    --grid-line: #22252A;
+    --wall: #5E636A;
+    --room: rgba(32,34,38,.72);
+    --room-lit-bd: #E0922C;
+    --room-lit-ink: #F5B860;
+    --plan-ink: #C3C6CB;
+    --ghost: rgba(32,34,38,.9);
+    /* Inverted status chip (map bottom bar, search results bar) */
+    --chip-muted: #4A4D52;
+    --chip-bd: #9A9DA2;
+    --chip-h: #D6D3CC;
+    color-scheme: dark;
+  }
+}

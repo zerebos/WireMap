@@ -8,7 +8,7 @@
 import { base, build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
-const CACHE = `breaker-box-${version}`;
+const CACHE = `breakerbook-${version}`;
 const SHELL = `${base}/index.html`;
 // sqlite-wasm ships helper workers for storage modes the app doesn't use; no need to cache them.
 const unused = /sqlite3-(worker1|opfs-async-proxy)/;

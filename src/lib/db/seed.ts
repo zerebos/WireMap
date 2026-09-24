@@ -1,81 +1,112 @@
 import type { DB } from './index';
-import { panels, breakers, floors, rooms, devices } from './schema';
+import { panels, breakers, floors, rooms, items, itemBreakers, planImages } from './schema';
+import house from '../../../docs/design/seed.json';
+import mainFloorPlan from './main-floor.png?inline';
 
-const rect = (x1: number, y1: number, x2: number, y2: number): [number, number][] => [
-	[x1, y1],
-	[x2, y1],
-	[x2, y2],
-	[x1, y2]
-];
-const at = (posX: number, posY: number, posZ: number | null = null) => ({ posX, posY, posZ });
+// Breakers the example house has already traced, as in the Trace mockup (docs/design/mockups/TracePick.dc.html).
+const CHECKED = [1, 2, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 20, 22];
 
-/** Adds a small example house so there's something to click on. */
+type Shape = { type: 'rect'; x: number; y: number; w: number; h: number } | null;
+
+const outline = (s: Shape): [number, number][] | null =>
+	s && [
+		[s.x, s.y],
+		[s.x + s.w, s.y],
+		[s.x + s.w, s.y + s.h],
+		[s.x, s.y + s.h]
+	];
+
+/** The example house from the design handoff (docs/design/seed.json), so there's something to click on. */
 export async function seed(db: DB) {
+	const png = await fetch(mainFloorPlan).then((r) => r.arrayBuffer());
 	await db.transaction(async (tx) => {
 		const [panel] = await tx
 			.insert(panels)
-			.values({ name: 'Main panel', location: 'Garage', mainAmps: 200, slotCount: 24 })
+			.values(
+				house.panels.map((p) => ({
+					name: p.name,
+					mainAmps: p.mainAmps,
+					slotCount: p.spaces,
+					numbering: 'odd_left_even_right' as const,
+					location: p.location
+				}))
+			)
 			.returning()
 			.all();
 
-		const [main, upstairs] = await tx
-			.insert(floors)
-			.values([
-				// 14 m × 10 m at the default scale of 1 unit = 1 cm.
-				{ name: 'Main floor', level: 0, planWidth: 1400, planHeight: 1000 },
-				{ name: 'Upstairs', level: 1, planWidth: 1400, planHeight: 1000 }
-			])
-			.returning()
-			.all();
-
-		const [kitchen, living, garage, bedroom] = await tx
-			.insert(rooms)
-			.values([
-				{ name: 'Kitchen', floorId: main.id, outline: rect(600, 0, 1100, 450) },
-				{
-					name: 'Living room',
-					floorId: main.id,
-					outline: [[1100, 0], [1400, 0], [1400, 1000], [600, 1000], [600, 450], [1100, 450]]
-				},
-				{ name: 'Garage', floorId: main.id, outline: rect(0, 0, 600, 700) },
-				{ name: 'Primary bedroom', floorId: upstairs.id, outline: rect(600, 0, 1100, 500) }
-			])
-			.returning()
-			.all();
-
-		const b = await tx
+		const bs = await tx
 			.insert(breakers)
-			.values([
-				{ panelId: panel.id, slot: 1, amps: 20, kind: 'gfci', label: 'Kitchen counter', color: '#e8a33d' },
-				{ panelId: panel.id, slot: 2, amps: 20, kind: 'gfci', label: 'Kitchen island', color: '#e8a33d' },
-				{ panelId: panel.id, slot: 3, poles: 2, amps: 40, label: 'Range' },
-				{ panelId: panel.id, slot: 4, amps: 15, kind: 'afci', label: 'Living room', color: '#4f8fd6' },
-				{ panelId: panel.id, slot: 6, amps: 15, kind: 'afci', label: 'Primary bedroom', color: '#8f6ad6' },
-				{ panelId: panel.id, slot: 7, amps: 20, label: 'Garage', color: '#6a9f58' },
-				{ panelId: panel.id, slot: 8, poles: 2, amps: 30, label: 'Dryer' },
-				{ panelId: panel.id, slot: 11, poles: 2, amps: 30, label: 'Water heater' }
-			])
+			.values(
+				house.breakers.map((b) => ({
+					panelId: panel.id,
+					slot: b.slot,
+					poles: b.poles,
+					amps: b.amps,
+					kind: b.protection as 'standard' | 'gfci' | 'afci' | 'dual',
+					label: b.label ?? '',
+					lastCheckedAt: CHECKED.includes(b.slot) ? Date.now() : null
+				}))
+			)
 			.returning()
 			.all();
-		const byLabel = Object.fromEntries(b.map((x) => [x.label, x.id]));
+		const bySlot = new Map(bs.map((b) => [b.slot, b.id]));
 
-		await tx
-			.insert(devices)
-			.values([
-				{ name: 'Left of sink', kind: 'outlet', breakerId: byLabel['Kitchen counter'], roomId: kitchen.id, ...at(820, 15, 1.1) },
-				{ name: 'By fridge', kind: 'outlet', breakerId: byLabel['Kitchen counter'], roomId: kitchen.id, ...at(1085, 220, 1.1) },
-				{ name: 'Island', kind: 'outlet', breakerId: byLabel['Kitchen island'], roomId: kitchen.id, ...at(850, 260, 0.9) },
-				{ name: 'Range', kind: 'appliance', breakerId: byLabel['Range'], roomId: kitchen.id, ...at(680, 30) },
-				{ name: 'Ceiling light', kind: 'light', breakerId: byLabel['Living room'], roomId: living.id, ...at(1000, 720, 2.4) },
-				{ name: 'Light switch by door', kind: 'switch', breakerId: byLabel['Living room'], roomId: living.id, ...at(640, 980, 1.2) },
-				{ name: 'TV wall', kind: 'outlet', breakerId: byLabel['Living room'], roomId: living.id, ...at(1385, 600, 0.3) },
-				{ name: 'Bedside left', kind: 'outlet', breakerId: byLabel['Primary bedroom'], roomId: bedroom.id, ...at(615, 250, 0.3) },
-				{ name: 'Workbench', kind: 'outlet', breakerId: byLabel['Garage'], roomId: garage.id, ...at(15, 350, 1.1) },
-				// Left off the map so the "not on the map yet" list has something in it.
-				{ name: 'Door opener', kind: 'hardwired', breakerId: byLabel['Garage'], roomId: garage.id },
-				{ name: 'Dryer', kind: 'appliance', breakerId: byLabel['Dryer'], roomId: garage.id, ...at(560, 80) },
-				{ name: 'Water heater', kind: 'appliance', breakerId: byLabel['Water heater'], roomId: garage.id, ...at(560, 640) }
-			])
-			.run();
+		await tx.insert(planImages).values({ name: 'main-floor.png', type: 'image/png', data: new Uint8Array(png) });
+		const fs = await tx
+			.insert(floors)
+			.values(
+				house.floors.map((f) => ({
+					name: f.name,
+					level: f.sort,
+					planImage: f.planImage,
+					planOpacity: f.planOpacity ?? 0.35,
+					// The design's floors are drawn on an 820 × 760 canvas; 1 unit = 2 cm.
+					planWidth: 820,
+					planHeight: 760,
+					metersPerUnit: 0.02
+				}))
+			)
+			.returning()
+			.all();
+		const floorId = new Map(house.floors.map((f, i) => [f.id, fs[i].id]));
+
+		const rs = await tx
+			.insert(rooms)
+			.values(
+				house.rooms.map((r) => ({
+					floorId: floorId.get(r.floor)!,
+					name: r.name,
+					kind: r.kind as 'interior' | 'exterior',
+					outline: outline(r.shape as Shape)
+				}))
+			)
+			.returning()
+			.all();
+		const roomId = new Map(rs.map((r) => [`${r.floorId}/${r.name}`, r.id]));
+
+		const is = await tx
+			.insert(items)
+			.values(
+				house.items.map((i) => {
+					const floor = floorId.get(i.floor)!;
+					return {
+						type: i.type as 'outlet' | 'light' | 'switch' | 'appliance',
+						name: i.name,
+						floorId: floor,
+						roomId: roomId.get(`${floor}/${i.room}`) ?? null,
+						x: i.x,
+						y: i.y,
+						critical: !!i.critical,
+						criticalNote: i.critical?.note ?? null
+					};
+				})
+			)
+			.returning()
+			.all();
+
+		const links = house.items.flatMap((i, n) =>
+			i.breakers.map((slot) => ({ itemId: is[n].id, breakerId: bySlot.get(slot)! }))
+		);
+		if (links.length) await tx.insert(itemBreakers).values(links);
 	});
 }

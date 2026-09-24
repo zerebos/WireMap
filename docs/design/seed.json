@@ -1,0 +1,1475 @@
+{
+ "_note": "Sample house used in every mockup. Seed data for development and screenshot tests. Coordinates are map units (px on an 820x760 floor canvas).",
+ "panels": [
+  {
+   "id": "main",
+   "name": "Main panel",
+   "mainAmps": 200,
+   "spaces": 40,
+   "numbering": "odd-left-even-right",
+   "location": null
+  }
+ ],
+ "breakers": [
+  {
+   "panel": "main",
+   "slot": 1,
+   "poles": 2,
+   "amps": 50,
+   "protection": "standard",
+   "label": "Range"
+  },
+  {
+   "panel": "main",
+   "slot": 2,
+   "poles": 2,
+   "amps": 30,
+   "protection": "standard",
+   "label": "Dryer"
+  },
+  {
+   "panel": "main",
+   "slot": 5,
+   "poles": 2,
+   "amps": 40,
+   "protection": "standard",
+   "label": "A/C condenser"
+  },
+  {
+   "panel": "main",
+   "slot": 6,
+   "poles": 2,
+   "amps": 30,
+   "protection": "standard",
+   "label": "Water heater"
+  },
+  {
+   "panel": "main",
+   "slot": 9,
+   "poles": 1,
+   "amps": 20,
+   "protection": "gfci",
+   "label": "Kitchen counter — west"
+  },
+  {
+   "panel": "main",
+   "slot": 10,
+   "poles": 1,
+   "amps": 20,
+   "protection": "gfci",
+   "label": "Kitchen counter — east"
+  },
+  {
+   "panel": "main",
+   "slot": 11,
+   "poles": 1,
+   "amps": 20,
+   "protection": "standard",
+   "label": "Dishwasher & disposal"
+  },
+  {
+   "panel": "main",
+   "slot": 12,
+   "poles": 1,
+   "amps": 20,
+   "protection": "standard",
+   "label": "Refrigerator"
+  },
+  {
+   "panel": "main",
+   "slot": 13,
+   "poles": 1,
+   "amps": 20,
+   "protection": "standard",
+   "label": "Microwave"
+  },
+  {
+   "panel": "main",
+   "slot": 14,
+   "poles": 1,
+   "amps": 15,
+   "protection": "afci",
+   "label": "Kitchen & dining lights"
+  },
+  {
+   "panel": "main",
+   "slot": 15,
+   "poles": 1,
+   "amps": 15,
+   "protection": "afci",
+   "label": "Living room"
+  },
+  {
+   "panel": "main",
+   "slot": 16,
+   "poles": 1,
+   "amps": 20,
+   "protection": "gfci",
+   "label": "Bathrooms"
+  },
+  {
+   "panel": "main",
+   "slot": 17,
+   "poles": 1,
+   "amps": 15,
+   "protection": "afci",
+   "label": "Primary bedroom"
+  },
+  {
+   "panel": "main",
+   "slot": 18,
+   "poles": 1,
+   "amps": 15,
+   "protection": "afci",
+   "label": "Bedroom 2"
+  },
+  {
+   "panel": "main",
+   "slot": 19,
+   "poles": 1,
+   "amps": 15,
+   "protection": "afci",
+   "label": "Office"
+  },
+  {
+   "panel": "main",
+   "slot": 20,
+   "poles": 1,
+   "amps": 20,
+   "protection": "standard",
+   "label": "Laundry"
+  },
+  {
+   "panel": "main",
+   "slot": 21,
+   "poles": 1,
+   "amps": 15,
+   "protection": "afci",
+   "label": "Hall & stairs lights"
+  },
+  {
+   "panel": "main",
+   "slot": 22,
+   "poles": 1,
+   "amps": 20,
+   "protection": "gfci",
+   "label": "Garage"
+  },
+  {
+   "panel": "main",
+   "slot": 23,
+   "poles": 1,
+   "amps": 15,
+   "protection": "standard",
+   "label": "Furnace"
+  },
+  {
+   "panel": "main",
+   "slot": 24,
+   "poles": 1,
+   "amps": 20,
+   "protection": "gfci",
+   "label": "Exterior outlets"
+  },
+  {
+   "panel": "main",
+   "slot": 25,
+   "poles": 1,
+   "amps": 15,
+   "protection": "standard",
+   "label": "Basement lights"
+  },
+  {
+   "panel": "main",
+   "slot": 26,
+   "poles": 1,
+   "amps": 20,
+   "protection": "standard",
+   "label": "Basement outlets"
+  },
+  {
+   "panel": "main",
+   "slot": 27,
+   "poles": 1,
+   "amps": 20,
+   "protection": "afci",
+   "label": "Dining room outlets"
+  },
+  {
+   "panel": "main",
+   "slot": 28,
+   "poles": 1,
+   "amps": 20,
+   "protection": "standard",
+   "label": "Sump pump"
+  },
+  {
+   "panel": "main",
+   "slot": 29,
+   "poles": 1,
+   "amps": 15,
+   "protection": "standard",
+   "label": null
+  }
+ ],
+ "floors": [
+  {
+   "id": "bsmt",
+   "name": "Basement",
+   "sort": 0,
+   "planImage": null,
+   "planOpacity": null
+  },
+  {
+   "id": "main",
+   "name": "Main floor",
+   "sort": 1,
+   "planImage": "main-floor.png",
+   "planOpacity": 0.35
+  },
+  {
+   "id": "up",
+   "name": "Upstairs",
+   "sort": 2,
+   "planImage": null,
+   "planOpacity": null
+  }
+ ],
+ "rooms": [
+  {
+   "floor": "main",
+   "name": "Garage",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 40,
+    "y": 40,
+    "w": 260,
+    "h": 300
+   }
+  },
+  {
+   "floor": "main",
+   "name": "Laundry",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 300,
+    "y": 40,
+    "w": 140,
+    "h": 150
+   }
+  },
+  {
+   "floor": "main",
+   "name": "Half bath",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 300,
+    "y": 190,
+    "w": 140,
+    "h": 150
+   }
+  },
+  {
+   "floor": "main",
+   "name": "Kitchen",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 440,
+    "y": 40,
+    "w": 340,
+    "h": 300
+   }
+  },
+  {
+   "floor": "main",
+   "name": "Living room",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 40,
+    "y": 340,
+    "w": 420,
+    "h": 360
+   }
+  },
+  {
+   "floor": "main",
+   "name": "Entry & hall",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 460,
+    "y": 340,
+    "w": 100,
+    "h": 360
+   }
+  },
+  {
+   "floor": "main",
+   "name": "Dining room",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 560,
+    "y": 340,
+    "w": 220,
+    "h": 360
+   }
+  },
+  {
+   "floor": "up",
+   "name": "Primary bedroom",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 40,
+    "y": 40,
+    "w": 380,
+    "h": 320
+   }
+  },
+  {
+   "floor": "up",
+   "name": "Primary bath",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 420,
+    "y": 40,
+    "w": 180,
+    "h": 200
+   }
+  },
+  {
+   "floor": "up",
+   "name": "Hall bath",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 600,
+    "y": 40,
+    "w": 180,
+    "h": 200
+   }
+  },
+  {
+   "floor": "up",
+   "name": "Upstairs hall",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 420,
+    "y": 240,
+    "w": 360,
+    "h": 120
+   }
+  },
+  {
+   "floor": "up",
+   "name": "Bedroom 2",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 40,
+    "y": 360,
+    "w": 300,
+    "h": 340
+   }
+  },
+  {
+   "floor": "up",
+   "name": "Office",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 340,
+    "y": 360,
+    "w": 440,
+    "h": 340
+   }
+  },
+  {
+   "floor": "bsmt",
+   "name": "Utility",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 40,
+    "y": 40,
+    "w": 300,
+    "h": 280
+   }
+  },
+  {
+   "floor": "bsmt",
+   "name": "Storage",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 40,
+    "y": 320,
+    "w": 300,
+    "h": 380
+   }
+  },
+  {
+   "floor": "bsmt",
+   "name": "Rec room",
+   "kind": "interior",
+   "shape": {
+    "type": "rect",
+    "x": 340,
+    "y": 40,
+    "w": 440,
+    "h": 660
+   }
+  },
+  {
+   "floor": "main",
+   "name": "Outside",
+   "kind": "exterior",
+   "shape": null
+  },
+  {
+   "floor": "up",
+   "name": "Attic",
+   "kind": "interior",
+   "shape": null
+  }
+ ],
+ "items": [
+  {
+   "id": "k1",
+   "type": "outlet",
+   "name": "Counter outlet W1",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 458,
+   "y": 110,
+   "breakers": [
+    9
+   ],
+   "critical": null
+  },
+  {
+   "id": "k2",
+   "type": "outlet",
+   "name": "Counter outlet W2",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 458,
+   "y": 220,
+   "breakers": [
+    9
+   ],
+   "critical": null
+  },
+  {
+   "id": "k3",
+   "type": "outlet",
+   "name": "Island outlet",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 600,
+   "y": 200,
+   "breakers": [
+    9
+   ],
+   "critical": null
+  },
+  {
+   "id": "k4",
+   "type": "outlet",
+   "name": "Counter outlet E1",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 640,
+   "y": 58,
+   "breakers": [
+    10
+   ],
+   "critical": null
+  },
+  {
+   "id": "k5",
+   "type": "outlet",
+   "name": "Counter outlet E2",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 762,
+   "y": 100,
+   "breakers": [
+    10
+   ],
+   "critical": null
+  },
+  {
+   "id": "k6",
+   "type": "appliance",
+   "name": "Dishwasher",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 540,
+   "y": 58,
+   "breakers": [
+    11
+   ],
+   "critical": null
+  },
+  {
+   "id": "k7",
+   "type": "appliance",
+   "name": "Disposal",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 560,
+   "y": 112,
+   "breakers": [
+    11
+   ],
+   "critical": null
+  },
+  {
+   "id": "k8",
+   "type": "appliance",
+   "name": "Refrigerator",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 762,
+   "y": 300,
+   "breakers": [
+    12
+   ],
+   "critical": {
+    "note": "Food stays safe about 4 hours if the door stays shut."
+   }
+  },
+  {
+   "id": "k9",
+   "type": "appliance",
+   "name": "Microwave",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 705,
+   "y": 58,
+   "breakers": [
+    13
+   ],
+   "critical": null
+  },
+  {
+   "id": "k10",
+   "type": "appliance",
+   "name": "Range",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 762,
+   "y": 190,
+   "breakers": [
+    1
+   ],
+   "critical": null
+  },
+  {
+   "id": "k11",
+   "type": "light",
+   "name": "Recessed lights",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 660,
+   "y": 150,
+   "breakers": [
+    14
+   ],
+   "critical": null
+  },
+  {
+   "id": "k12",
+   "type": "switch",
+   "name": "Kitchen light switch",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 458,
+   "y": 318,
+   "breakers": [
+    14
+   ],
+   "critical": null
+  },
+  {
+   "id": "k13",
+   "type": "light",
+   "name": "Island pendants",
+   "floor": "main",
+   "room": "Kitchen",
+   "x": 540,
+   "y": 262,
+   "breakers": [
+    14
+   ],
+   "critical": null
+  },
+  {
+   "id": "d1",
+   "type": "light",
+   "name": "Chandelier",
+   "floor": "main",
+   "room": "Dining room",
+   "x": 670,
+   "y": 520,
+   "breakers": [
+    14
+   ],
+   "critical": null
+  },
+  {
+   "id": "d2",
+   "type": "switch",
+   "name": "Dining light switch",
+   "floor": "main",
+   "room": "Dining room",
+   "x": 578,
+   "y": 420,
+   "breakers": [
+    14
+   ],
+   "critical": null
+  },
+  {
+   "id": "d3",
+   "type": "outlet",
+   "name": "Outlet — north wall",
+   "floor": "main",
+   "room": "Dining room",
+   "x": 700,
+   "y": 358,
+   "breakers": [
+    27
+   ],
+   "critical": null
+  },
+  {
+   "id": "d4",
+   "type": "outlet",
+   "name": "Outlet — east wall",
+   "floor": "main",
+   "room": "Dining room",
+   "x": 762,
+   "y": 580,
+   "breakers": [
+    27
+   ],
+   "critical": null
+  },
+  {
+   "id": "d5",
+   "type": "outlet",
+   "name": "Outlet — south wall",
+   "floor": "main",
+   "room": "Dining room",
+   "x": 660,
+   "y": 682,
+   "breakers": [
+    27
+   ],
+   "critical": null
+  },
+  {
+   "id": "l1",
+   "type": "outlet",
+   "name": "Outlet — west wall",
+   "floor": "main",
+   "room": "Living room",
+   "x": 58,
+   "y": 450,
+   "breakers": [
+    15
+   ],
+   "critical": null
+  },
+  {
+   "id": "l2",
+   "type": "outlet",
+   "name": "Outlet by sofa",
+   "floor": "main",
+   "room": "Living room",
+   "x": 160,
+   "y": 682,
+   "breakers": [
+    15
+   ],
+   "critical": null
+  },
+  {
+   "id": "l3",
+   "type": "outlet",
+   "name": "Outlet — south wall",
+   "floor": "main",
+   "room": "Living room",
+   "x": 340,
+   "y": 682,
+   "breakers": [
+    15
+   ],
+   "critical": null
+  },
+  {
+   "id": "l4",
+   "type": "light",
+   "name": "Ceiling fan",
+   "floor": "main",
+   "room": "Living room",
+   "x": 250,
+   "y": 520,
+   "breakers": [
+    15
+   ],
+   "critical": null
+  },
+  {
+   "id": "l5",
+   "type": "switch",
+   "name": "Fan switch",
+   "floor": "main",
+   "room": "Living room",
+   "x": 442,
+   "y": 420,
+   "breakers": [
+    15
+   ],
+   "critical": null
+  },
+  {
+   "id": "l6",
+   "type": "outlet",
+   "name": "TV wall outlet",
+   "floor": "main",
+   "room": "Living room",
+   "x": 58,
+   "y": 600,
+   "breakers": [
+    15
+   ],
+   "critical": null
+  },
+  {
+   "id": "h1",
+   "type": "light",
+   "name": "Entry light",
+   "floor": "main",
+   "room": "Entry & hall",
+   "x": 510,
+   "y": 630,
+   "breakers": [
+    21
+   ],
+   "critical": null
+  },
+  {
+   "id": "h2",
+   "type": "switch",
+   "name": "Entry switch",
+   "floor": "main",
+   "room": "Entry & hall",
+   "x": 478,
+   "y": 682,
+   "breakers": [
+    21
+   ],
+   "critical": null
+  },
+  {
+   "id": "h3",
+   "type": "light",
+   "name": "Stair light",
+   "floor": "main",
+   "room": "Entry & hall",
+   "x": 510,
+   "y": 420,
+   "breakers": [
+    21
+   ],
+   "critical": null
+  },
+  {
+   "id": "hb1",
+   "type": "outlet",
+   "name": "GFCI outlet at vanity",
+   "floor": "main",
+   "room": "Half bath",
+   "x": 420,
+   "y": 230,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "hb2",
+   "type": "light",
+   "name": "Vanity light",
+   "floor": "main",
+   "room": "Half bath",
+   "x": 398,
+   "y": 300,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "hb3",
+   "type": "appliance",
+   "name": "Exhaust fan",
+   "floor": "main",
+   "room": "Half bath",
+   "x": 335,
+   "y": 300,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "la1",
+   "type": "appliance",
+   "name": "Dryer",
+   "floor": "main",
+   "room": "Laundry",
+   "x": 330,
+   "y": 110,
+   "breakers": [
+    2
+   ],
+   "critical": null
+  },
+  {
+   "id": "la2",
+   "type": "appliance",
+   "name": "Washer",
+   "floor": "main",
+   "room": "Laundry",
+   "x": 385,
+   "y": 110,
+   "breakers": [
+    20
+   ],
+   "critical": null
+  },
+  {
+   "id": "la3",
+   "type": "outlet",
+   "name": "Laundry outlet",
+   "floor": "main",
+   "room": "Laundry",
+   "x": 420,
+   "y": 166,
+   "breakers": [
+    20
+   ],
+   "critical": null
+  },
+  {
+   "id": "g1",
+   "type": "outlet",
+   "name": "Outlet — west wall",
+   "floor": "main",
+   "room": "Garage",
+   "x": 58,
+   "y": 120,
+   "breakers": [
+    22
+   ],
+   "critical": null
+  },
+  {
+   "id": "g2",
+   "type": "outlet",
+   "name": "Workbench outlet",
+   "floor": "main",
+   "room": "Garage",
+   "x": 160,
+   "y": 58,
+   "breakers": [
+    22
+   ],
+   "critical": null
+  },
+  {
+   "id": "g3",
+   "type": "light",
+   "name": "Garage lights",
+   "floor": "main",
+   "room": "Garage",
+   "x": 170,
+   "y": 190,
+   "breakers": [
+    22
+   ],
+   "critical": null
+  },
+  {
+   "id": "g4",
+   "type": "appliance",
+   "name": "Door opener",
+   "floor": "main",
+   "room": "Garage",
+   "x": 170,
+   "y": 270,
+   "breakers": [
+    22
+   ],
+   "critical": null
+  },
+  {
+   "id": "g5",
+   "type": "switch",
+   "name": "Garage light switch",
+   "floor": "main",
+   "room": "Garage",
+   "x": 282,
+   "y": 310,
+   "breakers": [
+    22
+   ],
+   "critical": null
+  },
+  {
+   "id": "e1",
+   "type": "appliance",
+   "name": "A/C condenser",
+   "floor": "main",
+   "room": "Outside",
+   "x": 802,
+   "y": 420,
+   "breakers": [
+    5
+   ],
+   "critical": null
+  },
+  {
+   "id": "e2",
+   "type": "outlet",
+   "name": "Front porch outlet",
+   "floor": "main",
+   "room": "Outside",
+   "x": 610,
+   "y": 722,
+   "breakers": [
+    24
+   ],
+   "critical": null
+  },
+  {
+   "id": "e3",
+   "type": "outlet",
+   "name": "Back patio outlet",
+   "floor": "main",
+   "room": "Outside",
+   "x": 20,
+   "y": 520,
+   "breakers": [
+    24
+   ],
+   "critical": null
+  },
+  {
+   "id": "p1",
+   "type": "outlet",
+   "name": "Outlet — west wall",
+   "floor": "up",
+   "room": "Primary bedroom",
+   "x": 58,
+   "y": 150,
+   "breakers": [
+    17
+   ],
+   "critical": null
+  },
+  {
+   "id": "p2",
+   "type": "outlet",
+   "name": "Outlet — north wall",
+   "floor": "up",
+   "room": "Primary bedroom",
+   "x": 230,
+   "y": 58,
+   "breakers": [
+    17
+   ],
+   "critical": null
+  },
+  {
+   "id": "p3",
+   "type": "outlet",
+   "name": "Bedside outlet",
+   "floor": "up",
+   "room": "Primary bedroom",
+   "x": 402,
+   "y": 280,
+   "breakers": [
+    17
+   ],
+   "critical": null
+  },
+  {
+   "id": "p4",
+   "type": "light",
+   "name": "Ceiling fan",
+   "floor": "up",
+   "room": "Primary bedroom",
+   "x": 230,
+   "y": 200,
+   "breakers": [
+    17
+   ],
+   "critical": null
+  },
+  {
+   "id": "p5",
+   "type": "switch",
+   "name": "Fan switch",
+   "floor": "up",
+   "room": "Primary bedroom",
+   "x": 402,
+   "y": 340,
+   "breakers": [
+    17
+   ],
+   "critical": null
+  },
+  {
+   "id": "pb1",
+   "type": "outlet",
+   "name": "GFCI outlet",
+   "floor": "up",
+   "room": "Primary bath",
+   "x": 582,
+   "y": 100,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "pb2",
+   "type": "light",
+   "name": "Vanity light",
+   "floor": "up",
+   "room": "Primary bath",
+   "x": 530,
+   "y": 140,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "pb3",
+   "type": "appliance",
+   "name": "Exhaust fan",
+   "floor": "up",
+   "room": "Primary bath",
+   "x": 470,
+   "y": 200,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "ba1",
+   "type": "outlet",
+   "name": "GFCI outlet",
+   "floor": "up",
+   "room": "Hall bath",
+   "x": 762,
+   "y": 70,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "ba2",
+   "type": "light",
+   "name": "Vanity light",
+   "floor": "up",
+   "room": "Hall bath",
+   "x": 720,
+   "y": 140,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "ba3",
+   "type": "appliance",
+   "name": "Exhaust fan",
+   "floor": "up",
+   "room": "Hall bath",
+   "x": 650,
+   "y": 200,
+   "breakers": [
+    16
+   ],
+   "critical": null
+  },
+  {
+   "id": "hu1",
+   "type": "light",
+   "name": "Hall light",
+   "floor": "up",
+   "room": "Upstairs hall",
+   "x": 600,
+   "y": 300,
+   "breakers": [
+    21
+   ],
+   "critical": null
+  },
+  {
+   "id": "hu2",
+   "type": "switch",
+   "name": "Hall switch",
+   "floor": "up",
+   "room": "Upstairs hall",
+   "x": 440,
+   "y": 300,
+   "breakers": [
+    21
+   ],
+   "critical": null
+  },
+  {
+   "id": "r1",
+   "type": "outlet",
+   "name": "Outlet — west wall",
+   "floor": "up",
+   "room": "Bedroom 2",
+   "x": 58,
+   "y": 500,
+   "breakers": [
+    18
+   ],
+   "critical": null
+  },
+  {
+   "id": "r2",
+   "type": "outlet",
+   "name": "Outlet — south wall",
+   "floor": "up",
+   "room": "Bedroom 2",
+   "x": 190,
+   "y": 682,
+   "breakers": [
+    18
+   ],
+   "critical": null
+  },
+  {
+   "id": "r3",
+   "type": "light",
+   "name": "Ceiling light",
+   "floor": "up",
+   "room": "Bedroom 2",
+   "x": 190,
+   "y": 530,
+   "breakers": [
+    18
+   ],
+   "critical": null
+  },
+  {
+   "id": "r4",
+   "type": "switch",
+   "name": "Light switch",
+   "floor": "up",
+   "room": "Bedroom 2",
+   "x": 322,
+   "y": 400,
+   "breakers": [
+    18
+   ],
+   "critical": null
+  },
+  {
+   "id": "o1",
+   "type": "outlet",
+   "name": "Outlet — east wall",
+   "floor": "up",
+   "room": "Office",
+   "x": 762,
+   "y": 450,
+   "breakers": [
+    19
+   ],
+   "critical": null
+  },
+  {
+   "id": "o2",
+   "type": "outlet",
+   "name": "Desk outlet",
+   "floor": "up",
+   "room": "Office",
+   "x": 560,
+   "y": 682,
+   "breakers": [
+    19
+   ],
+   "critical": null
+  },
+  {
+   "id": "o3",
+   "type": "outlet",
+   "name": "Outlet — west wall",
+   "floor": "up",
+   "room": "Office",
+   "x": 358,
+   "y": 600,
+   "breakers": [
+    19
+   ],
+   "critical": null
+  },
+  {
+   "id": "o4",
+   "type": "light",
+   "name": "Ceiling light",
+   "floor": "up",
+   "room": "Office",
+   "x": 560,
+   "y": 530,
+   "breakers": [
+    19
+   ],
+   "critical": null
+  },
+  {
+   "id": "o5",
+   "type": "switch",
+   "name": "Light switch",
+   "floor": "up",
+   "room": "Office",
+   "x": 358,
+   "y": 430,
+   "breakers": [
+    19
+   ],
+   "critical": null
+  },
+  {
+   "id": "u1",
+   "type": "appliance",
+   "name": "Water heater",
+   "floor": "bsmt",
+   "room": "Utility",
+   "x": 90,
+   "y": 90,
+   "breakers": [
+    6
+   ],
+   "critical": null
+  },
+  {
+   "id": "u2",
+   "type": "appliance",
+   "name": "Furnace",
+   "floor": "bsmt",
+   "room": "Utility",
+   "x": 180,
+   "y": 90,
+   "breakers": [
+    23
+   ],
+   "critical": {
+    "note": "No heat or air while it’s off."
+   }
+  },
+  {
+   "id": "u3",
+   "type": "appliance",
+   "name": "Sump pump",
+   "floor": "bsmt",
+   "room": "Utility",
+   "x": 90,
+   "y": 270,
+   "breakers": [
+    28
+   ],
+   "critical": {
+    "note": "It can’t pump while it’s off — keep it short if rain is coming."
+   }
+  },
+  {
+   "id": "u4",
+   "type": "light",
+   "name": "Utility light",
+   "floor": "bsmt",
+   "room": "Utility",
+   "x": 200,
+   "y": 200,
+   "breakers": [
+    25
+   ],
+   "critical": null
+  },
+  {
+   "id": "u5",
+   "type": "outlet",
+   "name": "Utility outlet",
+   "floor": "bsmt",
+   "room": "Utility",
+   "x": 322,
+   "y": 160,
+   "breakers": [
+    26
+   ],
+   "critical": null
+  },
+  {
+   "id": "rr1",
+   "type": "light",
+   "name": "Recessed lights (north)",
+   "floor": "bsmt",
+   "room": "Rec room",
+   "x": 560,
+   "y": 250,
+   "breakers": [
+    25
+   ],
+   "critical": null
+  },
+  {
+   "id": "rr2",
+   "type": "light",
+   "name": "Recessed lights (south)",
+   "floor": "bsmt",
+   "room": "Rec room",
+   "x": 560,
+   "y": 480,
+   "breakers": [
+    25
+   ],
+   "critical": null
+  },
+  {
+   "id": "rr3",
+   "type": "switch",
+   "name": "Light switch",
+   "floor": "bsmt",
+   "room": "Rec room",
+   "x": 358,
+   "y": 300,
+   "breakers": [
+    25
+   ],
+   "critical": null
+  },
+  {
+   "id": "rr4",
+   "type": "outlet",
+   "name": "Outlet — east wall N",
+   "floor": "bsmt",
+   "room": "Rec room",
+   "x": 762,
+   "y": 200,
+   "breakers": [
+    26
+   ],
+   "critical": null
+  },
+  {
+   "id": "rr5",
+   "type": "outlet",
+   "name": "Outlet — east wall S",
+   "floor": "bsmt",
+   "room": "Rec room",
+   "x": 762,
+   "y": 500,
+   "breakers": [
+    26
+   ],
+   "critical": null
+  },
+  {
+   "id": "rr6",
+   "type": "outlet",
+   "name": "Outlet — south wall",
+   "floor": "bsmt",
+   "room": "Rec room",
+   "x": 560,
+   "y": 682,
+   "breakers": [
+    26
+   ],
+   "critical": null
+  },
+  {
+   "id": "s1",
+   "type": "light",
+   "name": "Storage light",
+   "floor": "bsmt",
+   "room": "Storage",
+   "x": 190,
+   "y": 510,
+   "breakers": [
+    25
+   ],
+   "critical": null
+  },
+  {
+   "id": "s2",
+   "type": "outlet",
+   "name": "Storage outlet",
+   "floor": "bsmt",
+   "room": "Storage",
+   "x": 58,
+   "y": 600,
+   "breakers": [
+    26
+   ],
+   "critical": null
+  },
+  {
+   "id": "x1",
+   "type": "outlet",
+   "name": "Attic outlet",
+   "floor": "up",
+   "room": "Attic",
+   "x": null,
+   "y": null,
+   "breakers": [],
+   "critical": null
+  },
+  {
+   "id": "x2",
+   "type": "light",
+   "name": "Front closet light",
+   "floor": "main",
+   "room": "Entry & hall",
+   "x": null,
+   "y": null,
+   "breakers": [
+    21
+   ],
+   "critical": null
+  },
+  {
+   "id": "x3",
+   "type": "outlet",
+   "name": "Outlet behind shelving",
+   "floor": "bsmt",
+   "room": "Storage",
+   "x": 120,
+   "y": 420,
+   "breakers": [],
+   "critical": null
+  }
+ ]
+}
