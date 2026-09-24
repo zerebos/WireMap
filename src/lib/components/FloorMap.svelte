@@ -17,7 +17,8 @@
 		id: number;
 		planWidth: number;
 		planHeight: number;
-		planImage: string | null;
+		/** Where to load the floor plan image from, if there is one. */
+		planUrl: string | null;
 		metersPerUnit: number | null;
 	};
 </script>
@@ -203,7 +204,7 @@
 			}
 			if (best) return best;
 		}
-		if (!floor.planImage) {
+		if (!floor.planUrl) {
 			const step = 0.1 / mpu;
 			q = opts.shift && opts.prev
 				? [
@@ -496,9 +497,9 @@
 			</defs>
 
 			<rect class="floor" width={floor.planWidth} height={floor.planHeight} />
-			{#if floor.planImage}
+			{#if floor.planUrl}
 				<image
-					href="/plans/{floor.planImage}"
+					href={floor.planUrl}
 					width={floor.planWidth}
 					height={floor.planHeight}
 					preserveAspectRatio="none"

@@ -8,6 +8,7 @@
 	--muted: #5e6672;
 	--accent: #2f6fd6;
 	--danger: #c23b3b;
+	--warning-bg: #fff4d6;
 	--metal: #c9ced6;
 	--metal-dark: #9aa2ad;
 	--breaker: #2a2e35;
@@ -27,6 +28,7 @@
 		--muted: #97a0ab;
 		--accent: #6aa0ff;
 		--danger: #ff6b6b;
+		--warning-bg: #3a3016;
 		--metal: #3a4049;
 		--metal-dark: #2b3037;
 		--breaker: #0f1114;

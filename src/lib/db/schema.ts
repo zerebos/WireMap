@@ -1,6 +1,6 @@
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, customType } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
-import { BREAKER_KINDS, DEVICE_KINDS } from '../../constants';
+import { BREAKER_KINDS, DEVICE_KINDS } from '../constants';
 
 export { BREAKER_KINDS, DEVICE_KINDS };
 
@@ -44,7 +44,7 @@ export const floors = sqliteTable('floors', {
 	level: integer('level').notNull().default(0),
 	// Height of the floor's base above ground, for a 3D view.
 	elevation: real('elevation'),
-	// Optional background image (e.g. a scanned floor plan), stored under the data folder.
+	// Optional background image (e.g. a scanned floor plan): the name of a row in plan_images.
 	planImage: text('plan_image'),
 	// Size of the floor's drawing area in plan units. Room outlines and device positions use
 	// the same units; the plan image, if any, is stretched over the whole area.
@@ -52,6 +52,17 @@ export const floors = sqliteTable('floors', {
 	planHeight: real('plan_height').notNull().default(1500),
 	// Real-world scale. The default of 0.01 makes one unit a centimetre.
 	metersPerUnit: real('meters_per_unit')
+});
+
+// Uploaded floor plan images. They live in the database so a backup is one file. Each upload
+// gets a new name, so a name always points at the same bytes.
+// Raw bytes. Drizzle's own blob "buffer" mode needs Node's Buffer, which browsers don't have.
+const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({ dataType: () => 'blob' });
+
+export const planImages = sqliteTable('plan_images', {
+	name: text('name').primaryKey(),
+	type: text('type').notNull(),
+	data: bytes('data').notNull()
 });
 
 export const rooms = sqliteTable('rooms', {
@@ -105,3 +116,4 @@ export type Breaker = typeof breakers.$inferSelect;
 export type Floor = typeof floors.$inferSelect;
 export type Room = typeof rooms.$inferSelect;
 export type Device = typeof devices.$inferSelect;
+export type PlanImage = typeof planImages.$inferSelect;

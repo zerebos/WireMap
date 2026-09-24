@@ -1,9 +1,9 @@
 import { asc, eq, sql } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { breakers, devices, floors, panels, rooms } from '$lib/server/db/schema';
+import { db } from '$lib/db';
+import { breakers, devices, floors, panels, rooms } from '$lib/db/schema';
 
-export const load = () => ({
-	devices: db
+export const load = async () => ({
+	devices: await db
 		.select({
 			id: devices.id,
 			name: devices.name,
