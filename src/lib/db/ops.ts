@@ -93,7 +93,10 @@ export async function saveTrace(breakerId: number, label: string, markedItemIds:
 		.from(t.itemBreakers)
 		.where(eq(t.itemBreakers.breakerId, breakerId))
 		.all();
-	const unmarked = current.map((r) => r.itemId).filter((id) => !markedItemIds.includes(id));
+	const currentIds = current.map((r) => r.itemId);
+	const unmarked = currentIds.filter((id) => !markedItemIds.includes(id));
+	// Items already on this breaker keep any other breakers they're on; only newcomers move.
+	const moved = markedItemIds.filter((id) => !currentIds.includes(id));
 	const ops = [
 		db
 			.update(t.breakers)
@@ -108,9 +111,9 @@ export async function saveTrace(breakerId: number, label: string, markedItemIds:
 				.where(and(eq(t.itemBreakers.breakerId, breakerId), inArray(t.itemBreakers.itemId, unmarked)))
 		);
 	}
-	if (markedItemIds.length) {
-		rest.push(db.delete(t.itemBreakers).where(inArray(t.itemBreakers.itemId, markedItemIds)));
-		rest.push(db.insert(t.itemBreakers).values(markedItemIds.map((itemId) => ({ itemId, breakerId }))));
+	if (moved.length) {
+		rest.push(db.delete(t.itemBreakers).where(inArray(t.itemBreakers.itemId, moved)));
+		rest.push(db.insert(t.itemBreakers).values(moved.map((itemId) => ({ itemId, breakerId }))));
 	}
 	await db.batch([...ops, ...rest]);
 }
