@@ -115,3 +115,7 @@ export type HouseIndex = ReturnType<typeof index>;
 
 /** "1 item", "9 items". */
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** An empty database goes to first-run setup, except Setup itself and Settings (so Restore works). */
+export const needsSetup = (house: House, routeId: string | null) =>
+	house.panel === null && routeId !== '/setup' && routeId !== '/settings';

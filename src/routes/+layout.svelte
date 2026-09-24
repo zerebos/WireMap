@@ -2,9 +2,9 @@
 	import '../app.css';
 	import { asset, resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import Icon from '$lib/components/Icon.svelte';
-	import { mutate } from '$lib/house';
+	import { mutate, needsSetup } from '$lib/house';
 	import { updateSettings } from '$lib/db/ops';
 	import { search } from '$lib/search.svelte';
 	import { applyTheme, effectiveTheme } from '$lib/theme';
@@ -27,6 +27,17 @@
 	};
 	// The phone flows are full-screen, with their own back button.
 	const phone = $derived(route.startsWith('/shutoff') || route.startsWith('/trace'));
+
+	// First-run setup (minimal header) and the pages that belong to a nav tab.
+	const setup = $derived(route === '/setup');
+	const tabOf = (r: string) => (r === '/directory' ? '/panel' : r);
+	// With no panel yet, every page but Settings leads to setup.
+	beforeNavigate((nav) => {
+		if (nav.to && data.house && needsSetup(data.house, nav.to.route.id)) {
+			nav.cancel();
+			goto(resolve('/setup'));
+		}
+	});
 
 	// Search belongs to the page it was typed on.
 	afterNavigate(({ from, to }) => {
@@ -71,24 +82,28 @@
 				>
 				<span>Breakerbook</span>
 			</a>
-			<nav aria-label="Primary">
-				{#each links as link (link.href)}
-					<a class="nav" class:is-on={route === link.path} href={link.href} aria-current={route === link.path ? 'page' : undefined}>
-						{link.label}
-					</a>
-				{/each}
-			</nav>
-			<div class="grow"></div>
-			<label for="q" class="sr">{placeholders[route] ?? 'Search'}</label>
-			<div class="searchbox">
-				<Icon name="search" size={16} />
-				<input id="q" class="search" type="search" placeholder={placeholders[route] ?? 'Search'} bind:value={search.q} />
-			</div>
-			<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
-				<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
-			</button>
-			{#if panel}
-				<span class="mono meta">{panel.name}{panel.mainAmps ? ` · ${panel.mainAmps}A` : ''}</span>
+			{#if setup}
+				<span class="mono step">Setup</span>
+			{:else}
+				<nav aria-label="Primary">
+					{#each links as link (link.href)}
+						<a class="nav" class:is-on={tabOf(route) === link.path} href={link.href} aria-current={tabOf(route) === link.path ? 'page' : undefined}>
+							{link.label}
+						</a>
+					{/each}
+				</nav>
+				<div class="grow"></div>
+				<label for="q" class="sr">{placeholders[tabOf(route)] ?? 'Search'}</label>
+				<div class="searchbox">
+					<Icon name="search" size={16} />
+					<input id="q" class="search" type="search" placeholder={placeholders[tabOf(route)] ?? 'Search'} bind:value={search.q} />
+				</div>
+				<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
+					<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
+				</button>
+				{#if panel}
+					<span class="mono meta">{panel.name}{panel.mainAmps ? ` · ${panel.mainAmps}A` : ''}</span>
+				{/if}
 			{/if}
 		</header>
 
@@ -220,6 +235,12 @@
 		font-size: 12px;
 		color: var(--hdr-nav);
 		white-space: nowrap;
+	}
+	/* Setup: wordmark and "Setup" only. */
+	.step {
+		font-size: 12px;
+		color: var(--hdr-nav);
+		margin-left: -6px;
 	}
 	.warning {
 		margin: 0;
