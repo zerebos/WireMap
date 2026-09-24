@@ -1,0 +1,1 @@
+ALTER TABLE `panels` ADD `short_code` text;

@@ -20,6 +20,8 @@
 	} = $props();
 
 	const all = $derived(ix.house.breakers);
+	// With subpanels, the list is grouped by panel (DESIGN.md §5.17).
+	const tree = $derived(ix.panelTree());
 	const shown = $derived(
 		all.filter((b) => {
 			if (!q) return true;
@@ -38,23 +40,31 @@
 		{empty ? 'Nothing placed yet, so nothing lights up. Add rooms and items first.' : 'Pick one to light up everything it feeds.'}
 	</p>
 	<div class="list">
-		{#each shown as b (b.id)}
-			{@const sel = lit.has(b.id)}
-			<button type="button" class="circ" class:is-sel={sel} class:is-unl={!b.label} aria-pressed={sel} onclick={() => onpick(b)}>
-				<span class="cn">{ix.slotOf(b)}</span>
-				<span class="txt">
-					<span class="cl">{ix.labelOf(b)}</span>
-					<span class="cm">{b.amps}A · {plural(ix.itemsOf(b.id).length, 'item')}</span>
-				</span>
-				{#if ix.tagOf(b)}<span class="tag">{ix.tagOf(b)}</span>{/if}
-			</button>
-		{:else}
-			<p class="empty">No circuits match “{q}”.</p>
+		{#each tree as t (t.panel.id)}
+			{@const bs = shown.filter((b) => b.panelId === t.panel.id)}
+			{#if tree.length > 1 && bs.length}<h3 class="ov grp">{t.panel.name}</h3>{/if}
+			{#each bs as b (b.id)}
+				{@const sel = lit.has(b.id)}
+				<button type="button" class="circ" class:is-sel={sel} class:is-unl={!b.label} aria-pressed={sel} onclick={() => onpick(b)}>
+					<span class="cn">{ix.slotOf(b)}</span>
+					<span class="txt">
+						<span class="cl">{ix.labelOf(b)}</span>
+						<span class="cm">{b.amps}A · {plural(ix.itemsOf(b.id).length, 'item')}</span>
+					</span>
+					{#if ix.tagOf(b)}<span class="tag">{ix.tagOf(b)}</span>{/if}
+				</button>
+			{/each}
 		{/each}
+		{#if !shown.length}
+			<p class="empty">No circuits match “{q}”.</p>
+		{/if}
 	</div>
 </aside>
 
 <style>
+	.grp {
+		padding: 12px 4px 4px;
+	}
 	.circuits {
 		width: 300px;
 		flex-shrink: 0;

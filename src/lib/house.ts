@@ -77,6 +77,50 @@ export function index(house: House) {
 		for (const b of i.breakerIds) itemsByBreaker.set(b, [...(itemsByBreaker.get(b) ?? []), i]);
 	}
 	const panelOf = (b: Breaker) => panelById.get(b.panelId)!;
+	/** The subpanel a feeder breaker feeds, if it's a feeder. */
+	const fedPanelOf = (b: Breaker) => house.panels.find((p) => p.fedByBreakerId === b.id) ?? null;
+	/** The breaker feeding a subpanel; null for the main panel. */
+	const feederOf = (p: Panel) => (p.fedByBreakerId === null ? null : (breakerById.get(p.fedByBreakerId) ?? null));
+	/** The feeders between the main panel and a panel, top down (DATA-MODEL.md "Power path"). */
+	const feedersAbove = (p: Panel): Breaker[] => {
+		const out: Breaker[] = [];
+		const seen = new Set<number>();
+		for (let f = feederOf(p); f && !seen.has(f.id); f = feederOf(panelOf(f))) {
+			seen.add(f.id);
+			out.unshift(f);
+		}
+		return out;
+	};
+	/** Everything a feeder cuts: the panels it feeds (recursively), their breakers and items. */
+	const downstream = (feeder: Breaker) => {
+		const panels: Panel[] = [];
+		const breakers: Breaker[] = [];
+		const queue = [feeder];
+		while (queue.length) {
+			const sub = fedPanelOf(queue.shift()!);
+			if (!sub || panels.includes(sub)) continue;
+			panels.push(sub);
+			const inside = house.breakers.filter((b) => b.panelId === sub.id);
+			breakers.push(...inside);
+			queue.push(...inside);
+		}
+		const ids = new Set(breakers.map((b) => b.id));
+		const items = house.items.filter((i) => i.breakerIds.some((id) => ids.has(id)));
+		return { panels, breakers, items };
+	};
+	/** Panels as a tree: the main panel, then each subpanel under the breaker's panel that feeds it. */
+	const panelTree = () => {
+		const out: { panel: Panel; depth: number }[] = [];
+		const walk = (p: Panel, depth: number) => {
+			if (out.some((o) => o.panel.id === p.id)) return;
+			out.push({ panel: p, depth });
+			const ids = new Set(house.breakers.filter((b) => b.panelId === p.id).map((b) => b.id));
+			for (const sub of house.panels) if (sub.fedByBreakerId !== null && ids.has(sub.fedByBreakerId)) walk(sub, depth + 1);
+		};
+		for (const p of house.panels) if (p.fedByBreakerId === null) walk(p, 0);
+		for (const p of house.panels) walk(p, 0);
+		return out;
+	};
 	const floorName = (id: number | null) => (id === null ? '' : (floorById.get(id)?.name ?? ''));
 	const roomName = (id: number | null) => (id === null ? 'Not in a room' : (roomById.get(id)?.name ?? 'Not in a room'));
 
@@ -95,6 +139,11 @@ export function index(house: House) {
 				.filter((b): b is Breaker => !!b)
 				.sort(compareBreakers),
 		panelOf,
+		fedPanelOf,
+		feederOf,
+		feedersAbove,
+		downstream,
+		panelTree,
 		/** An item's breakers other than `breakerId`, as a tag: "+21", "+14 + 21", or ''. */
 		plusOf: (item: HouseItem, breakerId: number) => {
 			const others = item.breakerIds
