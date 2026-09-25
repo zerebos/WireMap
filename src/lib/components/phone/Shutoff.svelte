@@ -57,6 +57,8 @@
 	const inScope = (i: HouseItem) =>
 		target?.kind === 'room' ? i.roomId === target.id : target?.kind === 'item' ? i.id === target.item.id : false;
 	const scope = $derived(target ? data.house.items.filter(inScope) : []);
+	/** Items the "shared with" note counts: those in scope, or those on the breaker for a circuit. */
+	const here = $derived(target?.kind === 'breaker' ? ix.itemsOf(target.b.id) : scope);
 
 	const breakers = $derived.by(() => {
 		if (!target) return [];
@@ -141,9 +143,8 @@
 	});
 	/** " · 1 shared with 21": items here on this breaker that other breakers in the list also feed. */
 	function sharedText(bs: Breaker[]) {
-		if (target?.kind === 'breaker') return '';
 		const mine = new Set(bs.map((b) => b.id));
-		const shared = scope.filter((i) => i.breakerIds.some((id) => mine.has(id)) && i.breakerIds.some((id) => ids.has(id) && !mine.has(id)));
+		const shared = here.filter((i) => i.breakerIds.some((id) => mine.has(id)) && i.breakerIds.some((id) => ids.has(id) && !mine.has(id)));
 		if (!shared.length) return '';
 		const others = breakers.filter((b) => !mine.has(b.id) && shared.some((i) => i.breakerIds.includes(b.id)));
 		return ` · ${shared.length} shared with ${others.map((b) => ix.slotOf(b)).join(' + ')}`;
