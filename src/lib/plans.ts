@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from './db';
-import { planImages } from './db/schema';
+import { floors, planImages } from './db/schema';
 
 // Floor plan images are stored in the database (plan_images) and shown through object URLs.
 
@@ -24,6 +24,13 @@ export async function deletePlan(name: string | null) {
 	const url = await urls.get(name);
 	urls.delete(name);
 	if (url) URL.revokeObjectURL(url);
+}
+
+/** Deletes plan images no floor uses. The map editor keeps replaced images until it closes, for undo. */
+export async function prunePlans() {
+	const used = new Set((await db.select({ n: floors.planImage }).from(floors).all()).map((r) => r.n));
+	const all = await db.select({ n: planImages.name }).from(planImages).all();
+	for (const { n } of all) if (!used.has(n)) await deletePlan(n);
 }
 
 // A name always refers to the same image, so its URL is made once and reused.

@@ -243,18 +243,26 @@ export async function deleteBreaker(id: number) {
 	await db.delete(t.breakers).where(eq(t.breakers.id, id));
 }
 
-/** Handle-ties breakers together (a multi-wire circuit), or unties them. */
+/**
+ * Handle-ties breakers together (a multi-wire circuit), or unties them. Tying merges any groups the
+ * breakers already belong to, so an existing tie is never split; untying leaves no group of one.
+ */
 export async function setTied(breakerIds: number[], tied: boolean) {
 	if (!breakerIds.length) return;
-	if (!tied) return void (await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.id, breakerIds)));
-	const top = await db
-		.select({ g: max(t.breakers.tieGroup) })
-		.from(t.breakers)
-		.get();
-	await db
-		.update(t.breakers)
-		.set({ tieGroup: (top?.g ?? 0) + 1 })
-		.where(inArray(t.breakers.id, breakerIds));
+	const mine = await db.select({ g: t.breakers.tieGroup }).from(t.breakers).where(inArray(t.breakers.id, breakerIds)).all();
+	const groups = [...new Set(mine.map((r) => r.g).filter((g): g is number => g !== null))];
+	if (tied) {
+		const top = await db.select({ g: max(t.breakers.tieGroup) }).from(t.breakers).get();
+		const g = (top?.g ?? 0) + 1;
+		await db.update(t.breakers).set({ tieGroup: g }).where(inArray(t.breakers.id, breakerIds));
+		if (groups.length) await db.update(t.breakers).set({ tieGroup: g }).where(inArray(t.breakers.tieGroup, groups));
+		return;
+	}
+	await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.id, breakerIds));
+	if (!groups.length) return;
+	const left = await db.select({ id: t.breakers.id, g: t.breakers.tieGroup }).from(t.breakers).where(inArray(t.breakers.tieGroup, groups)).all();
+	const lone = groups.filter((g) => left.filter((r) => r.g === g).length === 1);
+	if (lone.length) await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.tieGroup, lone));
 }
 
 // ---- Items
@@ -384,23 +392,23 @@ export async function deleteFloor(id: number) {
 
 /**
  * Sets a floor's plan image. The floor's drawing area keeps its width and takes the image's
- * aspect ratio, unless `keepSize`.
+ * aspect ratio. With `keepOld`, the replaced image stays stored so undo can bring it back.
  */
-export async function setFloorPlan(id: number, file: File, size?: { width: number; height: number }) {
+export async function setFloorPlan(id: number, file: File, size?: { width: number; height: number }, keepOld = false) {
 	const floor = await db.select().from(t.floors).where(eq(t.floors.id, id)).get();
 	if (!floor) return;
 	const name = await savePlan(id, file);
 	const patch: Partial<Floor> = { planImage: name };
 	if (size && size.width > 0) patch.planHeight = Math.round((floor.planWidth * size.height) / size.width);
 	await updateFloor(id, patch);
-	await deletePlan(floor.planImage);
+	if (!keepOld) await deletePlan(floor.planImage);
 }
 
-export async function removeFloorPlan(id: number) {
+export async function removeFloorPlan(id: number, keepOld = false) {
 	const floor = await db.select().from(t.floors).where(eq(t.floors.id, id)).get();
 	if (!floor) return;
 	await updateFloor(id, { planImage: null });
-	await deletePlan(floor.planImage);
+	if (!keepOld) await deletePlan(floor.planImage);
 }
 
 // ---- Rooms and map layout
@@ -478,12 +486,12 @@ export async function unplaceItem(id: number) {
 	await db.update(t.items).set({ x: null, y: null }).where(eq(t.items.id, id));
 }
 
-/** A floor's layout, for undo: its rooms, where its items are, and the plan image transform. */
+/** A floor's layout, for undo: its rooms, where its items are, and the plan image and its transform. */
 export type LayoutSnapshot = {
 	floorId: number;
 	rooms: Room[];
 	items: Pick<Item, 'id' | 'x' | 'y' | 'roomId'>[];
-	floor: Pick<Floor, 'planOffsetX' | 'planOffsetY' | 'planScale' | 'planRotation' | 'planLocked' | 'planOpacity' | 'unitsPerFt'>;
+	floor: Pick<Floor, 'planImage' | 'planHeight' | 'planOffsetX' | 'planOffsetY' | 'planScale' | 'planRotation' | 'planLocked' | 'planOpacity' | 'unitsPerFt'>;
 };
 
 /** Puts a floor's layout back the way a snapshot has it. */

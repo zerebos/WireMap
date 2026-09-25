@@ -18,7 +18,7 @@
 		type LayoutSnapshot
 	} from '$lib/db/ops';
 	import type { Room } from '$lib/db/schema';
-	import { planUrl } from '$lib/plans';
+	import { planUrl, prunePlans } from '$lib/plans';
 	import {
 		bboxOf,
 		contains,
@@ -105,6 +105,8 @@
 			rooms: rooms.map((r) => ({ ...r })),
 			items: floorItems.map((i) => ({ id: i.id, x: i.x, y: i.y, roomId: i.roomId })),
 			floor: {
+				planImage: floor.planImage,
+				planHeight: floor.planHeight,
 				planOffsetX: floor.planOffsetX,
 				planOffsetY: floor.planOffsetY,
 				planScale: floor.planScale,
@@ -236,8 +238,8 @@
 
 	function ongridDown(e: PointerEvent) {
 		if (e.button !== 0 || inOverlay(e)) return;
-		if ((e.target as Element).closest('.room, .poly, .it, .hd, .mh, .pframe')) return;
 		const p = toMap(e);
+		// Placing wins over whatever is under the pointer: an item usually goes inside a room.
 		if (placing !== null) {
 			const at: Point = e.shiftKey ? [clampX(p[0]), clampY(p[1])] : [clampX(toGrid(p[0])), clampY(toGrid(p[1]))];
 			const id = placing;
@@ -246,6 +248,7 @@
 			commit(() => placeItem(id, floorId, at[0], at[1]));
 			return;
 		}
+		if ((e.target as Element).closest('.room, .poly, .it, .hd, .mh, .pframe')) return;
 		if (tool === 'rect') {
 			drag = { k: 'new', a: p, b: p };
 			capture(e);
@@ -528,6 +531,11 @@
 		return d[e.key] ?? null;
 	}
 	function roomKey(e: KeyboardEvent, r: Room) {
+		if ((e.key === 'Enter' || e.key === ' ') && tool === 'select' && placing === null) {
+			e.preventDefault();
+			sel = { k: 'room', id: r.id };
+			return;
+		}
 		const d = nudgeOf(e);
 		if (!d) return;
 		e.preventDefault();
@@ -610,15 +618,19 @@
 	const commitPlan = (patch: Parameters<typeof updateFloor>[1]) => commit(() => updateFloor(floorId, patch));
 	let planInput: HTMLInputElement | undefined = $state();
 	let planError = $state('');
+	// Replacing or removing the image can be undone: the old image stays stored until the editor closes.
 	async function planFile(file: File | undefined) {
 		if (!file) return;
-		planError = await uploadPlan(floorId, file);
+		const before = snapshot();
+		planError = await uploadPlan(floorId, file, true);
+		if (!planError) history = [...history, before].slice(-50);
 		if (planInput) planInput.value = '';
 	}
 	async function removePlan() {
 		if (!confirm(`Remove the floor plan image from ${floor.name}? Rooms and items stay.`)) return;
-		await mutate(() => removeFloorPlan(floorId));
+		await commit(() => removeFloorPlan(floorId, true));
 	}
+	$effect(() => () => void prunePlans());
 
 	// ---- Set scale: a measuring line with two draggable ends
 	let measure = $state<{ a: Point; b: Point }>({ a: [0, 0], b: [0, 0] });
