@@ -619,18 +619,24 @@
 	let planInput: HTMLInputElement | undefined = $state();
 	let planError = $state('');
 	// Replacing or removing the image can be undone: the old image stays stored until the editor closes.
+	// Closing waits for a plan change still in flight, so cleanup never sees a new image as unused.
+	let planBusy: Promise<unknown> = Promise.resolve();
 	async function planFile(file: File | undefined) {
 		if (!file) return;
 		const before = snapshot();
-		planError = await uploadPlan(floorId, file, true);
+		const run = uploadPlan(floorId, file, true);
+		planBusy = run;
+		planError = await run;
 		if (!planError) history = [...history, before].slice(-50);
 		if (planInput) planInput.value = '';
 	}
 	async function removePlan() {
 		if (!confirm(`Remove the floor plan image from ${floor.name}? Rooms and items stay.`)) return;
-		await commit(() => removeFloorPlan(floorId, true));
+		const run = commit(() => removeFloorPlan(floorId, true));
+		planBusy = run;
+		await run;
 	}
-	$effect(() => () => void prunePlans());
+	$effect(() => () => void planBusy.catch(() => {}).then(prunePlans));
 
 	// ---- Set scale: a measuring line with two draggable ends
 	let measure = $state<{ a: Point; b: Point }>({ a: [0, 0], b: [0, 0] });
