@@ -49,8 +49,12 @@
 
 	const breakers = $derived.by(() => {
 		if (!target) return [];
-		if (target.kind === 'breaker') return [target.b];
-		const ids = new Set(scope.flatMap((i) => i.breakerIds));
+		// A shared item pulls in every breaker it's on (§5.11), and a handle-tied breaker brings its partners.
+		const ids = new Set(
+			target.kind === 'breaker' ? [target.b.id, ...ix.itemsOf(target.b.id).flatMap((i) => i.breakerIds)] : scope.flatMap((i) => i.breakerIds)
+		);
+		const ties = new Set([...ids].map((id) => ix.breakerById.get(id)?.tieGroup ?? null).filter((t) => t !== null));
+		for (const b of data.house.breakers) if (b.tieGroup !== null && ties.has(b.tieGroup)) ids.add(b.id);
 		return [...ids]
 			.map((id) => ix.breakerById.get(id))
 			.filter((b): b is Breaker => !!b)
