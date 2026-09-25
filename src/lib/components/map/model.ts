@@ -111,13 +111,13 @@ export function floorOfCircuit(ix: HouseIndex, breakerId: number): number | null
 export const PLAN_ACCEPT = ['image/png', 'image/jpeg', 'image/webp'];
 
 /** Saves an image as the floor's plan. Resolves to an error message, or '' when it worked. */
-export async function uploadPlan(floorId: number, file: File): Promise<string> {
+export async function uploadPlan(floorId: number, file: File, keepOld = false): Promise<string> {
 	if (!PLAN_ACCEPT.includes(file.type)) return "That file isn't a PNG, JPG or WebP image.";
 	try {
 		const bmp = await createImageBitmap(file);
 		const size = { width: bmp.width, height: bmp.height };
 		bmp.close();
-		await mutate(() => setFloorPlan(floorId, file, size));
+		await mutate(() => setFloorPlan(floorId, file, size, keepOld));
 		return '';
 	} catch {
 		return "Couldn't read that image.";
