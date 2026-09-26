@@ -83,6 +83,8 @@
 	const panel = $derived(data.house?.panel);
 	const hix = $derived(data.house ? index(data.house) : null);
 	const tree = $derived(hix?.panelTree() ?? []);
+	// A main-lugs subpanel has no main breaker: its rating is the feeder's.
+	const panelAmps = $derived(panel ? (panel.mainAmps ?? hix?.feederOf(panel)?.amps ?? null) : null);
 	let menuOpen = $state(false);
 	let menuEl = $state<HTMLDivElement>();
 </script>
@@ -135,7 +137,7 @@
 					<!-- More than one panel: the name becomes a menu of panels as a tree (DESIGN.md §5.17). -->
 					<div class="pmenu" bind:this={menuEl} onfocusout={(e) => !menuEl?.contains(e.relatedTarget as Node) && (menuOpen = false)}>
 						<button type="button" class="mono meta pbtn" aria-expanded={menuOpen} aria-haspopup="true" onclick={() => (menuOpen = !menuOpen)}>
-							{panel.name}{panel.mainAmps ? ` · ${panel.mainAmps}A` : ''}<Icon name="down" size={14} />
+							{panel.name}{panelAmps ? ` · ${panelAmps}A` : ''}<Icon name="down" size={14} />
 						</button>
 						{#if menuOpen}
 							<ul class="plist">
