@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Subpanels everywhere</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;--fed-bd:#1A1B1D;--ghost:rgba(255,255,255,.85);--room:rgba(255,255,255,.55);--bus-ink:#2F3337;--toggle:#7A7F85;--link-h:#8A4B06;--tie:#8A8F95;--enclosure-bd:#9AA0A6;--breaker-bd:#AEB4BA;--bus:#B3B9BF;--enclosure:#C4C9CE;--enclosure-hi:#E3E6E9;--chip-h:#2E3034;--plan-ink:#2F3337;--on-amber-muted:#3A2A10;--chip-bd:#4A4D52;--room-lit-ink:#6E3F04;--wall:#6E7378;--room-lit-bd:#B8700F;--chip-muted:#C9CACC;--grid-line:#E7E4DD;--grid-bg:#F7F6F2;color-scheme:light}
+.th-dark{--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;--fed-bd:#F2A33A;--ghost:rgba(32,34,38,.9);--room:rgba(32,34,38,.72);--bus-ink:#C3C6CB;--toggle:#5E636A;--link-h:#F5B860;--tie:#6E737A;--enclosure-bd:#4A4F55;--breaker-bd:#3A3E43;--bus:#34383D;--enclosure:#25282C;--enclosure-hi:#34383D;--chip-h:#D6D3CC;--plan-ink:#C3C6CB;--on-amber-muted:#3A2A10;--chip-bd:#9A9DA2;--room-lit-ink:#F5B860;--wall:#5E636A;--room-lit-bd:#E0922C;--chip-muted:#4A4D52;--grid-line:#22252A;--grid-bg:#15161A;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.sheet{background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.cap{font-size:13px;color:var(--muted);line-height:1.45}
+.tree{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line-2);border-radius:10px}
+.mini{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px solid var(--line-2);border-radius:10px;background:var(--surface)}
+.pchip{display:inline-flex;align-items:center;height:28px;padding:0 9px;border-radius:6px;background:var(--bg);border:1px solid var(--line-2);font-size:12px;font-weight:600}
+.pchip.cur{background:#F2A33A;border-color:#F2A33A;color:#1A1B1D}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; box-sizing: border-box; background: var(--bg); color: var(--ink); padding: 36px 40px; display: flex; flex-direction: column; gap: 22px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="ov">Pattern</span>
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em">Subpanels</h1>
+<p style="margin: 0; font-size: 15px; color: var(--soft); max-width: 980px; line-height: 1.5">A second panel fed from a breaker in the main one. It has its own layout and a short code that prefixes its breaker numbers (“G6”). Its feeder breaker is shown as “→ Garage subpanel” with a SUB tag. Anything about cutting power knows that the feeder kills everything downstream.</p>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 20px">
+
+<div class="sheet">
+<span class="ov">Add subpanel</span>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px">
+<div class="fld"><label for="sp-n">Name</label><input id="sp-n" class="inp" type="text" value="Garage subpanel"></div>
+<div class="fld"><label for="sp-c">Short code</label><input id="sp-c" class="inp" type="text" value="G" maxlength="3"></div>
+<div class="fld"><label for="sp-f">Fed by</label><select id="sp-f" class="inp"><option>30/32 — 60A 2-pole (open)</option><option>New breaker in an open slot…</option></select></div>
+<div class="fld"><label for="sp-s">Spaces</label><select id="sp-s" class="inp"><option>12</option></select></div>
+</div>
+<span class="cap">Short code prefixes every breaker in it (G1, G3/5). The feeder’s label becomes the subpanel’s name. Subpanels usually have main lugs instead of a main breaker — the feeder is the shutoff.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Settings · Panels</span>
+<div class="tree"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">Main panel</span><span class="mono" style="font-size: 11px; color: var(--muted)">200A · 40 spaces · Basement utility</span></span><span class="tag">MAIN</span></div>
+<div class="tree" style="margin-left: 24px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--muted)"><path d="M5 4v10h12"></path><path d="m13 10 4 4-4 4"></path></svg><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">Garage subpanel <span class="mono" style="font-size: 12px; color: var(--muted)">· G</span></span><span class="mono" style="font-size: 11px; color: var(--muted)">60A · fed by Main 30/32 · 12 spaces</span></span><button type="button" class="btn" style="height: 34px; padding: 0 10px">Edit</button></div>
+<span class="cap">Panels list as a tree. Deleting a subpanel asks first; its breakers go away and their items become “No breaker”.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Header · panel switcher</span>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 10px; background: var(--hdr); color: #ECEAE4">
+<span style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 6px; background: #26282B"><span class="mono" style="font-size: 12px">Main panel · 200A</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+<span style="padding: 8px 10px 8px 26px; font-size: 12px; color: #B9BBBF" class="mono">↳ Garage subpanel · 60A</span>
+</div>
+<span class="cap">The header’s panel name becomes a menu when there’s more than one panel. On the Panel page the same choice is a row of panel tabs above the enclosure.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Fed by · items, map, table</span>
+<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap"><span class="pchip">Main 30/32</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="color: var(--muted)"><path d="m9 6 6 6-6 6"></path></svg><span class="pchip">Garage</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="color: var(--muted)"><path d="m9 6 6 6-6 6"></path></svg><span class="pchip cur">G6 · Freezer</span></div>
+<div style="display: flex; align-items: center; gap: 8px"><span class="bnum">G6</span><span style="font-size: 14px">Freezer</span><span class="mono" style="font-size: 11px; color: var(--muted)">Garage</span></div>
+<span class="cap">The map inspector’s “Fed by” adds the power path under the breaker. The Items table and circuit lists use the prefixed chip (G6); circuit lists group by panel.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Shut off</span>
+<div class="mini"><span class="bnum" style="height: 30px; min-width: 44px">G1</span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 700">Garage lights</span><span style="font-size: 12px; color: var(--muted)">Garage panel · Left, row 1</span></span><span class="mono" style="font-size: 12px; color: var(--soft)">ON</span></div>
+<div class="mini" style="border-style: dashed"><span class="bnum" style="height: 30px; min-width: 44px">30/32</span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 700">Or flip the feeder</span><span style="font-size: 12px; color: var(--muted)">Main panel · kills all of Garage, incl. Chest freezer</span></span></div>
+<span class="cap">Rows say which panel to walk to. When every breaker in the list is in one subpanel, offer the feeder as a one-flip alternative, with what else it cuts.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Trace</span>
+<div class="mini" style="align-items: flex-start"><span class="bnum" style="height: 30px; min-width: 44px">30/32</span><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 14px; font-weight: 700">Garage subpanel feeder</span><span style="font-size: 12px; color: var(--muted); line-height: 1.45">Flipping this kills the whole Garage panel. Trace its breakers from the Garage panel instead.</span></span></div>
+<span class="cap">The breaker list is grouped by panel (Main, then Garage). Feeders aren’t traceable; they show their subpanel instead. The mini panel diagram in the flip sheet shows the right panel.</span>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var dark = this.props.dark !== undefined ? !!this.props.dark : true;
+    return { themeCls: dark ? 'th-dark' : 'th-light' };
+  }
+}
+</script>
+</body>
+</html>

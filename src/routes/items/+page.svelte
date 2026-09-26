@@ -334,12 +334,16 @@
 									{#if bs.length}
 										<span class="chips">
 											{#each bs as b, n (b.id)}
-												{#if n > 0}<span class="plus" aria-hidden="true">+</span>{/if}
+												{#if n > 0}<span class="pj" aria-hidden="true">+</span>{/if}
 												<span class="bnum">{ix.slotOf(b)}</span>
 											{/each}
 										</span>
-										<span class="cell">{ix.labelOf(bs[0])}</span>
-										{#if tag}<span class="tag">{tag}</span>{/if}
+										{#if bs.length > 1}
+											<span class="cell dim">{bs.length} breakers</span>
+										{:else}
+											<span class="cell">{ix.labelOf(bs[0])}</span>
+											{#if tag}<span class="tag">{tag}</span>{/if}
+										{/if}
 									{:else}
 										<span class="warnc">No breaker</span>
 									{/if}
@@ -656,7 +660,7 @@
 		gap: 4px;
 		flex-shrink: 0;
 	}
-	.plus {
+	.pj {
 		font-family: var(--font-mono);
 		font-size: 12px;
 		color: var(--muted);

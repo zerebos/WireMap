@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Edit map layout</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;--fed-bd:#1A1B1D;--ghost:rgba(255,255,255,.85);--room:rgba(255,255,255,.55);--bus-ink:#2F3337;--toggle:#7A7F85;--link-h:#8A4B06;--tie:#8A8F95;--enclosure-bd:#9AA0A6;--breaker-bd:#AEB4BA;--bus:#B3B9BF;--enclosure:#C4C9CE;--enclosure-hi:#E3E6E9;--chip-h:#2E3034;--plan-ink:#2F3337;--on-amber-muted:#3A2A10;--chip-bd:#4A4D52;--room-lit-ink:#6E3F04;--wall:#6E7378;--room-lit-bd:#B8700F;--chip-muted:#C9CACC;--grid-line:#E7E4DD;--grid-bg:#F7F6F2;color-scheme:light}
+.th-dark{--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;--fed-bd:#F2A33A;--ghost:rgba(32,34,38,.9);--room:rgba(32,34,38,.72);--bus-ink:#C3C6CB;--toggle:#5E636A;--link-h:#F5B860;--tie:#6E737A;--enclosure-bd:#4A4F55;--breaker-bd:#3A3E43;--bus:#34383D;--enclosure:#25282C;--enclosure-hi:#34383D;--chip-h:#D6D3CC;--plan-ink:#C3C6CB;--on-amber-muted:#3A2A10;--chip-bd:#9A9DA2;--room-lit-ink:#F5B860;--wall:#5E636A;--room-lit-bd:#E0922C;--chip-muted:#4A4D52;--grid-line:#22252A;--grid-bg:#15161A;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.grid{background-color:var(--grid-bg);background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);background-size:20px 20px}
+.room{position:absolute;box-sizing:border-box;border:2px solid var(--wall);background:var(--room);padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:move;touch-action:none}
+.room .rn{position:absolute;left:10px;top:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-stretch:85%;color:var(--soft);pointer-events:none}
+.room:hover{border-color:var(--ink)}
+.room.is-sel{border-color:#F2A33A;box-shadow:0 0 0 1px #F2A33A;z-index:1}
+.room.is-sel .rn{color:var(--ink)}
+.room.is-ext{border-style:dashed}
+.room:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.hd{position:absolute;width:14px;height:14px;box-sizing:border-box;margin:-7px 0 0 -7px;border:2px solid #F2A33A;background:var(--surface);border-radius:3px;padding:0;z-index:3;touch-action:none}
+.hd:hover{background:#F2A33A}
+.dim{position:absolute;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;background:#F2A33A;color:#1A1B1D;padding:2px 6px;border-radius:3px;white-space:nowrap;pointer-events:none;z-index:3}
+.it{position:absolute;width:32px;height:32px;box-sizing:border-box;border-radius:50%;border:1.5px solid var(--ink);background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0;cursor:grab;z-index:2;touch-action:none}
+.it.is-sel{box-shadow:0 0 0 3px var(--surface),0 0 0 5.5px #F2A33A;z-index:4}
+.it.is-drag{cursor:grabbing;transform:scale(1.15);box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.it:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+.guide{position:absolute;pointer-events:none;z-index:5}
+.guide.v{top:0;bottom:0;width:0;border-left:1.5px dashed #F2A33A}
+.guide.h{left:0;right:0;height:0;border-top:1.5px dashed #F2A33A}
+.tip{position:absolute;z-index:6;font-size:12px;font-weight:600;background:var(--ink);color:var(--bg);padding:4px 8px;border-radius:4px;white-space:nowrap;pointer-events:none}
+.lrow{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:6px 10px;box-sizing:border-box;border:1px solid transparent;border-radius:8px;background:transparent;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.lrow:hover{background:var(--hover)}
+.lrow.is-sel{background:var(--amber-soft);border-color:#F2A33A}
+.lrow:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.mh{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2.5px solid #F2A33A;background:var(--surface);padding:0;z-index:6;cursor:grab;touch-action:none}
+.edit-pill{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:15px;background:var(--amber-soft);border:1px solid #F2A33A;font-size:13px;font-weight:700;color:var(--amber-ink);white-space:nowrap}
+.ibtn:disabled{opacity:.35;cursor:default}
+input[type=range]{accent-color:#F2A33A}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45;cursor:pointer}
+.chk input{width:18px;height:18px;margin:1px 0 0;accent-color:#F2A33A;flex-shrink:0}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); overflow: hidden">
+<header style="height: 60px; flex-shrink: 0; background: var(--hdr); color: #ECEAE4; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--hdr-bd); padding: 0 24px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2A33A" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><rect x="9" y="6" width="6" height="7" rx="1" fill="#F2A33A"></rect><path d="M9 17h6"></path></svg>
+<span style="font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em">Breakerbook</span>
+</div>
+<nav aria-label="Primary" style="display: flex; gap: 2px; height: 100%">
+<a class="nav" href="Panel.dc.html">Panel</a>
+<a class="nav is-on" href="Map.dc.html" aria-current="page">Map</a>
+<a class="nav" href="Items.dc.html">Items</a>
+<a class="nav" href="Settings.dc.html">Settings</a>
+</nav>
+<div style="flex-grow: 1"></div>
+<label for="hq" class="sr">Search breakers, items, rooms</label>
+<div style="position: relative; display: flex; align-items: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B9BBBF" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; pointer-events: none"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input id="hq" class="search" type="search" placeholder="Search breakers, items, rooms" value="{{q}}" onChange="{{onSearch}}">
+</div>
+<button type="button" class="tgl" onClick="{{toggleTheme}}" aria-label="{{themeLabel}}" title="{{themeLabel}}"><sc-if value="{{isDark}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{isLight}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></sc-if></button>
+<span class="mono" style="font-size: 12px; color: #B9BBBF">Main panel · 200A</span>
+</header>
+<main style="flex-grow: 1; min-height: 0; display: flex">
+
+<aside aria-label="Layout" style="width: 300px; flex-shrink: 0; background: var(--raised); border-right: 1px solid var(--line-2); display: flex; flex-direction: column; min-height: 0">
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 20px 12px; display: flex; flex-direction: column; gap: 6px">
+<div style="padding: 0 8px 6px; display: flex; justify-content: space-between; align-items: baseline"><h2 style="margin: 0; font-size: 18px; font-weight: 800; font-stretch: 108%">Rooms</h2><span class="mono" style="font-size: 12px; color: var(--muted)">{{roomCount}}</span></div>
+<sc-for list="{{roomList}}" as="r" hint-placeholder-count="7">
+<button type="button" class="{{r.cls}}" onClick="{{r.pick}}"><span style="width: 14px; height: 14px; box-sizing: border-box; border: 2px solid var(--wall); border-radius: 2px; flex-shrink: 0" aria-hidden="true"></span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">{{r.n}}</span><span class="mono" style="font-size: 11px; color: var(--muted)">{{r.size}}</span></button>
+</sc-for>
+<div style="padding: 18px 8px 6px; display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--line); margin-top: 10px"><h2 style="margin: 0; font-size: 18px; font-weight: 800; font-stretch: 108%">Not placed</h2><span class="mono" style="font-size: 12px; color: var(--muted)">{{unplacedCount}}</span></div>
+<p style="margin: 0 8px 6px; font-size: 13px; color: var(--muted); line-height: 1.45">Items from tracing or the Items page that aren’t on the map yet.</p>
+<sc-for list="{{unplaced}}" as="u" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px; padding: 6px 8px">
+<span class="ico" style="width: 28px; height: 28px"><sc-if value="{{u.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{u.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{u.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{u.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></span>
+<span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{u.n}}</span><span style="font-size: 11px; color: var(--muted)">{{u.where}}</span></span>
+<button type="button" class="{{u.btnCls}}" style="height: 34px; padding: 0 10px; font-size: 13px" onClick="{{u.place}}" aria-pressed="{{u.pressed}}">{{u.btn}}</button>
+</div>
+</sc-for>
+<sc-if value="{{allPlaced}}" hint-placeholder-val="{{false}}"><span style="margin: 0 8px; font-size: 13px; color: var(--muted)">Everything on this floor is placed.</span></sc-if>
+</div>
+</aside>
+
+<section aria-label="Floor layout editor" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column">
+<div style="height: 60px; flex-shrink: 0; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: var(--raised); border-bottom: 1px solid var(--line-2)">
+<span class="edit-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path></svg>Editing Main floor</span>
+<div class="seg" role="group" aria-label="Tool">
+<button type="button" class="{{tSel}}" onClick="{{toolSel}}" aria-pressed="{{pSel}}" title="Select and move (V)">Select</button>
+<button type="button" class="{{tRect}}" onClick="{{toolRect}}" aria-pressed="{{pRect}}" title="Rectangle room (R)">Room</button>
+<button type="button" class="{{tPoly}}" onClick="{{toolPoly}}" aria-pressed="{{pPoly}}" title="Polygon room (P)">Polygon</button>
+<button type="button" class="{{tScale}}" onClick="{{toolScale}}" aria-pressed="{{pScale}}" title="Set scale">Scale</button>
+</div>
+<button type="button" class="{{planBtn}}" style="border: 1px solid var(--field)" onClick="{{selPlan}}" aria-pressed="{{planP}}">Floor plan</button>
+<div style="flex-grow: 1"></div>
+<button type="button" class="ibtn" style="width: 38px; height: 38px" aria-label="Undo" disabled="{{noUndo}}" onClick="{{undo}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-3"></path></svg></button>
+<a class="btn btn-pri" style="height: 38px" href="Map.dc.html">Done editing</a>
+</div>
+
+<div class="grid" style="flex-grow: 1; min-height: 0; position: relative; overflow: hidden">
+<div ref="{{setLayer}}" onPointerMove="{{onMove}}" onPointerUp="{{onUp}}" onPointerLeave="{{onUp}}" onPointerDown="{{onLayerDown}}" style="position: absolute; left: 0; top: 20px; width: 820px; height: 760px; cursor: {{layerCursor}}">
+<svg width="820" height="760" viewBox="0 0 820 760" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="square" style="position: absolute; left: 0; top: 0; color: var(--plan-ink); opacity: {{planOp}}; transform: translate({{plan.x}}px, {{plan.y}}px) scale({{plan.s}}); transform-origin: 0 0; pointer-events: none">
+<path stroke-width="8" d="M270 40H780V700H535 M490 700H40V40H70"></path>
+<path stroke-width="2" stroke-dasharray="7 6" d="M70 40H270"></path>
+<path stroke-width="5" d="M300 40V150 M300 195V340 M300 190H330 M372 190H440 M440 40V80 M440 128V340 M40 340H225 M268 340H398 M440 340H598 M742 340H780 M460 340V480 M460 540V700 M560 340V398 M560 452V700"></path>
+<path stroke-width="1.5" d="M300 150A45 45 0 0 1 345 195 M440 80A48 48 0 0 1 392 128 M490 700A45 45 0 0 1 535 655 M560 398A54 54 0 0 1 614 452 M225 340A43 43 0 0 0 268 383"></path>
+<path stroke-width="1.2" d="M470 362H550M470 376H550M470 390H550M470 404H550M470 418H550M470 432H550M470 446H550M470 460H550 M510 362V460"></path>
+</svg>
+<sc-if value="{{planSel}}" hint-placeholder-val="{{false}}">
+<div onPointerDown="{{startPlan}}" style="position: absolute; left: {{plan.x}}px; top: {{plan.y}}px; width: {{plan.w}}px; height: {{plan.h}}px; box-sizing: border-box; border: 2px dashed #F2A33A; cursor: move; z-index: 7; touch-action: none"><span class="tip" style="left: 8px; top: 8px">Drag to line up with the rooms</span></div>
+</sc-if>
+
+<sc-for list="{{rooms}}" as="r" hint-placeholder-count="7">
+<button type="button" class="{{r.cls}}" style="left: {{r.x}}px; top: {{r.y}}px; width: {{r.w}}px; height: {{r.h}}px" onPointerDown="{{r.down}}" onKeyDown="{{r.key}}" aria-label="{{r.aria}}"><span class="rn">{{r.n}}</span></button>
+</sc-for>
+
+<sc-if value="{{hasSelRoom}}" hint-placeholder-val="{{true}}">
+<sc-for list="{{handles}}" as="h" hint-placeholder-count="8"><button type="button" class="hd" style="left: {{h.x}}px; top: {{h.y}}px; cursor: {{h.cur}}" onPointerDown="{{h.down}}" aria-label="{{h.label}}"></button></sc-for>
+<sc-if value="{{showDims}}" hint-placeholder-val="{{true}}">
+<span class="dim" style="left: {{dimW.x}}px; top: {{dimW.y}}px">{{dimW.t}}</span>
+<span class="dim" style="left: {{dimH.x}}px; top: {{dimH.y}}px">{{dimH.t}}</span>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{hasDraft}}" hint-placeholder-val="{{false}}"><div style="position: absolute; left: {{draft.x}}px; top: {{draft.y}}px; width: {{draft.w}}px; height: {{draft.h}}px; box-sizing: border-box; border: 2px dashed #F2A33A; background: rgba(242,163,58,.12); pointer-events: none; z-index: 5"></div></sc-if>
+<sc-if value="{{isPoly}}" hint-placeholder-val="{{false}}">
+<svg width="820" height="760" viewBox="0 0 820 760" aria-hidden="true" style="position: absolute; left: 0; top: 0; pointer-events: none; z-index: 5"><path d="M460 704 H700 V744 H600 V760" fill="rgba(242,163,58,.12)" stroke="#F2A33A" stroke-width="2" stroke-dasharray="6 5"></path><circle cx="460" cy="704" r="6" fill="#F2A33A"></circle><circle cx="700" cy="704" r="5" fill="none" stroke="#F2A33A" stroke-width="2"></circle><circle cx="700" cy="744" r="5" fill="none" stroke="#F2A33A" stroke-width="2"></circle></svg>
+</sc-if>
+
+<sc-for list="{{items}}" as="i" hint-placeholder-count="30">
+<button type="button" class="{{i.cls}}" style="left: {{i.left}}px; top: {{i.top}}px" onPointerDown="{{i.down}}" onKeyDown="{{i.key}}" aria-label="{{i.aria}}"><sc-if value="{{i.io}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="3"></rect><path d="M9.5 8.5v3M14.5 8.5v3"></path><circle cx="12" cy="16" r="1.1"></circle></svg></sc-if><sc-if value="{{i.il}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if><sc-if value="{{i.is}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"></rect><rect x="10" y="7" width="4" height="6" rx="1"></rect></svg></sc-if><sc-if value="{{i.ia}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><circle cx="12" cy="13.5" r="4"></circle><path d="M7.5 6.5h2"></path></svg></sc-if></button>
+</sc-for>
+
+<sc-if value="{{hasGuideV}}" hint-placeholder-val="{{false}}"><div class="guide v" style="left: {{guideV}}px"></div></sc-if>
+<sc-if value="{{hasGuideH}}" hint-placeholder-val="{{false}}"><div class="guide h" style="top: {{guideH}}px"></div></sc-if>
+<sc-if value="{{hasTip}}" hint-placeholder-val="{{false}}"><span class="tip" style="left: {{tip.x}}px; top: {{tip.y}}px">{{tip.t}}</span></sc-if>
+
+<sc-if value="{{isScale}}" hint-placeholder-val="{{false}}">
+<svg width="820" height="760" viewBox="0 0 820 760" aria-hidden="true" style="position: absolute; left: 0; top: 0; pointer-events: none; z-index: 5"><line x1="{{ms.ax}}" y1="{{ms.ay}}" x2="{{ms.bx}}" y2="{{ms.by}}" stroke="#F2A33A" stroke-width="3"></line></svg>
+<button type="button" class="mh" style="left: {{ms.ax}}px; top: {{ms.ay}}px" onPointerDown="{{startA}}" aria-label="Measuring line start"></button>
+<button type="button" class="mh" style="left: {{ms.bx}}px; top: {{ms.by}}px" onPointerDown="{{startB}}" aria-label="Measuring line end"></button>
+<span class="tip" style="left: {{ms.lx}}px; top: {{ms.ly}}px">{{ms.label}}</span>
+</sc-if>
+
+<sc-if value="{{placing}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: {{ghost.x}}px; top: {{ghost.y}}px; width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%; border: 2px dashed #F2A33A; background: var(--ghost); pointer-events: none; z-index: 6"></div>
+</sc-if>
+</div>
+
+<sc-if value="{{hasBanner}}" hint-placeholder-val="{{false}}">
+<div role="status" style="position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--ink); border-radius: 10px; padding: 10px 10px 10px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.14); z-index: 8; white-space: nowrap"><span style="font-size: 14px">{{banner}}</span><button type="button" class="btn" style="height: 34px" onClick="{{cancelTool}}">Cancel</button></div>
+</sc-if>
+<div style="position: absolute; left: 14px; bottom: 12px; font-size: 12px; color: var(--muted); display: flex; gap: 14px">
+<span><span class="mono" style="color: var(--soft)">Arrows</span> nudge 1 grid step</span><span><span class="mono" style="color: var(--soft)">Shift</span> no snapping</span><span><span class="mono" style="color: var(--soft)">Esc</span> cancel</span>
+</div>
+</div>
+</section>
+
+<aside aria-label="Selection" style="width: 320px; flex-shrink: 0; background: var(--surface); border-left: 1px solid var(--line-2); display: flex; flex-direction: column; min-height: 0">
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px">
+
+<sc-if value="{{isRoom}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<span class="ov">Room · Main floor</span>
+<div class="fld"><label for="rm-name">Name</label><input id="rm-name" class="inp" type="text" value="{{sr.n}}" onChange="{{onRoomName}}"></div>
+<div class="fld"><span style="font-size: 12px; font-weight: 600; color: var(--muted)" id="rk">Kind</span><div class="seg" role="group" aria-labelledby="rk"><button type="button" class="{{sr.inCls}}" style="flex: 1 1 0; justify-content: center" onClick="{{setInterior}}" aria-pressed="{{sr.inP}}">Interior</button><button type="button" class="{{sr.exCls}}" style="flex: 1 1 0; justify-content: center" onClick="{{setExterior}}" aria-pressed="{{sr.exP}}">Exterior area</button></div></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div class="fld"><span style="font-size: 12px; font-weight: 600; color: var(--muted)">Size</span><span class="mono" style="height: 44px; display: flex; align-items: center; padding: 0 12px; background: var(--bg); border-radius: 6px; font-size: 13px">{{sr.size}}</span></div>
+<div class="fld"><span style="font-size: 12px; font-weight: 600; color: var(--muted)">Shape</span><span style="height: 44px; display: flex; align-items: center; padding: 0 12px; background: var(--bg); border-radius: 6px; font-size: 13px">Rectangle</span></div>
+</div>
+<sc-if value="{{noScale}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" style="justify-content: flex-start" onClick="{{toolScale}}">Set a scale to see sizes in feet</button></sc-if>
+<button type="button" class="btn" style="justify-content: flex-start">Convert to polygon (add corners)</button>
+<label class="chk"><input type="checkbox" checked="{{carry}}" onChange="{{toggleCarry}}"><span>Move the {{sr.count}} items inside with the room</span></label>
+<div style="padding-top: 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px">
+<button type="button" class="btn btn-warn" style="justify-content: flex-start">Delete room</button>
+<span style="font-size: 12px; color: var(--muted); line-height: 1.45">Its items stay where they are and show as “Not in a room”.</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isItem}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<span class="ov">{{si.type}}</span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 105%; line-height: 1.2">{{si.n}}</h2>
+<div style="padding: 12px 14px; border-radius: 8px; background: var(--bg); display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; font-weight: 600; color: var(--muted)">Room (from where it sits)</span><span style="font-size: 15px; font-weight: 700">{{si.room}}</span><sc-if value="{{si.moved}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: var(--amber-ink); font-weight: 600">Was {{si.was}}</span></sc-if></div>
+<span style="font-size: 13px; color: var(--muted); line-height: 1.45">Drag it, or use the arrow keys. Its room updates from the position; breakers don’t change.</span>
+<button type="button" class="btn" style="justify-content: flex-start" onClick="{{unplace}}">Remove from map</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isPlan}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<span class="ov">Floor plan image</span>
+<span class="mono" style="font-size: 14px; font-weight: 600">main-floor.png</span>
+<div class="fld"><div style="display: flex; justify-content: space-between"><label for="pl-op">Opacity</label><span class="mono" style="font-size: 12px">{{planOpText}}</span></div><input id="pl-op" type="range" min="0" max="100" step="5" value="{{planOpPct}}" onChange="{{onPlanOp}}"></div>
+<div class="fld"><div style="display: flex; justify-content: space-between"><label for="pl-sc">Size</label><span class="mono" style="font-size: 12px">{{planScText}}</span></div><input id="pl-sc" type="range" min="50" max="150" step="1" value="{{planScPct}}" onChange="{{onPlanSc}}"></div>
+<div class="fld"><span style="font-size: 12px; font-weight: 600; color: var(--muted)">Rotate</span><div style="display: flex; gap: 8px"><button type="button" class="btn" style="flex: 1 1 0">↺ 90°</button><button type="button" class="btn" style="flex: 1 1 0">↻ 90°</button></div></div>
+<span style="font-size: 13px; color: var(--muted); line-height: 1.45">Drag the image on the canvas to line it up. Rooms don’t move with it.</span>
+<label class="chk"><input type="checkbox" checked="{{planLock}}" onChange="{{togglePlanLock}}"><span>Lock the plan so it can’t be dragged by accident</span></label>
+<div style="display: flex; gap: 8px"><button type="button" class="btn" style="flex: 1 1 0">Replace</button><button type="button" class="btn btn-warn" style="flex: 1 1 0">Remove</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{isScale}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<span class="ov">Set scale</span>
+<h2 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 105%">Measure one wall</h2>
+<span style="font-size: 14px; line-height: 1.5; color: var(--soft)">Drag the two amber dots to the ends of a wall you know, then type its length. Sizes show in feet everywhere after this.</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div class="fld"><label for="sc-ft">Feet</label><input id="sc-ft" class="inp" type="number" min="0" value="{{ft}}" onChange="{{onFt}}"></div>
+<div class="fld"><label for="sc-in">Inches</label><input id="sc-in" class="inp" type="number" min="0" max="11" value="{{inch}}" onChange="{{onIn}}"></div>
+</div>
+<div style="padding: 12px 14px; border-radius: 8px; background: var(--bg); font-size: 13px; display: flex; flex-direction: column; gap: 4px"><span class="mono">{{scalePreview}}</span><span style="color: var(--muted)">{{scaleCheck}}</span></div>
+<button type="button" class="btn btn-pri" onClick="{{applyScale}}">Apply scale</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isNone}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 105%">Edit the layout</h2>
+<span style="font-size: 14px; color: var(--muted); line-height: 1.5">Click a room to move or resize it, drag items to where they really are, or place the ones on the left. Circuits are hidden while you edit.</span>
+</div>
+</sc-if>
+</div>
+</aside>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+var FLOORS = { bsmt: 'Basement', main: 'Main floor', up: 'Upstairs' };
+var TYPES = { std: 'Standard', gfci: 'GFCI', afci: 'AFCI', df: 'Dual function' };
+var TAG = { std: '', gfci: 'GF', afci: 'AF', df: 'DF' };
+var TL = { outlet: 'Outlet', light: 'Light', 'switch': 'Switch', appliance: 'Appliance' };
+var BREAKERS = [
+  { s: 1, p: 2, a: 50, t: 'std', l: 'Range' },
+  { s: 2, p: 2, a: 30, t: 'std', l: 'Dryer' },
+  { s: 5, p: 2, a: 40, t: 'std', l: 'A/C condenser' },
+  { s: 6, p: 2, a: 30, t: 'std', l: 'Water heater' },
+  { s: 9, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — west' },
+  { s: 10, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — east' },
+  { s: 11, p: 1, a: 20, t: 'std', l: 'Dishwasher & disposal' },
+  { s: 12, p: 1, a: 20, t: 'std', l: 'Refrigerator' },
+  { s: 13, p: 1, a: 20, t: 'std', l: 'Microwave' },
+  { s: 14, p: 1, a: 15, t: 'afci', l: 'Kitchen & dining lights' },
+  { s: 15, p: 1, a: 15, t: 'afci', l: 'Living room' },
+  { s: 16, p: 1, a: 20, t: 'gfci', l: 'Bathrooms' },
+  { s: 17, p: 1, a: 15, t: 'afci', l: 'Primary bedroom' },
+  { s: 18, p: 1, a: 15, t: 'afci', l: 'Bedroom 2' },
+  { s: 19, p: 1, a: 15, t: 'afci', l: 'Office' },
+  { s: 20, p: 1, a: 20, t: 'std', l: 'Laundry' },
+  { s: 21, p: 1, a: 15, t: 'afci', l: 'Hall & stairs lights' },
+  { s: 22, p: 1, a: 20, t: 'gfci', l: 'Garage' },
+  { s: 23, p: 1, a: 15, t: 'std', l: 'Furnace' },
+  { s: 24, p: 1, a: 20, t: 'gfci', l: 'Exterior outlets' },
+  { s: 25, p: 1, a: 15, t: 'std', l: 'Basement lights' },
+  { s: 26, p: 1, a: 20, t: 'std', l: 'Basement outlets' },
+  { s: 27, p: 1, a: 20, t: 'afci', l: 'Dining room outlets' },
+  { s: 28, p: 1, a: 20, t: 'std', l: 'Sump pump' },
+  { s: 29, p: 1, a: 15, t: 'std', l: '' }
+];
+var RAW = [
+  ['k1','outlet','Counter outlet W1','Kitchen','main',458,110,9],
+  ['k2','outlet','Counter outlet W2','Kitchen','main',458,220,9],
+  ['k3','outlet','Island outlet','Kitchen','main',600,200,9],
+  ['k4','outlet','Counter outlet E1','Kitchen','main',640,58,10],
+  ['k5','outlet','Counter outlet E2','Kitchen','main',762,100,10],
+  ['k6','appliance','Dishwasher','Kitchen','main',540,58,11],
+  ['k7','appliance','Disposal','Kitchen','main',560,112,11],
+  ['k8','appliance','Refrigerator','Kitchen','main',762,300,12],
+  ['k9','appliance','Microwave','Kitchen','main',705,58,13],
+  ['k10','appliance','Range','Kitchen','main',762,190,1],
+  ['k11','light','Recessed lights','Kitchen','main',660,150,14],
+  ['k12','switch','Kitchen light switch','Kitchen','main',458,318,14],
+  ['k13','light','Island pendants','Kitchen','main',540,262,14],
+  ['d1','light','Chandelier','Dining room','main',670,520,14],
+  ['d2','switch','Dining light switch','Dining room','main',578,420,14],
+  ['d3','outlet','Outlet — north wall','Dining room','main',700,358,27],
+  ['d4','outlet','Outlet — east wall','Dining room','main',762,580,27],
+  ['d5','outlet','Outlet — south wall','Dining room','main',660,682,27],
+  ['l1','outlet','Outlet — west wall','Living room','main',58,450,15],
+  ['l2','outlet','Outlet by sofa','Living room','main',160,682,15],
+  ['l3','outlet','Outlet — south wall','Living room','main',340,682,15],
+  ['l4','light','Ceiling fan','Living room','main',250,520,15],
+  ['l5','switch','Fan switch','Living room','main',442,420,15],
+  ['l6','outlet','TV wall outlet','Living room','main',58,600,15],
+  ['h1','light','Entry light','Entry & hall','main',510,630,21],
+  ['h2','switch','Entry switch','Entry & hall','main',478,682,21],
+  ['h3','light','Stair light','Entry & hall','main',510,420,21],
+  ['hb1','outlet','GFCI outlet at vanity','Half bath','main',420,230,16],
+  ['hb2','light','Vanity light','Half bath','main',398,300,16],
+  ['hb3','appliance','Exhaust fan','Half bath','main',335,300,16],
+  ['la1','appliance','Dryer','Laundry','main',330,110,2],
+  ['la2','appliance','Washer','Laundry','main',385,110,20],
+  ['la3','outlet','Laundry outlet','Laundry','main',420,166,20],
+  ['g1','outlet','Outlet — west wall','Garage','main',58,120,22],
+  ['g2','outlet','Workbench outlet','Garage','main',160,58,22],
+  ['g3','light','Garage lights','Garage','main',170,190,22],
+  ['g4','appliance','Door opener','Garage','main',170,270,22],
+  ['g5','switch','Garage light switch','Garage','main',282,310,22],
+  ['e1','appliance','A/C condenser','Outside','main',802,420,5],
+  ['e2','outlet','Front porch outlet','Outside','main',610,722,24],
+  ['e3','outlet','Back patio outlet','Outside','main',20,520,24],
+  ['p1','outlet','Outlet — west wall','Primary bedroom','up',58,150,17],
+  ['p2','outlet','Outlet — north wall','Primary bedroom','up',230,58,17],
+  ['p3','outlet','Bedside outlet','Primary bedroom','up',402,280,17],
+  ['p4','light','Ceiling fan','Primary bedroom','up',230,200,17],
+  ['p5','switch','Fan switch','Primary bedroom','up',402,340,17],
+  ['pb1','outlet','GFCI outlet','Primary bath','up',582,100,16],
+  ['pb2','light','Vanity light','Primary bath','up',530,140,16],
+  ['pb3','appliance','Exhaust fan','Primary bath','up',470,200,16],
+  ['ba1','outlet','GFCI outlet','Hall bath','up',762,70,16],
+  ['ba2','light','Vanity light','Hall bath','up',720,140,16],
+  ['ba3','appliance','Exhaust fan','Hall bath','up',650,200,16],
+  ['hu1','light','Hall light','Upstairs hall','up',600,300,21],
+  ['hu2','switch','Hall switch','Upstairs hall','up',440,300,21],
+  ['r1','outlet','Outlet — west wall','Bedroom 2','up',58,500,18],
+  ['r2','outlet','Outlet — south wall','Bedroom 2','up',190,682,18],
+  ['r3','light','Ceiling light','Bedroom 2','up',190,530,18],
+  ['r4','switch','Light switch','Bedroom 2','up',322,400,18],
+  ['o1','outlet','Outlet — east wall','Office','up',762,450,19],
+  ['o2','outlet','Desk outlet','Office','up',560,682,19],
+  ['o3','outlet','Outlet — west wall','Office','up',358,600,19],
+  ['o4','light','Ceiling light','Office','up',560,530,19],
+  ['o5','switch','Light switch','Office','up',358,430,19],
+  ['u1','appliance','Water heater','Utility','bsmt',90,90,6],
+  ['u2','appliance','Furnace','Utility','bsmt',180,90,23],
+  ['u3','appliance','Sump pump','Utility','bsmt',90,270,28],
+  ['u4','light','Utility light','Utility','bsmt',200,200,25],
+  ['u5','outlet','Utility outlet','Utility','bsmt',322,160,26],
+  ['rr1','light','Recessed lights (north)','Rec room','bsmt',560,250,25],
+  ['rr2','light','Recessed lights (south)','Rec room','bsmt',560,480,25],
+  ['rr3','switch','Light switch','Rec room','bsmt',358,300,25],
+  ['rr4','outlet','Outlet — east wall N','Rec room','bsmt',762,200,26],
+  ['rr5','outlet','Outlet — east wall S','Rec room','bsmt',762,500,26],
+  ['rr6','outlet','Outlet — south wall','Rec room','bsmt',560,682,26],
+  ['s1','light','Storage light','Storage','bsmt',190,510,25],
+  ['s2','outlet','Storage outlet','Storage','bsmt',58,600,26]
+];
+var ITEMS = RAW.map(function (r) { return { id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }; });
+var ROOMS = {
+  main: [
+    { n: 'Garage', x: 40, y: 40, w: 260, h: 300 },
+    { n: 'Laundry', x: 300, y: 40, w: 140, h: 150 },
+    { n: 'Half bath', x: 300, y: 190, w: 140, h: 150 },
+    { n: 'Kitchen', x: 440, y: 40, w: 340, h: 300 },
+    { n: 'Living room', x: 40, y: 340, w: 420, h: 360 },
+    { n: 'Entry & hall', x: 460, y: 340, w: 100, h: 360 },
+    { n: 'Dining room', x: 560, y: 340, w: 220, h: 360 }
+  ],
+  up: [
+    { n: 'Primary bedroom', x: 40, y: 40, w: 380, h: 320 },
+    { n: 'Primary bath', x: 420, y: 40, w: 180, h: 200 },
+    { n: 'Hall bath', x: 600, y: 40, w: 180, h: 200 },
+    { n: 'Upstairs hall', x: 420, y: 240, w: 360, h: 120 },
+    { n: 'Bedroom 2', x: 40, y: 360, w: 300, h: 340 },
+    { n: 'Office', x: 340, y: 360, w: 440, h: 340 }
+  ],
+  bsmt: [
+    { n: 'Utility', x: 40, y: 40, w: 300, h: 280 },
+    { n: 'Storage', x: 40, y: 320, w: 300, h: 380 },
+    { n: 'Rec room', x: 340, y: 40, w: 440, h: 660 }
+  ]
+};
+function flags(t) { return { io: t === 'outlet', il: t === 'light', is: t === 'switch', ia: t === 'appliance' }; }
+
+var EXTRA = [
+  ['x1','outlet','Attic outlet','Attic','up',null,null,null],
+  ['x2','light','Front closet light','Entry & hall','main',null,null,21],
+  ['x3','outlet','Outlet behind shelving','Storage','bsmt',120,420,null]
+];
+EXTRA.forEach(function (r) { ITEMS.push({ id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }); });
+var CRIT = {
+  k8: 'Food stays safe about 4 hours if the door stays shut.',
+  u3: 'It can’t pump while it’s off — keep it short if rain is coming.',
+  u2: 'No heat or air while it’s off.'
+};
+
+var START = 'room';
+var TL = { outlet: 'Outlet', light: 'Light', 'switch': 'Switch', appliance: 'Appliance' };
+var W = 820, H = 760, GRID = 10, SNAP = 8, MIN = 60;
+var HANDLES = [['nw', 0, 0, 'nwse-resize'], ['n', .5, 0, 'ns-resize'], ['ne', 1, 0, 'nesw-resize'], ['e', 1, .5, 'ew-resize'], ['se', 1, 1, 'nwse-resize'], ['s', .5, 1, 'ns-resize'], ['sw', 0, 1, 'nesw-resize'], ['w', 0, .5, 'ew-resize']];
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var set = function (o) { self.setState(o); };
+    var dark = st.dark !== undefined ? st.dark : (this.props.dark !== undefined ? !!this.props.dark : true);
+    var d = function (k, v) { return st[k] === undefined ? v : st[k]; };
+    var rooms = d('rooms', ROOMS.main.map(function (r, i) { return { id: 'r' + i, n: r.n, x: r.x, y: r.y, w: r.w, h: r.h, ext: false }; }));
+    var pos = d('pos', {});
+    var unpl = d('unpl', { x2: true, n1: true });
+    var sel = d('sel', START === 'scale' ? null : { k: 'room', id: 'r3' });
+    var tool = d('tool', START === 'scale' ? 'scale' : 'select');
+    var scale = d('scale', START === 'scale' ? null : 20);
+    var ms = d('ms', { ax: 440, ay: 40, bx: 780, by: 40 });
+    var ft = d('ft', '17'), inch = d('inch', '0');
+    var drag = st.drag || null;
+    var guide = st.guide || {};
+    var tip = st.tip || null;
+    var placing = d('placing', null);
+    var ghost = st.ghost || { x: 0, y: 0 };
+    var carry = d('carry', true);
+    var plan = d('plan', { x: 0, y: 0, s: 1, op: 35, lock: false });
+    var hist = st.hist || [];
+
+    var mainItems = ITEMS.filter(function (i) { return i.f === 'main'; }).concat([{ id: 'n1', t: 'appliance', n: 'Chest freezer', r: 'Garage', f: 'main', x: null, y: null, b: 22 }]);
+    var P = function (i) { return pos[i.id] || { x: i.x, y: i.y }; };
+    var roomAt = function (x, y) { for (var k = 0; k < rooms.length; k++) { var r = rooms[k]; if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r.n; } return 'Not in a room'; };
+    var fmt = function (px) { if (!scale) return '—'; var inches = Math.round(px / scale * 12); var f = Math.floor(inches / 12), n = inches % 12; return n ? f + '′ ' + n + '″' : f + '′'; };
+    var toLayer = function (e) { var el = self.layer; if (!el) return { x: 0, y: 0 }; var rc = el.getBoundingClientRect(); var k = rc.width / W || 1; return { x: (e.clientX - rc.left) / k, y: (e.clientY - rc.top) / k }; };
+    var snapVal = function (v, cands, free) {
+      if (free) return { v: v, g: null };
+      var best = null;
+      cands.forEach(function (c) { var dd = Math.abs(c - v); if (dd <= SNAP && (!best || dd < best.d)) best = { d: dd, c: c }; });
+      if (best) return { v: best.c, g: best.c };
+      return { v: Math.round(v / GRID) * GRID, g: null };
+    };
+    var edgesX = function (skip) { var a = []; rooms.forEach(function (r) { if (r.id !== skip) { a.push(r.x, r.x + r.w); } }); return a; };
+    var edgesY = function (skip) { var a = []; rooms.forEach(function (r) { if (r.id !== skip) { a.push(r.y, r.y + r.h); } }); return a; };
+    var pushHist = function () { return hist.concat([{ rooms: rooms, pos: pos, unpl: unpl }]).slice(-30); };
+
+    var onMove = function (e) {
+      var p = toLayer(e);
+      if (placing) { set({ ghost: { x: p.x - 16, y: p.y - 16 } }); }
+      if (!drag) return;
+      var dx = p.x - drag.sx, dy = p.y - drag.sy, free = e.shiftKey;
+      if (drag.k === 'room') {
+        var o = drag.o, r = Object.assign({}, o), g = {};
+        if (drag.h === 'move') {
+          var sx1 = snapVal(o.x + dx, edgesX(o.id), free), sx2 = snapVal(o.x + o.w + dx, edgesX(o.id), free);
+          if (sx2.g !== null && sx1.g === null) { r.x = sx2.v - o.w; g.v = sx2.g; } else { r.x = sx1.v; if (sx1.g !== null) g.v = sx1.g; }
+          var sy1 = snapVal(o.y + dy, edgesY(o.id), free), sy2 = snapVal(o.y + o.h + dy, edgesY(o.id), free);
+          if (sy2.g !== null && sy1.g === null) { r.y = sy2.v - o.h; g.h = sy2.g; } else { r.y = sy1.v; if (sy1.g !== null) g.h = sy1.g; }
+        } else {
+          var hh = drag.h;
+          if (hh.indexOf('w') >= 0) { var s1 = snapVal(o.x + dx, edgesX(o.id), free); var nx = Math.min(s1.v, o.x + o.w - MIN); r.w = o.x + o.w - nx; r.x = nx; if (s1.g !== null) g.v = s1.g; }
+          if (hh.indexOf('e') >= 0) { var s2 = snapVal(o.x + o.w + dx, edgesX(o.id), free); r.w = Math.max(MIN, s2.v - o.x); if (s2.g !== null) g.v = s2.g; }
+          if (hh.indexOf('n') >= 0) { var s3 = snapVal(o.y + dy, edgesY(o.id), free); var ny = Math.min(s3.v, o.y + o.h - MIN); r.h = o.y + o.h - ny; r.y = ny; if (s3.g !== null) g.h = s3.g; }
+          if (hh.indexOf('s') >= 0) { var s4 = snapVal(o.y + o.h + dy, edgesY(o.id), free); r.h = Math.max(MIN, s4.v - o.y); if (s4.g !== null) g.h = s4.g; }
+        }
+        var nr = rooms.map(function (x) { return x.id === o.id ? r : x; });
+        var np = pos;
+        if (drag.h === 'move' && carry) {
+          np = Object.assign({}, pos);
+          drag.inside.forEach(function (it) { np[it.id] = { x: it.x + (r.x - o.x), y: it.y + (r.y - o.y) }; });
+        }
+        set({ rooms: nr, pos: np, guide: g, tip: scale ? { x: r.x + r.w + 8, y: r.y + r.h + 6, t: fmt(r.w) + ' × ' + fmt(r.h) } : null });
+      } else if (drag.k === 'item') {
+        var nx2 = free ? drag.o.x + dx : Math.round((drag.o.x + dx) / GRID) * GRID;
+        var ny2 = free ? drag.o.y + dy : Math.round((drag.o.y + dy) / GRID) * GRID;
+        nx2 = Math.max(0, Math.min(W, nx2)); ny2 = Math.max(0, Math.min(H, ny2));
+        var np2 = Object.assign({}, pos); np2[drag.id] = { x: nx2, y: ny2 };
+        var rn = roomAt(nx2, ny2);
+        set({ pos: np2, tip: rn !== drag.room ? { x: nx2 + 22, y: ny2 - 30, t: '→ ' + rn } : null });
+      } else if (drag.k === 'ma' || drag.k === 'mb') {
+        var m = Object.assign({}, ms);
+        if (drag.k === 'ma') { m.ax = p.x; m.ay = p.y; } else { m.bx = p.x; m.by = p.y; }
+        set({ ms: m });
+      } else if (drag.k === 'new') {
+        var ax = snapVal(drag.sx, edgesX(null), free).v, ay = snapVal(drag.sy, edgesY(null), free).v;
+        var bxs = snapVal(p.x, edgesX(null), free), bys = snapVal(p.y, edgesY(null), free);
+        var g2 = {}; if (bxs.g !== null) g2.v = bxs.g; if (bys.g !== null) g2.h = bys.g;
+        var dr = { x: Math.min(ax, bxs.v), y: Math.min(ay, bys.v), w: Math.abs(bxs.v - ax), h: Math.abs(bys.v - ay) };
+        set({ draft: dr, guide: g2, tip: scale ? { x: dr.x + dr.w + 8, y: dr.y + dr.h + 6, t: fmt(dr.w) + ' × ' + fmt(dr.h) } : null });
+      } else if (drag.k === 'plan') {
+        set({ plan: Object.assign({}, plan, { x: drag.o.x + dx, y: drag.o.y + dy }) });
+      }
+    };
+    var onUp = function () {
+      if (drag && drag.k === 'new') {
+        var dr = st.draft;
+        if (dr && dr.w >= MIN && dr.h >= MIN) {
+          var id = 'r' + (rooms.length + Date.now() % 1000);
+          set({ hist: pushHist(), rooms: rooms.concat([{ id: id, n: 'New room', x: dr.x, y: dr.y, w: dr.w, h: dr.h, ext: false }]), sel: { k: 'room', id: id }, tool: 'select', drag: null, draft: null, guide: {}, tip: null });
+        } else set({ drag: null, draft: null, guide: {}, tip: null });
+        return;
+      }
+      if (drag || tip || guide.v !== undefined || guide.h !== undefined) set({ drag: null, guide: {}, tip: null });
+    };
+    var onLayerDown = function (e) {
+      if (tool === 'rect') { var p0 = toLayer(e); set({ drag: { k: 'new', sx: p0.x, sy: p0.y }, draft: null }); return; }
+      if (!placing) { if (tool === 'select' && sel) set({ sel: null }); return; }
+      var p = toLayer(e);
+      var np = Object.assign({}, pos); np[placing] = { x: Math.round(p.x / GRID) * GRID, y: Math.round(p.y / GRID) * GRID };
+      var nu = Object.assign({}, unpl); delete nu[placing];
+      set({ hist: pushHist(), pos: np, unpl: nu, sel: { k: 'item', id: placing }, placing: null });
+    };
+    var nudge = function (apply) { return function (e) {
+      var k = e.key, step = e.shiftKey ? 1 : GRID, dx = 0, dy = 0;
+      if (k === 'ArrowLeft') dx = -step; else if (k === 'ArrowRight') dx = step; else if (k === 'ArrowUp') dy = -step; else if (k === 'ArrowDown') dy = step; else if (k === 'Escape') { set({ sel: null }); return; } else return;
+      e.preventDefault(); apply(dx, dy);
+    }; };
+
+    var selRoom = sel && sel.k === 'room' ? rooms.filter(function (r) { return r.id === sel.id; })[0] : null;
+    var roomsV = rooms.map(function (r) {
+      var isSel = selRoom && selRoom.id === r.id;
+      return Object.assign({ key: r.id }, r, {
+        cls: 'room' + (isSel ? ' is-sel' : '') + (r.ext ? ' is-ext' : ''),
+        aria: r.n + (scale ? ', ' + fmt(r.w) + ' by ' + fmt(r.h) : '') + '. Drag to move; arrow keys nudge.',
+        down: function (e) {
+          if (tool !== 'select' || placing) return;
+          e.stopPropagation();
+          var p = toLayer(e);
+          var inside = mainItems.filter(function (i) { if (unpl[i.id]) return false; var q = P(i); return q.x >= r.x && q.x <= r.x + r.w && q.y >= r.y && q.y <= r.y + r.h; }).map(function (i) { var q = P(i); return { id: i.id, x: q.x, y: q.y }; });
+          set({ hist: pushHist(), sel: { k: 'room', id: r.id }, drag: { k: 'room', id: r.id, h: 'move', sx: p.x, sy: p.y, o: r, inside: inside } });
+        },
+        key: nudge(function (dx, dy) { set({ hist: pushHist(), sel: { k: 'room', id: r.id }, rooms: rooms.map(function (x) { return x.id === r.id ? Object.assign({}, x, { x: x.x + dx, y: x.y + dy }) : x; }) }); })
+      });
+    });
+    var handles = selRoom ? HANDLES.map(function (h) {
+      return { key: h[0], x: selRoom.x + selRoom.w * h[1], y: selRoom.y + selRoom.h * h[2], cur: h[3], label: 'Resize ' + selRoom.n + ' from ' + h[0].toUpperCase(),
+        down: function (e) { e.stopPropagation(); var p = toLayer(e); set({ hist: pushHist(), drag: { k: 'room', id: selRoom.id, h: h[0], sx: p.x, sy: p.y, o: selRoom, inside: [] } }); } };
+    }) : [];
+
+    var itemsV = mainItems.filter(function (i) { return !unpl[i.id]; }).map(function (i) {
+      var q = P(i), isSel = sel && sel.k === 'item' && sel.id === i.id, isDrag = drag && drag.k === 'item' && drag.id === i.id;
+      return Object.assign({ key: i.id, left: q.x - 16, top: q.y - 16, aria: i.n + ', ' + TL[i.t] + ', in ' + roomAt(q.x, q.y) + '. Drag to move.',
+        cls: 'it' + (isSel ? ' is-sel' : '') + (isDrag ? ' is-drag' : ''),
+        down: function (e) { if (tool !== 'select' || placing) return; e.stopPropagation(); var p = toLayer(e); set({ hist: pushHist(), sel: { k: 'item', id: i.id }, drag: { k: 'item', id: i.id, sx: p.x, sy: p.y, o: q, room: roomAt(q.x, q.y) } }); },
+        key: nudge(function (dx, dy) { var np = Object.assign({}, pos); np[i.id] = { x: q.x + dx, y: q.y + dy }; set({ hist: pushHist(), sel: { k: 'item', id: i.id }, pos: np }); })
+      }, flags(i.t));
+    });
+    var unplaced = mainItems.filter(function (i) { return unpl[i.id]; }).map(function (i) {
+      var on = placing === i.id;
+      return Object.assign({ key: i.id, n: i.n, where: i.r + (i.b ? ' · on ' + i.b : ''), btn: on ? 'Placing…' : 'Place', btnCls: on ? 'btn btn-pri' : 'btn', pressed: on ? 'true' : 'false',
+        place: function () { set({ placing: on ? null : i.id, sel: null, tool: 'select' }); } }, flags(i.t));
+    });
+    var selItem = sel && sel.k === 'item' ? mainItems.filter(function (i) { return i.id === sel.id; })[0] : null;
+    var si = { n: '', type: '', room: '', was: '', moved: false };
+    if (selItem) { var q = P(selItem); var rn = roomAt(q.x, q.y); si = { n: selItem.n, type: TL[selItem.t] + ' · Main floor', room: rn, was: selItem.r, moved: rn !== selItem.r }; }
+    var cnt = selRoom ? mainItems.filter(function (i) { if (unpl[i.id]) return false; var q2 = P(i); return q2.x >= selRoom.x && q2.x <= selRoom.x + selRoom.w && q2.y >= selRoom.y && q2.y <= selRoom.y + selRoom.h; }).length : 0;
+    var setRoom = function (patch) { set({ rooms: rooms.map(function (x) { return x.id === selRoom.id ? Object.assign({}, x, patch) : x; }) }); };
+
+    var dist = Math.sqrt(Math.pow(ms.bx - ms.ax, 2) + Math.pow(ms.by - ms.ay, 2));
+    var lenFt = (Number(ft) || 0) + (Number(inch) || 0) / 12;
+    var pxPerFt = lenFt > 0 ? dist / lenFt : 0;
+    var kitchen = rooms.filter(function (r) { return r.n === 'Kitchen'; })[0];
+    var tc = function (t) { return 'sb' + (tool === t ? ' is-on' : ''); };
+    var tf = function (b) { return b ? 'true' : 'false'; };
+    var isPlan = sel && sel.k === 'plan';
+    var banner = placing ? 'Click where it really is. Esc cancels.' : tool === 'rect' ? 'Drag on the grid to draw a room. Edges snap to other rooms.' : tool === 'poly' ? 'Click to add corners. Click the first corner to close the shape.' : '';
+
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light', isDark: dark, isLight: !dark,
+      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: function () { set({ dark: !dark }); },
+      q: '', onSearch: function () {},
+      setLayer: function (el) { self.layer = el; },
+      onMove: onMove, onUp: onUp, onLayerDown: onLayerDown,
+      layerCursor: placing ? 'crosshair' : (tool === 'rect' || tool === 'poly') ? 'crosshair' : 'default',
+      roomCount: String(rooms.length),
+      roomList: rooms.map(function (r) { return { key: r.id, n: r.n, size: scale ? fmt(r.w) + ' × ' + fmt(r.h) : '', cls: 'lrow' + (selRoom && selRoom.id === r.id ? ' is-sel' : ''), pick: function () { set({ sel: { k: 'room', id: r.id }, tool: 'select' }); } }; }),
+      unplaced: unplaced, unplacedCount: String(unplaced.length), allPlaced: unplaced.length === 0,
+      tSel: tc('select'), tRect: tc('rect'), tPoly: tc('poly'), tScale: tc('scale'),
+      pSel: tf(tool === 'select'), pRect: tf(tool === 'rect'), pPoly: tf(tool === 'poly'), pScale: tf(tool === 'scale'),
+      toolSel: function () { set({ tool: 'select' }); }, toolRect: function () { set({ tool: 'rect', sel: null }); }, toolPoly: function () { set({ tool: 'poly', sel: null }); },
+      toolScale: function () { set({ tool: 'scale', sel: null }); },
+      isPoly: tool === 'poly', isScale: tool === 'scale',
+      planBtn: 'sb' + (isPlan ? ' is-on' : ''), planP: tf(isPlan),
+      selPlan: function () { set({ sel: isPlan ? null : { k: 'plan' }, tool: 'select' }); },
+      noUndo: hist.length === 0,
+      undo: function () { var h = hist[hist.length - 1]; if (!h) return; set({ rooms: h.rooms, pos: h.pos, unpl: h.unpl, hist: hist.slice(0, -1) }); },
+      planOp: (isPlan ? Math.max(plan.op, 55) : plan.op) / 100, planOpPct: plan.op, planOpText: plan.op + '%',
+      plan: { x: plan.x, y: plan.y, s: plan.s, w: Math.round(W * plan.s), h: Math.round(H * plan.s) },
+      planSel: isPlan && !plan.lock,
+      startPlan: function (e) { e.stopPropagation(); var p = toLayer(e); set({ drag: { k: 'plan', sx: p.x, sy: p.y, o: { x: plan.x, y: plan.y } } }); },
+      onPlanOp: function (e) { set({ plan: Object.assign({}, plan, { op: Number(e.target.value) }) }); },
+      planScPct: Math.round(plan.s * 100), planScText: Math.round(plan.s * 100) + '%',
+      onPlanSc: function (e) { set({ plan: Object.assign({}, plan, { s: Number(e.target.value) / 100 }) }); },
+      planLock: plan.lock, togglePlanLock: function () { set({ plan: Object.assign({}, plan, { lock: !plan.lock }) }); },
+      rooms: roomsV, handles: handles, hasSelRoom: !!selRoom && tool === 'select',
+      showDims: !!selRoom && !!scale,
+      dimW: selRoom ? { x: selRoom.x + selRoom.w / 2 - 22, y: selRoom.y - 26, t: fmt(selRoom.w) } : { x: 0, y: 0, t: '' },
+      dimH: selRoom ? { x: selRoom.x + selRoom.w + 12, y: selRoom.y + selRoom.h / 2 - 10, t: fmt(selRoom.h) } : { x: 0, y: 0, t: '' },
+      items: itemsV,
+      hasGuideV: guide.v !== undefined && guide.v !== null, guideV: guide.v || 0,
+      hasGuideH: guide.h !== undefined && guide.h !== null, guideH: guide.h || 0,
+      hasTip: !!tip, tip: tip || { x: 0, y: 0, t: '' },
+      ms: { ax: ms.ax, ay: ms.ay, bx: ms.bx, by: ms.by, lx: (ms.ax + ms.bx) / 2 - 40, ly: (ms.ay + ms.by) / 2 + 14, label: lenFt > 0 ? ft + '′' + (Number(inch) ? ' ' + inch + '″' : '') + ' · ' + Math.round(dist) + ' px' : Math.round(dist) + ' px' },
+      startA: function (e) { e.stopPropagation(); set({ drag: { k: 'ma' } }); },
+      startB: function (e) { e.stopPropagation(); set({ drag: { k: 'mb' } }); },
+      ft: ft, inch: inch, onFt: function (e) { set({ ft: e.target.value }); }, onIn: function (e) { set({ inch: e.target.value }); },
+      scalePreview: pxPerFt ? '1 ft = ' + pxPerFt.toFixed(1) + ' px' : 'Enter a length',
+      scaleCheck: pxPerFt && kitchen ? 'Kitchen would be ' + (function () { var s0 = scale; scale = pxPerFt; var t = fmt(kitchen.w) + ' × ' + fmt(kitchen.h); scale = s0; return t; })() : 'Sizes appear once the scale is set.',
+      applyScale: function () { if (pxPerFt) set({ scale: pxPerFt, tool: 'select', sel: kitchen ? { k: 'room', id: kitchen.id } : null }); },
+      placing: !!placing, ghost: ghost,
+      hasDraft: !!st.draft, draft: st.draft || { x: 0, y: 0, w: 0, h: 0 },
+      hasBanner: !!banner, banner: banner,
+      cancelTool: function () { set({ tool: 'select', placing: null }); },
+      isRoom: !!selRoom && tool === 'select', isItem: !!selItem && tool === 'select', isPlan: isPlan && tool === 'select', isNone: !sel && tool === 'select' && !placing,
+      sr: selRoom ? { n: selRoom.n, size: scale ? fmt(selRoom.w) + ' × ' + fmt(selRoom.h) : '—', count: String(cnt),
+        inCls: 'sb' + (!selRoom.ext ? ' is-on' : ''), exCls: 'sb' + (selRoom.ext ? ' is-on' : ''), inP: tf(!selRoom.ext), exP: tf(selRoom.ext) } : { n: '', size: '', count: '0', inCls: 'sb', exCls: 'sb', inP: 'false', exP: 'false' },
+      noScale: !scale,
+      onRoomName: function (e) { setRoom({ n: e.target.value }); },
+      setInterior: function () { setRoom({ ext: false }); }, setExterior: function () { setRoom({ ext: true }); },
+      carry: carry, toggleCarry: function () { set({ carry: !carry }); },
+      si: si,
+      unplace: function () { var nu = Object.assign({}, unpl); nu[selItem.id] = true; set({ hist: pushHist(), unpl: nu, sel: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

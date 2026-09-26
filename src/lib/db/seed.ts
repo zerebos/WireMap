@@ -1,20 +1,11 @@
 import type { DB } from './index';
 import { panels, breakers, floors, rooms, items, itemBreakers, planImages } from './schema';
 import house from '../../../docs/design/seed.json';
+import { parseShape } from '../shape';
 import mainFloorPlan from './main-floor.png?inline';
 
 // Breakers the example house has already traced, as in the Trace mockup (docs/design/mockups/TracePick.dc.html).
 const CHECKED = [1, 2, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 20, 22];
-
-type Shape = { type: 'rect'; x: number; y: number; w: number; h: number } | null;
-
-const outline = (s: Shape): [number, number][] | null =>
-	s && [
-		[s.x, s.y],
-		[s.x + s.w, s.y],
-		[s.x + s.w, s.y + s.h],
-		[s.x, s.y + s.h]
-	];
 
 /** The example house from the design handoff (docs/design/seed.json), so there's something to click on. */
 export async function seed(db: DB) {
@@ -60,10 +51,10 @@ export async function seed(db: DB) {
 					level: f.sort,
 					planImage: f.planImage,
 					planOpacity: f.planOpacity ?? 0.35,
-					// The design's floors are drawn on an 820 × 760 canvas; 1 unit = 2 cm.
+					// The design's floors are drawn on an 820 × 760 canvas at 20 units to the foot.
 					planWidth: 820,
 					planHeight: 760,
-					metersPerUnit: 0.02
+					unitsPerFt: 20
 				}))
 			)
 			.returning()
@@ -77,7 +68,7 @@ export async function seed(db: DB) {
 					floorId: floorId.get(r.floor)!,
 					name: r.name,
 					kind: r.kind as 'interior' | 'exterior',
-					outline: outline(r.shape as Shape)
+					shape: parseShape(r.shape)
 				}))
 			)
 			.returning()

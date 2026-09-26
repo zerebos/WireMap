@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Printed panel directory</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+.prc{display:flex;align-items:center;gap:10px;padding:0 10px;border-bottom:1px solid #BDBDBD;min-width:0;box-sizing:border-box}
+.prc.r{flex-direction:row-reverse;text-align:right}
+.prc.two{border-left:4px solid #111214}
+.prc.r.two{border-left:0;border-right:4px solid #111214}
+.prc .pn{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;min-width:40px;flex-shrink:0}
+.prc.r .pn{text-align:right}
+.prc .pl{flex:1 1 auto;min-width:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prc .pm{font-family:'JetBrains Mono',monospace;font-size:12px;color:#2E3034;flex-shrink:0;white-space:nowrap}
+.prc.open .pl{color:#767676;font-weight:400}
+.prc.write .pl{border-bottom:1px dotted #767676;height:1px;align-self:flex-end;margin-bottom:8px}
+.prc.unl .pl{font-style:italic;font-weight:400;color:#4A4D52}
+.pt{font-size:26px;font-weight:800;font-stretch:108%;letter-spacing:-0.01em;line-height:1.1}
+.sh-l .prc .pn{font-size:19px;min-width:46px}
+.sh-l .prc .pl{font-size:18px}
+.sh-l .prc .pm{font-size:14px}
+.sh-c .prc{gap:6px;padding:0 6px}
+.sh-c .prc .pn{font-size:13px;min-width:30px}
+.sh-c .prc .pl{font-size:12px}
+.sh-c .prc .pm{font-size:12px}
+.sh-c .pt{font-size:18px}
+
+</style>
+</helmet>
+<div class="{{sh.cls}}" style="width: {{sh.w}}px; height: {{sh.h}}px; box-sizing: border-box; padding: {{sh.pad}}px; background: #FFFFFF; color: #111214; display: flex; flex-direction: column; gap: 14px; font-family: 'Archivo', 'Helvetica Neue', sans-serif">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-bottom: 12px; border-bottom: 2px solid #111214">
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: .1em; color: #4A4D52">PANEL DIRECTORY</span>
+<span class="pt">{{sh.title}}</span>
+<span style="font-size: 12px; color: #4A4D52">{{sh.sub}}</span>
+</div>
+<div style="display: flex; gap: 12px; align-items: flex-start; flex-shrink: 0">
+<sc-if value="{{sh.showDate}}" hint-placeholder-val="{{true}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #4A4D52; text-align: right; line-height: 1.4">Printed<br>{{sh.date}}</span></sc-if>
+<sc-if value="{{sh.showQr}}" hint-placeholder-val="{{true}}"><span style="display: flex; flex-direction: column; align-items: center; gap: 3px"><span style="width: {{sh.qr}}px; height: {{sh.qr}}px; box-sizing: border-box; border: 1.5px dashed #4A4D52; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #4A4D52">QR</span><span style="font-size: 12px; color: #4A4D52">Live map</span></span></sc-if>
+</div>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); grid-template-rows: repeat({{sh.rows}}, minmax(0, 1fr)); border: 1.5px solid #111214">
+<sc-for list="{{sh.cells}}" as="c" hint-placeholder-count="30">
+<div class="{{c.cls}}" style="grid-row: {{c.row}} / span {{c.span}}; grid-column: {{c.col}}"><span class="pn">{{c.num}}</span><span class="pl">{{c.label}}</span><sc-if value="{{c.hasMeta}}" hint-placeholder-val="{{true}}"><span class="pm">{{c.meta}}</span></sc-if></div>
+</sc-for>
+<sc-for list="{{sh.gut}}" as="g" hint-placeholder-count="20"><div style="grid-row: {{g.row}}; grid-column: 2; background: #EDEDED; border-bottom: 1px solid #BDBDBD"></div></sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; gap: 16px; font-size: 12px; color: #2E3034; line-height: 1.4">
+<span>{{sh.legend}}</span>
+<span style="font-weight: 700; text-align: right">Test before you touch. Labels can be wrong.</span>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"paper":{"editor":"enum","options":["letter","a4","card"],"default":"letter"},"large":{"editor":"boolean","default":false},"$preview":{"width":816,"height":1056}}'>
+var FLOORS = { bsmt: 'Basement', main: 'Main floor', up: 'Upstairs' };
+var TYPES = { std: 'Standard', gfci: 'GFCI', afci: 'AFCI', df: 'Dual function' };
+var TAG = { std: '', gfci: 'GF', afci: 'AF', df: 'DF' };
+var TL = { outlet: 'Outlet', light: 'Light', 'switch': 'Switch', appliance: 'Appliance' };
+var BREAKERS = [
+  { s: 1, p: 2, a: 50, t: 'std', l: 'Range' },
+  { s: 2, p: 2, a: 30, t: 'std', l: 'Dryer' },
+  { s: 5, p: 2, a: 40, t: 'std', l: 'A/C condenser' },
+  { s: 6, p: 2, a: 30, t: 'std', l: 'Water heater' },
+  { s: 9, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — west' },
+  { s: 10, p: 1, a: 20, t: 'gfci', l: 'Kitchen counter — east' },
+  { s: 11, p: 1, a: 20, t: 'std', l: 'Dishwasher & disposal' },
+  { s: 12, p: 1, a: 20, t: 'std', l: 'Refrigerator' },
+  { s: 13, p: 1, a: 20, t: 'std', l: 'Microwave' },
+  { s: 14, p: 1, a: 15, t: 'afci', l: 'Kitchen & dining lights' },
+  { s: 15, p: 1, a: 15, t: 'afci', l: 'Living room' },
+  { s: 16, p: 1, a: 20, t: 'gfci', l: 'Bathrooms' },
+  { s: 17, p: 1, a: 15, t: 'afci', l: 'Primary bedroom' },
+  { s: 18, p: 1, a: 15, t: 'afci', l: 'Bedroom 2' },
+  { s: 19, p: 1, a: 15, t: 'afci', l: 'Office' },
+  { s: 20, p: 1, a: 20, t: 'std', l: 'Laundry' },
+  { s: 21, p: 1, a: 15, t: 'afci', l: 'Hall & stairs lights' },
+  { s: 22, p: 1, a: 20, t: 'gfci', l: 'Garage' },
+  { s: 23, p: 1, a: 15, t: 'std', l: 'Furnace' },
+  { s: 24, p: 1, a: 20, t: 'gfci', l: 'Exterior outlets' },
+  { s: 25, p: 1, a: 15, t: 'std', l: 'Basement lights' },
+  { s: 26, p: 1, a: 20, t: 'std', l: 'Basement outlets' },
+  { s: 27, p: 1, a: 20, t: 'afci', l: 'Dining room outlets' },
+  { s: 28, p: 1, a: 20, t: 'std', l: 'Sump pump' },
+  { s: 29, p: 1, a: 15, t: 'std', l: '' }
+];
+var RAW = [
+  ['k1','outlet','Counter outlet W1','Kitchen','main',458,110,9],
+  ['k2','outlet','Counter outlet W2','Kitchen','main',458,220,9],
+  ['k3','outlet','Island outlet','Kitchen','main',600,200,9],
+  ['k4','outlet','Counter outlet E1','Kitchen','main',640,58,10],
+  ['k5','outlet','Counter outlet E2','Kitchen','main',762,100,10],
+  ['k6','appliance','Dishwasher','Kitchen','main',540,58,11],
+  ['k7','appliance','Disposal','Kitchen','main',560,112,11],
+  ['k8','appliance','Refrigerator','Kitchen','main',762,300,12],
+  ['k9','appliance','Microwave','Kitchen','main',705,58,13],
+  ['k10','appliance','Range','Kitchen','main',762,190,1],
+  ['k11','light','Recessed lights','Kitchen','main',660,150,14],
+  ['k12','switch','Kitchen light switch','Kitchen','main',458,318,14],
+  ['k13','light','Island pendants','Kitchen','main',540,262,14],
+  ['d1','light','Chandelier','Dining room','main',670,520,14],
+  ['d2','switch','Dining light switch','Dining room','main',578,420,14],
+  ['d3','outlet','Outlet — north wall','Dining room','main',700,358,27],
+  ['d4','outlet','Outlet — east wall','Dining room','main',762,580,27],
+  ['d5','outlet','Outlet — south wall','Dining room','main',660,682,27],
+  ['l1','outlet','Outlet — west wall','Living room','main',58,450,15],
+  ['l2','outlet','Outlet by sofa','Living room','main',160,682,15],
+  ['l3','outlet','Outlet — south wall','Living room','main',340,682,15],
+  ['l4','light','Ceiling fan','Living room','main',250,520,15],
+  ['l5','switch','Fan switch','Living room','main',442,420,15],
+  ['l6','outlet','TV wall outlet','Living room','main',58,600,15],
+  ['h1','light','Entry light','Entry & hall','main',510,630,21],
+  ['h2','switch','Entry switch','Entry & hall','main',478,682,21],
+  ['h3','light','Stair light','Entry & hall','main',510,420,21],
+  ['hb1','outlet','GFCI outlet at vanity','Half bath','main',420,230,16],
+  ['hb2','light','Vanity light','Half bath','main',398,300,16],
+  ['hb3','appliance','Exhaust fan','Half bath','main',335,300,16],
+  ['la1','appliance','Dryer','Laundry','main',330,110,2],
+  ['la2','appliance','Washer','Laundry','main',385,110,20],
+  ['la3','outlet','Laundry outlet','Laundry','main',420,166,20],
+  ['g1','outlet','Outlet — west wall','Garage','main',58,120,22],
+  ['g2','outlet','Workbench outlet','Garage','main',160,58,22],
+  ['g3','light','Garage lights','Garage','main',170,190,22],
+  ['g4','appliance','Door opener','Garage','main',170,270,22],
+  ['g5','switch','Garage light switch','Garage','main',282,310,22],
+  ['e1','appliance','A/C condenser','Outside','main',802,420,5],
+  ['e2','outlet','Front porch outlet','Outside','main',610,722,24],
+  ['e3','outlet','Back patio outlet','Outside','main',20,520,24],
+  ['p1','outlet','Outlet — west wall','Primary bedroom','up',58,150,17],
+  ['p2','outlet','Outlet — north wall','Primary bedroom','up',230,58,17],
+  ['p3','outlet','Bedside outlet','Primary bedroom','up',402,280,17],
+  ['p4','light','Ceiling fan','Primary bedroom','up',230,200,17],
+  ['p5','switch','Fan switch','Primary bedroom','up',402,340,17],
+  ['pb1','outlet','GFCI outlet','Primary bath','up',582,100,16],
+  ['pb2','light','Vanity light','Primary bath','up',530,140,16],
+  ['pb3','appliance','Exhaust fan','Primary bath','up',470,200,16],
+  ['ba1','outlet','GFCI outlet','Hall bath','up',762,70,16],
+  ['ba2','light','Vanity light','Hall bath','up',720,140,16],
+  ['ba3','appliance','Exhaust fan','Hall bath','up',650,200,16],
+  ['hu1','light','Hall light','Upstairs hall','up',600,300,21],
+  ['hu2','switch','Hall switch','Upstairs hall','up',440,300,21],
+  ['r1','outlet','Outlet — west wall','Bedroom 2','up',58,500,18],
+  ['r2','outlet','Outlet — south wall','Bedroom 2','up',190,682,18],
+  ['r3','light','Ceiling light','Bedroom 2','up',190,530,18],
+  ['r4','switch','Light switch','Bedroom 2','up',322,400,18],
+  ['o1','outlet','Outlet — east wall','Office','up',762,450,19],
+  ['o2','outlet','Desk outlet','Office','up',560,682,19],
+  ['o3','outlet','Outlet — west wall','Office','up',358,600,19],
+  ['o4','light','Ceiling light','Office','up',560,530,19],
+  ['o5','switch','Light switch','Office','up',358,430,19],
+  ['u1','appliance','Water heater','Utility','bsmt',90,90,6],
+  ['u2','appliance','Furnace','Utility','bsmt',180,90,23],
+  ['u3','appliance','Sump pump','Utility','bsmt',90,270,28],
+  ['u4','light','Utility light','Utility','bsmt',200,200,25],
+  ['u5','outlet','Utility outlet','Utility','bsmt',322,160,26],
+  ['rr1','light','Recessed lights (north)','Rec room','bsmt',560,250,25],
+  ['rr2','light','Recessed lights (south)','Rec room','bsmt',560,480,25],
+  ['rr3','switch','Light switch','Rec room','bsmt',358,300,25],
+  ['rr4','outlet','Outlet — east wall N','Rec room','bsmt',762,200,26],
+  ['rr5','outlet','Outlet — east wall S','Rec room','bsmt',762,500,26],
+  ['rr6','outlet','Outlet — south wall','Rec room','bsmt',560,682,26],
+  ['s1','light','Storage light','Storage','bsmt',190,510,25],
+  ['s2','outlet','Storage outlet','Storage','bsmt',58,600,26]
+];
+var ITEMS = RAW.map(function (r) { return { id: r[0], t: r[1], n: r[2], r: r[3], f: r[4], x: r[5], y: r[6], b: r[7] }; });
+var ROOMS = {
+  main: [
+    { n: 'Garage', x: 40, y: 40, w: 260, h: 300 },
+    { n: 'Laundry', x: 300, y: 40, w: 140, h: 150 },
+    { n: 'Half bath', x: 300, y: 190, w: 140, h: 150 },
+    { n: 'Kitchen', x: 440, y: 40, w: 340, h: 300 },
+    { n: 'Living room', x: 40, y: 340, w: 420, h: 360 },
+    { n: 'Entry & hall', x: 460, y: 340, w: 100, h: 360 },
+    { n: 'Dining room', x: 560, y: 340, w: 220, h: 360 }
+  ],
+  up: [
+    { n: 'Primary bedroom', x: 40, y: 40, w: 380, h: 320 },
+    { n: 'Primary bath', x: 420, y: 40, w: 180, h: 200 },
+    { n: 'Hall bath', x: 600, y: 40, w: 180, h: 200 },
+    { n: 'Upstairs hall', x: 420, y: 240, w: 360, h: 120 },
+    { n: 'Bedroom 2', x: 40, y: 360, w: 300, h: 340 },
+    { n: 'Office', x: 340, y: 360, w: 440, h: 340 }
+  ],
+  bsmt: [
+    { n: 'Utility', x: 40, y: 40, w: 300, h: 280 },
+    { n: 'Storage', x: 40, y: 320, w: 300, h: 380 },
+    { n: 'Rec room', x: 340, y: 40, w: 440, h: 660 }
+  ]
+};
+function flags(t) { return { io: t === 'outlet', il: t === 'light', is: t === 'switch', ia: t === 'appliance' }; }
+
+
+var GAR = [
+  { s: 1, p: 1, a: 15, t: 'std', l: 'Garage lights' }, { s: 2, p: 1, a: 20, t: 'gfci', l: 'Workbench outlets' },
+  { s: 3, p: 2, a: 30, t: 'std', l: 'Air compressor (240V)' }, { s: 4, p: 1, a: 15, t: 'std', l: 'Door opener' },
+  { s: 6, p: 1, a: 20, t: 'gfci', l: 'Freezer' }, { s: 7, p: 1, a: 15, t: 'std', l: 'Exterior lights' }
+];
+var PPANELS = {
+  main: { name: 'Main panel', short: '', head: 'Main panel · 200A', sub: 'Home · Basement utility room', spaces: 40, list: BREAKERS },
+  garage: { name: 'Garage subpanel', short: 'G', head: 'Garage subpanel · 60A', sub: 'Fed by Main 30/32 · Garage', spaces: 12, list: GAR }
+};
+var SIZES = { letter: { w: 816, h: 1056, pad: 56, qr: 64, label: 'Letter · 8.5 × 11 in' }, a4: { w: 794, h: 1123, pad: 56, qr: 64, label: 'A4 · 210 × 297 mm' }, card: { w: 480, h: 768, pad: 28, qr: 48, label: 'Door card · 5 × 8 in' } };
+function buildSheet(o) {
+  var P = PPANELS[o.panel], S = SIZES[o.paper];
+  var cover = {};
+  P.list.forEach(function (b) { cover[b.s] = b; if (b.p === 2) cover[b.s + 2] = b; });
+  var cells = [], gut = [], rows = P.spaces / 2;
+  for (var r = 1; r <= rows; r++) gut.push({ key: 'g' + r, row: r });
+  for (var s = 1; s <= P.spaces; s++) {
+    var b = cover[s], right = !(s % 2), col = right ? 3 : 1, row = Math.ceil(s / 2);
+    if (b && b.s !== s) continue;
+    if (!b) { cells.push({ key: 'o' + s, row: row, span: 1, col: col, num: P.short + s, label: o.blanks ? '' : 'Open', meta: '', hasMeta: false, cls: 'prc' + (right ? ' r' : '') + (o.blanks ? ' write' : ' open') }); continue; }
+    var meta = [];
+    if (o.amps) meta.push(b.a + 'A');
+    if (o.tags && TAG[b.t]) meta.push(TAG[b.t]);
+    cells.push({ key: 'b' + s, row: row, span: b.p, col: col, num: b.p === 2 ? P.short + b.s + '/' + (b.s + 2) : P.short + b.s, label: b.l || (o.blanks ? '' : 'Unlabeled'),
+      meta: meta.join(' '), hasMeta: meta.length > 0, cls: 'prc' + (right ? ' r' : '') + (b.p === 2 ? ' two' : '') + (b.l ? '' : (o.blanks ? ' write' : ' unl')) });
+  }
+  return {
+    cls: o.large ? 'sh-l' : (o.paper === 'card' ? 'sh-c' : ''), w: S.w, h: S.h, pad: S.pad, qr: S.qr, rows: rows,
+    title: P.head, sub: P.sub, date: 'Sep 24, 2026', showDate: o.date, showQr: o.qr,
+    cells: cells, gut: gut,
+    legend: (o.tags ? 'GF GFCI · AF AFCI · DF Dual function · ' : '') + 'Thick edge = 2-pole'
+  };
+}
+
+class Component extends DCLogic {
+  renderVals() {
+    var paper = this.props.paper || 'letter';
+    return { sh: buildSheet({ panel: 'main', paper: paper, large: !!this.props.large, amps: true, tags: true, qr: true, date: true, blanks: false }) };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,10 +1,11 @@
 // Every change the UI makes to the data, in one place. Pages call these through `mutate` from
 // $lib/house so the house reloads afterwards.
-import { and, eq, inArray, max } from 'drizzle-orm';
+import { and, eq, inArray, max, notInArray, sql } from 'drizzle-orm';
 import { db } from './index';
 import * as t from './schema';
 import type { Breaker, Floor, Item, Panel, Room, Settings } from './schema';
 import { savePlan, deletePlan } from '../plans';
+import { roomAt, type Shape } from '../shape';
 
 // ---- Settings and panels
 
@@ -34,6 +35,28 @@ export async function createBreaker(values: typeof t.breakers.$inferInsert): Pro
 
 export async function deleteBreaker(id: number) {
 	await db.delete(t.breakers).where(eq(t.breakers.id, id));
+}
+
+/**
+ * Handle-ties breakers together (a multi-wire circuit), or unties them. Tying merges any groups the
+ * breakers already belong to, so an existing tie is never split; untying leaves no group of one.
+ */
+export async function setTied(breakerIds: number[], tied: boolean) {
+	if (!breakerIds.length) return;
+	const mine = await db.select({ g: t.breakers.tieGroup }).from(t.breakers).where(inArray(t.breakers.id, breakerIds)).all();
+	const groups = [...new Set(mine.map((r) => r.g).filter((g): g is number => g !== null))];
+	if (tied) {
+		const top = await db.select({ g: max(t.breakers.tieGroup) }).from(t.breakers).get();
+		const g = (top?.g ?? 0) + 1;
+		await db.update(t.breakers).set({ tieGroup: g }).where(inArray(t.breakers.id, breakerIds));
+		if (groups.length) await db.update(t.breakers).set({ tieGroup: g }).where(inArray(t.breakers.tieGroup, groups));
+		return;
+	}
+	await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.id, breakerIds));
+	if (!groups.length) return;
+	const left = await db.select({ id: t.breakers.id, g: t.breakers.tieGroup }).from(t.breakers).where(inArray(t.breakers.tieGroup, groups)).all();
+	const lone = groups.filter((g) => left.filter((r) => r.g === g).length === 1);
+	if (lone.length) await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.tieGroup, lone));
 }
 
 // ---- Items
@@ -84,10 +107,10 @@ export async function swapItemBreaker(itemId: number, from: number | null, to: n
 
 /**
  * Saves a trace in one write: the breaker's label, which items it feeds (marked items are moved
- * onto it from whatever fed them; items that were on it and aren't marked come off it), and when
- * it was checked.
+ * onto it from whatever fed them, or added alongside for `keepItemIds`; items that were on it
+ * and aren't marked come off it), and when it was checked.
  */
-export async function saveTrace(breakerId: number, label: string, markedItemIds: number[]) {
+export async function saveTrace(breakerId: number, label: string, markedItemIds: number[], keepItemIds: number[] = []) {
 	const current = await db
 		.select({ itemId: t.itemBreakers.itemId })
 		.from(t.itemBreakers)
@@ -95,8 +118,10 @@ export async function saveTrace(breakerId: number, label: string, markedItemIds:
 		.all();
 	const currentIds = current.map((r) => r.itemId);
 	const unmarked = currentIds.filter((id) => !markedItemIds.includes(id));
-	// Items already on this breaker keep any other breakers they're on; only newcomers move.
-	const moved = markedItemIds.filter((id) => !currentIds.includes(id));
+	// Items already on this breaker keep any other breakers they're on; newcomers move, unless
+	// they're kept on both (a box where only part went dead).
+	const added = markedItemIds.filter((id) => !currentIds.includes(id));
+	const moved = added.filter((id) => !keepItemIds.includes(id));
 	const ops = [
 		db
 			.update(t.breakers)
@@ -111,10 +136,8 @@ export async function saveTrace(breakerId: number, label: string, markedItemIds:
 				.where(and(eq(t.itemBreakers.breakerId, breakerId), inArray(t.itemBreakers.itemId, unmarked)))
 		);
 	}
-	if (moved.length) {
-		rest.push(db.delete(t.itemBreakers).where(inArray(t.itemBreakers.itemId, moved)));
-		rest.push(db.insert(t.itemBreakers).values(moved.map((itemId) => ({ itemId, breakerId }))));
-	}
+	if (moved.length) rest.push(db.delete(t.itemBreakers).where(inArray(t.itemBreakers.itemId, moved)));
+	if (added.length) rest.push(db.insert(t.itemBreakers).values(added.map((itemId) => ({ itemId, breakerId }))));
 	await db.batch([...ops, ...rest]);
 }
 
@@ -160,36 +183,114 @@ export async function deleteFloor(id: number) {
 
 /**
  * Sets a floor's plan image. The floor's drawing area keeps its width and takes the image's
- * aspect ratio, unless `keepSize`.
+ * aspect ratio. With `keepOld`, the replaced image stays stored so undo can bring it back.
  */
-export async function setFloorPlan(id: number, file: File, size?: { width: number; height: number }) {
+export async function setFloorPlan(id: number, file: File, size?: { width: number; height: number }, keepOld = false) {
 	const floor = await db.select().from(t.floors).where(eq(t.floors.id, id)).get();
 	if (!floor) return;
 	const name = await savePlan(id, file);
 	const patch: Partial<Floor> = { planImage: name };
 	if (size && size.width > 0) patch.planHeight = Math.round((floor.planWidth * size.height) / size.width);
 	await updateFloor(id, patch);
-	await deletePlan(floor.planImage);
+	if (!keepOld) await deletePlan(floor.planImage);
 }
 
-export async function removeFloorPlan(id: number) {
+export async function removeFloorPlan(id: number, keepOld = false) {
 	const floor = await db.select().from(t.floors).where(eq(t.floors.id, id)).get();
 	if (!floor) return;
 	await updateFloor(id, { planImage: null });
-	await deletePlan(floor.planImage);
+	if (!keepOld) await deletePlan(floor.planImage);
 }
 
-// ---- Rooms
+// ---- Rooms and map layout
+
+/** The room an item at (x, y) on a floor is in: derived from the rooms' shapes. */
+async function roomFor(floorId: number, x: number, y: number): Promise<number | null> {
+	const rs = await db.select().from(t.rooms).where(eq(t.rooms.floorId, floorId)).all();
+	return roomAt([x, y], rs)?.id ?? null;
+}
+
+/** Re-derives the room of every placed item on a floor, after rooms change. */
+export async function rederiveRooms(floorId: number) {
+	const [rs, its] = await Promise.all([
+		db.select().from(t.rooms).where(eq(t.rooms.floorId, floorId)).all(),
+		db.select().from(t.items).where(eq(t.items.floorId, floorId)).all()
+	]);
+	const ops = its.flatMap((i) => {
+		if (i.x === null || i.y === null) return [];
+		const roomId = roomAt([i.x, i.y], rs)?.id ?? null;
+		return roomId === i.roomId ? [] : [db.update(t.items).set({ roomId }).where(eq(t.items.id, i.id))];
+	});
+	if (ops.length) await db.batch(ops as [(typeof ops)[number], ...typeof ops]);
+}
 
 export async function createRoom(values: typeof t.rooms.$inferInsert): Promise<number> {
 	const [row] = await db.insert(t.rooms).values(values).returning({ id: t.rooms.id }).all();
+	if (values.floorId != null && values.shape) await rederiveRooms(values.floorId);
 	return row.id;
 }
 
 export async function updateRoom(id: number, patch: Partial<Omit<Room, 'id'>>) {
 	await db.update(t.rooms).set(patch).where(eq(t.rooms.id, id));
+	if ('shape' in patch || 'floorId' in patch) {
+		const room = await db.select().from(t.rooms).where(eq(t.rooms.id, id)).get();
+		if (room?.floorId != null) await rederiveRooms(room.floorId);
+	}
 }
 
+/** Moves or reshapes a room; `carry` moves those items by the same offset. */
+export async function setRoomShape(id: number, shape: Shape, carry?: { itemIds: number[]; dx: number; dy: number }) {
+	const ops = [db.update(t.rooms).set({ shape }).where(eq(t.rooms.id, id))];
+	if (carry && carry.itemIds.length && (carry.dx || carry.dy)) {
+		ops.push(
+			db
+				.update(t.items)
+				.set({ x: sql`${t.items.x} + ${carry.dx}`, y: sql`${t.items.y} + ${carry.dy}` })
+				.where(inArray(t.items.id, carry.itemIds)) as unknown as (typeof ops)[number]
+		);
+	}
+	await db.batch(ops as [(typeof ops)[number], ...typeof ops]);
+	const room = await db.select().from(t.rooms).where(eq(t.rooms.id, id)).get();
+	if (room?.floorId != null) await rederiveRooms(room.floorId);
+}
+
+/** Deletes a room. Its items stay where they are and show as "Not in a room". */
 export async function deleteRoom(id: number) {
+	const room = await db.select().from(t.rooms).where(eq(t.rooms.id, id)).get();
 	await db.delete(t.rooms).where(eq(t.rooms.id, id));
+	if (room?.floorId != null) await rederiveRooms(room.floorId);
+}
+
+/** Puts an item on the map at (x, y) on a floor; its room comes from where it sits. */
+export async function placeItem(id: number, floorId: number, x: number, y: number) {
+	await db.update(t.items).set({ floorId, x, y, roomId: await roomFor(floorId, x, y) }).where(eq(t.items.id, id));
+}
+
+/** Takes an item off the map. It keeps its floor and room, and shows under "Not placed". */
+export async function unplaceItem(id: number) {
+	await db.update(t.items).set({ x: null, y: null }).where(eq(t.items.id, id));
+}
+
+/** A floor's layout, for undo: its rooms, where its items are, and the plan image and its transform. */
+export type LayoutSnapshot = {
+	floorId: number;
+	rooms: Room[];
+	items: Pick<Item, 'id' | 'x' | 'y' | 'roomId'>[];
+	floor: Pick<Floor, 'planImage' | 'planHeight' | 'planOffsetX' | 'planOffsetY' | 'planScale' | 'planRotation' | 'planLocked' | 'planOpacity' | 'unitsPerFt'>;
+};
+
+/** Puts a floor's layout back the way a snapshot has it. */
+export async function restoreLayout(s: LayoutSnapshot) {
+	const keep = s.rooms.map((r) => r.id);
+	const ops = [
+		db
+			.delete(t.rooms)
+			.where(and(eq(t.rooms.floorId, s.floorId), keep.length ? notInArray(t.rooms.id, keep) : undefined)),
+		...s.rooms.map((r) =>
+			db.insert(t.rooms).values(r).onConflictDoUpdate({ target: t.rooms.id, set: { floorId: r.floorId, name: r.name, kind: r.kind, shape: r.shape } })
+		),
+		...s.items.map((i) => db.update(t.items).set({ x: i.x, y: i.y, roomId: i.roomId }).where(eq(t.items.id, i.id))),
+		db.update(t.floors).set(s.floor).where(eq(t.floors.id, s.floorId))
+	];
+	await db.batch(ops as unknown as [(typeof ops)[0], ...(typeof ops)[0][]]);
 }

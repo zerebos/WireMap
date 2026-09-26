@@ -10,6 +10,7 @@
 		ix,
 		tb,
 		items,
+		keep,
 		label = $bindable(),
 		backOn = $bindable(),
 		busy,
@@ -20,6 +21,8 @@
 		tb: Breaker;
 		/** The marked items. */
 		items: HouseItem[];
+		/** Items staying on their other breakers too. */
+		keep: Set<number>;
 		label: string;
 		backOn: boolean;
 		busy: boolean;
@@ -48,9 +51,10 @@
 	function tagOf(i: HouseItem): { text: string; cls: string } {
 		if (i.breakerIds.includes(tb.id)) return { text: 'Same', cls: '' };
 		if (!i.breakerIds.length) return { text: 'New', cls: 'new' };
+		if (keep.has(i.id)) return { text: `+${ix.breakersOf(i).map((b) => ix.slotOf(b)).join(' + ')}`, cls: '' };
 		return { text: `From ${ix.breakersOf(i).map((b) => ix.slotOf(b)).join(' + ')}`, cls: 'mv' };
 	}
-	const moves = $derived(items.filter((i) => i.breakerIds.length && !i.breakerIds.includes(tb.id)));
+	const moves = $derived(items.filter((i) => i.breakerIds.length && !i.breakerIds.includes(tb.id) && !keep.has(i.id)));
 	const movedFrom = $derived([...new Set(moves.flatMap((i) => ix.breakersOf(i).map((b) => ix.slotOf(b))))]);
 	const finalLabel = $derived(label.trim() || suggestions[0]);
 </script>

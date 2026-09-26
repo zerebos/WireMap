@@ -129,7 +129,7 @@ export async function importItemsCsv(house: House, text: string): Promise<Import
 		if (floorId !== null && roomName) {
 			let room = rooms.find((x) => x.floorId === floorId && norm(x.name) === norm(roomName));
 			if (!room) {
-				room = { id: await createRoom({ floorId, name: roomName, kind: 'interior', outline: null }), floorId, name: roomName };
+				room = { id: await createRoom({ floorId, name: roomName, kind: 'interior', shape: null }), floorId, name: roomName };
 				rooms.push(room);
 			}
 			roomId = room.id;

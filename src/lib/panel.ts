@@ -77,3 +77,23 @@ export function checkFit(
 
 /** Spaces used: the sum of poles. */
 export const spacesUsed = (bs: Placed[]) => bs.reduce((n, b) => n + b.poles, 0);
+
+/**
+ * Whether handle-tied breakers sit together: one column, rows running on without a gap. A
+ * multi-wire circuit's breakers must stay side by side so one handle turns them all off.
+ */
+export function tiedTogether(group: Placed[], p: PanelShape): boolean {
+	const rows = group.flatMap((b) => occupiedSlots(b, p).map((s) => position(s, p)));
+	if (new Set(rows.map((r) => r.side)).size > 1) return false;
+	const ns = rows.map((r) => r.row).sort((a, b) => a - b);
+	return ns.every((n, i) => i === 0 || n === ns[i - 1] + 1);
+}
+
+/** The breaker directly below `b` in its column, when it's handle-tied to `b`. */
+export function tiedBelow<B extends Placed & { tieGroup: number | null }>(b: B, all: B[], p: PanelShape): B | null {
+	if (b.tieGroup === null) return null;
+	const slots = occupiedSlots(b, p);
+	const below = nextInColumn(slots[slots.length - 1], p);
+	if (position(below, p).side !== position(b.slot, p).side) return null;
+	return all.find((o) => o !== b && o.tieGroup === b.tieGroup && o.slot === below) ?? null;
+}

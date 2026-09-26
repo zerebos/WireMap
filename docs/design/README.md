@@ -2,4 +2,4 @@
 
 Start with `DESIGN.md`, then `DATA-MODEL.md`. Use `tokens.css` as-is. Read `mockups/` for exact values. Compare builds against `screens/`. Seed dev data from `seed.json`.
 
-Open decisions (not designed yet): display of items on multiple breakers, exterior areas, phone layouts of Panel/Map, subpanels. See `DESIGN.md` §8.
+All planned screens are designed (see `DESIGN.md` §5.1–5.19). Anything else: ask first (§8).
