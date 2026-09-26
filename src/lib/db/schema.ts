@@ -1,7 +1,7 @@
 import { sqliteTable, text, integer, real, index, primaryKey, customType } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 import type { Shape } from '../shape';
-import { PROTECTIONS, ITEM_TYPES, NUMBERINGS, START_PAGES, THEMES } from '../constants';
+import { HALVES, PROTECTIONS, ITEM_TYPES, NUMBERINGS, START_PAGES, THEMES } from '../constants';
 
 export { PROTECTIONS, ITEM_TYPES };
 
@@ -14,6 +14,9 @@ export const panels = sqliteTable('panels', {
 	// Number of spaces in the panel.
 	slotCount: integer('slot_count').notNull().default(24),
 	numbering: text('numbering', { enum: NUMBERINGS }).notNull().default('odd_left_even_right'),
+	// Slots rated for tandem breakers, as printed on the panel label ("17-28"). Null = unknown:
+	// tandems are allowed anywhere, with no warning.
+	tandemSlots: text('tandem_slots'),
 	// Set when this is a sub-panel fed from a breaker in another panel.
 	fedByBreakerId: integer('fed_by_breaker_id'),
 	notes: text('notes')
@@ -28,6 +31,8 @@ export const breakers = sqliteTable(
 			.references(() => panels.id, { onDelete: 'cascade' }),
 		// First slot the breaker occupies. A 2-pole breaker also takes slot + 2.
 		slot: integer('slot').notNull(),
+		// A or B for a tandem half (upper or lower half of the space); null = full size.
+		half: text('half', { enum: HALVES }),
 		poles: integer('poles').notNull().default(1),
 		amps: integer('amps').notNull().default(15),
 		// Protection: standard, GFCI, AFCI or dual function.

@@ -6,14 +6,27 @@
 	import { plural, mutate, type House } from '$lib/house';
 	import { createBreaker } from '$lib/db/ops';
 	import type { Breaker, Panel } from '$lib/db/schema';
-	import { nextInColumn, occupiedSlots, position, rowCount, slotAt, spacesUsed, type Side } from '$lib/panel';
+	import {
+		compareBreakers,
+		nextInColumn,
+		occupiedSlots,
+		position,
+		rowCount,
+		slotAt,
+		slotLabel,
+		spacesUsed,
+		tandemOk,
+		tandemText,
+		type Side
+	} from '$lib/panel';
 
 	let { house, panel }: { house: House; panel: Panel } = $props();
 
 	const AMP_CHOICES = [15, 20, 30, 40, 50, 60];
-	type Row = { label: string; amps: string; two: boolean };
+	/** One slot's entry; with `tandem` it's two halves, A (label/amps) and B (labelB/ampsB). */
+	type Row = { label: string; amps: string; two: boolean; tandem: boolean; labelB: string; ampsB: string };
 	let rows = $state<Record<number, Row>>({});
-	const get = (s: number): Row => rows[s] ?? { label: '', amps: '', two: false };
+	const get = (s: number): Row => rows[s] ?? { label: '', amps: '', two: false, tandem: false, labelB: '', ampsB: '' };
 	function patch(s: number, p: Partial<Row>) {
 		rows[s] = { ...get(s), ...p };
 	}
@@ -34,10 +47,12 @@
 	/** A new 2-pole breaker entered on the slot above takes this one. */
 	const coveredBy = (s: number): number | null => {
 		const up = above(s);
-		if (up === null || taken.has(up) || !get(up).two) return null;
+		if (up === null || taken.has(up) || !get(up).two || get(up).tandem) return null;
 		return coveredBy(up) === null ? up : null;
 	};
-	const hasContent = (r: Row) => r.label.trim() !== '' || r.amps !== '';
+	const hasA = (r: Row) => r.label.trim() !== '' || r.amps !== '';
+	const hasB = (r: Row) => r.tandem && (r.labelB.trim() !== '' || r.ampsB !== '');
+	const hasContent = (r: Row) => hasA(r) || hasB(r);
 	/** 2-pole needs the slot below free: not on the panel and not entered in this list. */
 	const cant2 = (s: number) => {
 		const next = nextInColumn(s, panel);
@@ -52,11 +67,14 @@
 	type View =
 		| { kind: 'open'; s: number; row: Row; cant2: boolean }
 		| { kind: 'cont'; s: number; of: number }
-		| { kind: 'existing'; s: number; b: Breaker };
+		| { kind: 'existing'; s: number; bs: Breaker[] };
 
 	const view = (s: number): View => {
 		const b = taken.get(s);
-		if (b) return b.slot === s ? { kind: 'existing', s, b } : { kind: 'cont', s, of: b.slot };
+		if (b) {
+			if (b.slot !== s) return { kind: 'cont', s, of: b.slot };
+			return { kind: 'existing', s, bs: existing.filter((o) => o.slot === s).sort(compareBreakers) };
+		}
 		const up = coveredBy(s);
 		if (up !== null) return { kind: 'cont', s, of: up };
 		return { kind: 'open', s, row: get(s), cant2: cant2(s) };
@@ -74,7 +92,10 @@
 			.filter((v): v is Extract<View, { kind: 'open' }> => v.kind === 'open' && hasContent(v.row))
 			.sort((a, b) => a.s - b.s)
 	);
-	const used = $derived(spacesUsed(existing) + entered.reduce((n, v) => n + (v.row.two && !v.cant2 ? 2 : 1), 0));
+	const isTwo = (v: { row: Row; cant2: boolean }) => v.row.two && !v.row.tandem && !v.cant2;
+	const used = $derived(spacesUsed(existing, panel) + entered.reduce((n, v) => n + (isTwo(v) ? 2 : 1), 0));
+	// A tandem row is saved as both halves, even with one left blank.
+	const count = $derived(entered.reduce((n, v) => n + (v.row.tandem ? 2 : 1), 0));
 	const breakersText = (n: number) => (n === 1 ? '1 breaker' : `${n} breakers`);
 
 	// ---- Paste a list: one label per line, in slot order, into the slots that are still open.
@@ -100,10 +121,18 @@
 			await mutate(async () => {
 				for (const v of entered) {
 					const amps = Number(v.row.amps);
+					if (v.row.tandem) {
+						// Both halves are saved, even one left blank, so the slot reads as a tandem.
+						const ampsB = Number(v.row.ampsB);
+						const base = { panelId: panel.id, slot: v.s, poles: 1, kind: 'standard' as const };
+						await createBreaker({ ...base, half: 'A', label: v.row.label.trim(), ...(amps ? { amps } : {}) });
+						await createBreaker({ ...base, half: 'B', label: v.row.labelB.trim(), ...(ampsB ? { amps: ampsB } : {}) });
+						continue;
+					}
 					await createBreaker({
 						panelId: panel.id,
 						slot: v.s,
-						poles: v.row.two && !v.cant2 ? 2 : 1,
+						poles: isTwo(v) ? 2 : 1,
 						kind: 'standard',
 						label: v.row.label.trim(),
 						...(amps ? { amps } : {})
@@ -121,24 +150,27 @@
 
 {#snippet columnOf(views: View[])}
 	<div class="col">
-		<div class="drow dhead" aria-hidden="true"><span class="dnum">Slot</span><span>Label</span><span>Amps</span><span class="c">2-pole</span></div>
+		<div class="drow dhead" aria-hidden="true">
+			<span class="dnum">Slot</span><span>Label</span><span>Amps</span><span class="c">2-pole</span><span class="c">Tandem</span>
+		</div>
 		{#each views as v (v.s)}
-			<div class="drow">
-				<span class="dnum">{v.s}</span>
-				{#if v.kind === 'open'}
+			{#if v.kind === 'open'}
+				{@const noT = !tandemOk(v.s, panel)}
+				<div class="drow">
+					<span class="dnum">{v.s}{v.row.tandem ? 'A' : ''}</span>
 					<input
 						class="din"
 						class:is-filled={v.row.label !== ''}
 						type="text"
 						value={v.row.label}
 						oninput={(e) => patch(v.s, { label: e.currentTarget.value })}
-						aria-label="Slot {v.s} label"
+						aria-label="Slot {v.s}{v.row.tandem ? 'A' : ''} label"
 					/>
 					<select
 						class="dsel"
 						value={v.row.amps}
 						onchange={(e) => patch(v.s, { amps: e.currentTarget.value })}
-						aria-label="Slot {v.s} amps"
+						aria-label="Slot {v.s}{v.row.tandem ? 'A' : ''} amps"
 					>
 						<option value="">—</option>
 						{#each AMP_CHOICES as a (a)}<option value={String(a)}>{a}</option>{/each}
@@ -146,20 +178,57 @@
 					<label class="d2p">
 						<input
 							type="checkbox"
-							checked={v.row.two && !v.cant2}
-							disabled={v.cant2}
+							checked={isTwo(v)}
+							disabled={v.cant2 || v.row.tandem}
 							onchange={(e) => patch(v.s, { two: e.currentTarget.checked })}
 							aria-label="Slot {v.s} is 2-pole"
 						/>
 					</label>
-				{:else if v.kind === 'existing'}
-					<span class="dexist" title="Already on the panel">{v.b.label || 'Unlabeled'}</span>
-					<span class="mono dexa">{v.b.amps}A</span>
-					<span></span>
-				{:else}
-					<span class="dcont">↳ second pole of {v.of}</span>
+					<label class="d2p" title={noT ? `Slot ${v.s} isn’t rated for tandems (${tandemText(panel)})` : undefined}>
+						<input
+							type="checkbox"
+							checked={v.row.tandem}
+							disabled={noT || isTwo(v)}
+							onchange={(e) => patch(v.s, { tandem: e.currentTarget.checked })}
+							aria-label="Slot {v.s} is a tandem"
+						/>
+					</label>
+				</div>
+				{#if v.row.tandem}
+					<div class="drow">
+						<span class="dnum">{v.s}B</span>
+						<input
+							class="din"
+							class:is-filled={v.row.labelB !== ''}
+							type="text"
+							value={v.row.labelB}
+							oninput={(e) => patch(v.s, { labelB: e.currentTarget.value })}
+							aria-label="Slot {v.s}B label"
+						/>
+						<select class="dsel" value={v.row.ampsB} onchange={(e) => patch(v.s, { ampsB: e.currentTarget.value })} aria-label="Slot {v.s}B amps">
+							<option value="">—</option>
+							{#each AMP_CHOICES as a (a)}<option value={String(a)}>{a}</option>{/each}
+						</select>
+						<span></span>
+						<span></span>
+					</div>
 				{/if}
-			</div>
+			{:else if v.kind === 'existing'}
+				{#each v.bs as b (b.id)}
+					<div class="drow">
+						<span class="dnum">{slotLabel(b, panel).split('/')[0]}</span>
+						<span class="dexist" title="Already on the panel">{b.label || 'Unlabeled'}</span>
+						<span class="mono dexa">{b.amps}A</span>
+						<span></span>
+						<span></span>
+					</div>
+				{/each}
+			{:else}
+				<div class="drow">
+					<span class="dnum">{v.s}</span>
+					<span class="dcont">↳ second pole of {v.of}</span>
+				</div>
+			{/if}
 		{/each}
 	</div>
 {/snippet}
@@ -183,7 +252,7 @@
 
 	<aside>
 		<div class="box prog">
-			<span class="big" role="status">{breakersText(entered.length)} entered</span>
+			<span class="big" role="status">{breakersText(count)} entered</span>
 			<div class="bar"><span style:width="{Math.min(100, Math.round((used / panel.slotCount) * 100))}%"></span></div>
 			<span class="sm">{used} of {plural(panel.slotCount, 'space')} used · {Math.max(0, panel.slotCount - used)} left</span>
 		</div>
@@ -277,7 +346,7 @@
 	}
 	.drow {
 		display: grid;
-		grid-template-columns: 40px minmax(0, 1fr) 84px 52px;
+		grid-template-columns: 40px minmax(0, 1fr) 84px 52px 52px;
 		align-items: center;
 		column-gap: 8px;
 		height: 40px;

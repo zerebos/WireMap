@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
 	import NewBreakerForm, { blankBreaker, type NewBreaker } from '$lib/components/panel/NewBreakerForm.svelte';
+	import ShutoffDrawer from '$lib/components/ShutoffDrawer.svelte';
 	import PhonePanel from '$lib/components/panel/PhonePanel.svelte';
 	import PhoneShell from '$lib/components/phone/PhoneShell.svelte';
 	import { viewport } from '$lib/viewport.svelte';
@@ -12,11 +13,11 @@
 	import RemoveBreakerDialog from '$lib/components/panel/RemoveBreakerDialog.svelte';
 	import { tick } from 'svelte';
 	import { AMPS, ITEM_TYPES, ITEM_TYPE_LABELS, MIN_WIRE, PROTECTIONS, PROTECTION_LABELS, PROTECTION_TAGS } from '$lib/constants';
-	import type { Protection } from '$lib/constants';
+	import type { Half, Protection } from '$lib/constants';
 	import type { Breaker, Panel } from '$lib/db/schema';
-	import { createBreaker, createItem, deleteBreaker, updateBreaker } from '$lib/db/ops';
+	import { createBreaker, createItem, deleteBreaker, makeTandem, updateBreaker } from '$lib/db/ops';
 	import { index, mutate, plural } from '$lib/house';
-	import { checkFit, faceColumns, legOfRow, nextInColumn, occupiedSlots, position, rowCount, slotLabel, slotText, spacesUsed, tiedBelow, tiedTogether, type Cell as FaceCell } from '$lib/panel';
+	import { checkFit, faceColumns, legOf, legOfRow, tandemOk, tandemText, nextInColumn, occupiedSlots, position, rowCount, slotLabel, slotText, spacesUsed, tiedBelow, tiedTogether, type Cell as FaceCell } from '$lib/panel';
 	import { query, search } from '$lib/search.svelte';
 
 	let { data } = $props();
@@ -75,6 +76,13 @@
 	// On a phone, ?b= opens that breaker's sheet, and &edit=1 its details.
 	const phoneSel = $derived(page.url.searchParams.has('b') && selRaw?.id === selId ? view(selRaw) : null);
 	const phoneEdit = $derived(page.url.searchParams.get('edit') === '1');
+	// Shut off on desktop (DESIGN.md §5.16): &shutoff=1 opens the drawer for the selected breaker.
+	const shutoffOpen = $derived(page.url.searchParams.get('shutoff') === '1');
+	function closeShutoff() {
+		const url = new URL(page.url);
+		url.searchParams.delete('shutoff');
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
 	function closeSheet() {
 		const url = new URL(page.url);
 		url.searchParams.delete('b');
@@ -111,7 +119,8 @@
 		return `A 2-pole breaker needs slot ${below}, which is taken.`;
 	}
 	const no2Why = $derived(newSlot === null ? null : why2(newSlot));
-	const newPoles = $derived(no2Why ? 1 : form.poles);
+	const newTandem = $derived(!!panel && newSlot !== null && form.tandem && tandemOk(newSlot, panel));
+	const newPoles = $derived(no2Why || newTandem ? 1 : form.poles);
 	const newSlots = $derived(panel && newSlot !== null ? occupiedSlots({ slot: newSlot, poles: newPoles }, panel) : []);
 
 	async function openSlot(slot: number, amps = 20) {
@@ -135,9 +144,13 @@
 		const slot = newSlot;
 		const poles = newPoles;
 		const amps = form.amps;
-		const id = await mutate(() =>
-			createBreaker({ panelId: panel.id, slot, poles, amps, kind: form.kind, label: form.label.trim() })
-		);
+		const f = form;
+		const id = await mutate(async () => {
+			if (!newTandem) return createBreaker({ panelId: panel.id, slot, poles, amps, kind: f.kind, label: f.label.trim() });
+			const a = await createBreaker({ panelId: panel.id, slot, half: 'A', poles: 1, amps, kind: f.kind, label: f.label.trim() });
+			await createBreaker({ panelId: panel.id, slot, half: 'B', poles: 1, amps: f.ampsB, kind: f.kind, label: f.labelB.trim() });
+			return a;
+		});
 		// The next free slot in slot order after this one (then from the top).
 		const taken = new Set([...cover.keys(), ...occupiedSlots({ slot, poles }, panel)]);
 		const order = Array.from({ length: panel.slotCount }, (_, i) => ((slot + i) % panel.slotCount) + 1);
@@ -152,12 +165,14 @@
 
 	// ---- Moving the selected breaker: every open slot it fits in becomes a target.
 	let moving = $state(false);
-	const fits = (slot: number) => !!sel && !!panel && !checkFit({ id: sel.id, slot, poles: sel.poles }, panel, placed);
-	async function moveTo(slot: number) {
+	// A tandem half moves on its own and keeps its letter, unless it goes into the other half of a tandem slot.
+	const fits = (slot: number, half: Half | null = sel?.half ?? null) =>
+		!!sel && !!panel && (half === null || sel.half !== null) && !checkFit({ id: sel.id, slot, poles: sel.poles, half }, panel, placed);
+	async function moveTo(slot: number, half: Half | null = sel?.half ?? null) {
 		if (!sel) return;
 		const id = sel.id;
 		moving = false;
-		await mutate(() => updateBreaker(id, { slot }));
+		await mutate(() => updateBreaker(id, { slot, half }));
 		await tick();
 		document.querySelector<HTMLElement>(`[data-breaker="${id}"]`)?.focus();
 	}
@@ -209,7 +224,7 @@
 	const matches = (b: Breaker) => {
 		if (!q) return true;
 		const v = view(b);
-		if ((v.label || 'unlabeled').toLowerCase().includes(q) || String(b.slot) === q) return true;
+		if ((v.label || 'unlabeled').toLowerCase().includes(q) || String(b.slot) === q || (panel && slotLabel(b, panel).toLowerCase() === q)) return true;
 		return ix.itemsOf(b.id).some((i) => `${i.name} ${ix.roomName(i.roomId)}`.toLowerCase().includes(q));
 	};
 	const matchCount = $derived(breakers.filter(matches).length);
@@ -241,6 +256,28 @@
 	// ---- What the selected breaker powers.
 	const selItems = $derived(sel ? ix.itemsOf(sel.id) : []);
 	const selNo2 = $derived(sel ? why2(sel.slot, sel.id) : null);
+
+	// ---- Tandem halves (DESIGN.md §5.15): the other half of the selected breaker's slot.
+	const selMate = $derived(sel?.half ? (placed.find((b) => b.slot === sel.slot && b.half && b.id !== sel.id) ?? null) : null);
+	let splitting = $state(false);
+	async function toTandem() {
+		if (!sel || sel.half || sel.poles !== 1 || splitting) return;
+		const id = sel.id;
+		splitting = true;
+		try {
+			const b = await mutate(() => makeTandem(id));
+			await pick(b);
+		} finally {
+			splitting = false;
+		}
+	}
+	async function toFull() {
+		if (!sel) return;
+		if (sel.poles === 2) return edit(selRaw!, { poles: 1 });
+		if (!sel.half || selMate) return;
+		const id = sel.id;
+		await mutate(() => updateBreaker(id, { half: null }));
+	}
 	const summary = $derived.by(() => {
 		if (!selItems.length) return 'No items yet';
 		const floors = house.floors.filter((f) => selItems.some((i) => i.floorId === f.id)).map((f) => f.name);
@@ -268,7 +305,7 @@
 		<a class="btn" href={resolve('/settings') + '#data'}>Open Settings</a>
 	</main>
 {:else if viewport.phone}
-	<PhoneShell title={panel.name} sub="{panel.mainAmps ? `${panel.mainAmps}A · ` : ''}{spacesUsed(breakers)} of {panel.slotCount} spaces">
+	<PhoneShell title={panel.name} sub="{panel.mainAmps ? `${panel.mainAmps}A · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces">
 		{#if phoneEdit && sel && !access.guest}
 			<div class="pedit">
 				<div class="pback">
@@ -288,7 +325,10 @@
 				<div class="title">
 					<h1>{panel.name}</h1>
 					<span class="mono meta">
-						{panel.mainAmps ? `${panel.mainAmps}A main · ` : ''}{spacesUsed(breakers)} of {panel.slotCount} spaces used
+						{panel.mainAmps ? `${panel.mainAmps}A main · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces · {plural(
+							breakers.length,
+							'breaker'
+						)}
 					</span>
 				</div>
 				{#if breakers.length}
@@ -296,6 +336,10 @@
 						<span><span class="tag">GF</span>GFCI</span>
 						<span><span class="tag">AF</span>AFCI</span>
 						<span><span class="tag">DF</span>Dual function</span>
+						{#if breakers.some((b) => b.half)}
+							<span><span class="tdk" aria-hidden="true"><span></span><span></span></span>Tandem (A/B)</span>
+						{/if}
+						{#if tandemText(panel)}<span class="mono">Tandem slots {tandemText(panel)}</span>{/if}
 						<a class="btn trace" href={resolve('/trace')}><Icon name="bolt" size={14} />Trace</a>
 					</div>
 				{/if}
@@ -324,81 +368,130 @@
 					</div>
 				</div>
 
-				<div class="cols">
+				<!-- One CSS grid row per panel row: left · leg strip · right. A 2-pole breaker spans two
+				     rows; a row holding a tandem grows, and its neighbour and leg label grow with it. -->
+				<div class="face">
+					{#each { length: rows }, r (r)}
+						<div class="leg mono" style:grid-row={r + 1} aria-hidden="true">{house.settings.showLegs ? legOfRow(r + 1) : ''}</div>
+					{/each}
 					{#snippet col(cells: Cell[], side: 'l' | 'r')}
-						<div class="col">
-							{#each cells as cell (cell.slot)}
-								{#if !cell.breaker && moving}
-									{@const ok = fits(cell.slot)}
-									<button
-										type="button"
-										class="bk bk-1 bk-open"
-										class:bk-r={side === 'r'}
-										class:is-target={ok}
-										class:is-dim={!ok}
-										data-slot={cell.slot}
-										disabled={!ok}
-										aria-label="Move here: slot {cell.slot}"
-										onclick={() => moveTo(cell.slot)}
-									>
-										<span class="num">{cell.slot}</span>
-										<span class="lbl">{ok ? 'Move here' : 'Open'}</span>
-									</button>
-								{:else if !cell.breaker}
-									{@const isNew = cell.slot === newSlot}
-									{@const two = isNew && newSlots.length === 2}
-									<button
-										type="button"
-										class="bk bk-{two ? 2 : 1} bk-open"
-										class:bk-r={side === 'r'}
-										class:is-sel={isNew}
-										data-slot={cell.slot}
-										aria-pressed={isNew}
-										aria-label="Open slot {two ? newSlots.join(' and ') : cell.slot}, add a breaker"
-										onclick={() => (isNew ? formEl?.focus() : openSlot(cell.slot))}
-									>
-										<span class="num">{two ? newSlots.join('/') : cell.slot}</span>
-										<span class="lbl"><span class="opn">Open</span><span class="add">{isNew ? 'New breaker…' : '+ Add breaker'}</span></span>
-									</button>
-								{:else}
-									{@const b = view(cell.breaker)}
-									{@const tag = PROTECTION_TAGS[b.kind]}
-									{@const tie = tiedBelow(b, placed, panel)}
-									<button
-										type="button"
-										class="bk bk-{b.poles === 2 ? 2 : 1}"
-										class:tie-down={!!tie}
-										style:--tie-rows={tie ? b.poles / 2 + tie.poles / 2 : undefined}
-										class:bk-r={side === 'r'}
-										class:is-sel={newSlot === null && b.id === sel?.id}
-										class:is-moving={moving && b.id === sel?.id}
-										class:is-dim={!matches(cell.breaker) || (moving && b.id !== sel?.id)}
-										class:is-unl={!b.label.trim()}
-										aria-pressed={newSlot === null && b.id === sel?.id}
-										aria-label="Breaker {slotLabel(b, panel)}, {b.label.trim() || 'unlabeled'}, {b.amps} amp"
-										data-breaker={b.id}
-										onclick={() => pick(b.id)}
-									>
-										<span class="num">{slotLabel(b, panel)}</span>
-										<span class="lbl">{b.label.trim() || 'Unlabeled'}</span>
-										{#if tag}<span class="tag">{tag}</span>{/if}
-										<span class="amp">{b.amps}</span>
-										<span class="hdl"><span class="tog"></span><span class="tog tog2"></span></span>
-									</button>
-								{/if}
-							{/each}
-						</div>
+						{#each cells as cell (cell.slot)}
+							{@const at = position(cell.slot, panel)}
+							{#if cell.halves}
+								<div
+									class="tdm"
+									class:bad={!tandemOk(cell.slot, panel)}
+									style:grid-row={at.row}
+									style:grid-column={side === 'l' ? 1 : 3}
+									role="group"
+									aria-label="Tandem slot {cell.slot}"
+								>
+									{#each cell.halves as h, i (i)}
+										{#if h}
+											{@const b = view(h)}
+											<button
+												type="button"
+												class="th"
+												class:r={side === 'r'}
+												class:is-sel={newSlot === null && b.id === sel?.id}
+												class:is-moving={moving && b.id === sel?.id}
+												class:is-dim={!matches(h) || (moving && b.id !== sel?.id)}
+												class:is-unl={!b.label.trim()}
+												aria-pressed={newSlot === null && b.id === sel?.id}
+												aria-label="Breaker {slotLabel(b, panel)}, {b.label.trim() || 'unlabeled'}, {b.amps} amp"
+												data-breaker={b.id}
+												onclick={() => pick(b.id)}
+											>
+												<span class="num">{slotLabel(b, panel)}</span>
+												<span class="lbl">{b.label.trim() || 'Unlabeled'}</span>
+												<span class="amp">{b.amps}</span>
+												<span class="hdl"></span>
+											</button>
+										{:else}
+											{@const half = i === 0 ? 'A' : 'B'}
+											{@const ok = moving && fits(cell.slot, half)}
+											<button
+												type="button"
+												class="th th-open"
+												class:r={side === 'r'}
+												class:is-target={ok}
+												disabled={moving ? !ok : true}
+												aria-label={ok ? `Move here: slot ${cell.slot}${half}` : `Slot ${cell.slot}${half}, open`}
+												onclick={() => moveTo(cell.slot, half)}
+											>
+												<span class="num">{cell.slot}{half}</span>
+												<span class="lbl">{ok ? 'Move here' : 'Open'}</span>
+											</button>
+										{/if}
+									{/each}
+								</div>
+							{:else if !cell.breaker && moving}
+								{@const ok = fits(cell.slot)}
+								<button
+									type="button"
+									class="bk bk-1 bk-open"
+									class:bk-r={side === 'r'}
+									class:is-target={ok}
+									class:is-dim={!ok}
+									style:grid-row={at.row}
+									style:grid-column={side === 'l' ? 1 : 3}
+									data-slot={cell.slot}
+									disabled={!ok}
+									aria-label="Move here: slot {cell.slot}"
+									onclick={() => moveTo(cell.slot)}
+								>
+									<span class="num">{cell.slot}</span>
+									<span class="lbl">{ok ? 'Move here' : 'Open'}</span>
+								</button>
+							{:else if !cell.breaker}
+								{@const isNew = cell.slot === newSlot}
+								{@const two = isNew && newSlots.length === 2}
+								<button
+									type="button"
+									class="bk bk-{two ? 2 : 1} bk-open"
+									class:bk-r={side === 'r'}
+									class:is-sel={isNew}
+									style:grid-row="{at.row} / span {two ? 2 : 1}"
+									style:grid-column={side === 'l' ? 1 : 3}
+									data-slot={cell.slot}
+									aria-pressed={isNew}
+									aria-label="Open slot {two ? newSlots.join(' and ') : cell.slot}, add a breaker"
+									onclick={() => (isNew ? formEl?.focus() : openSlot(cell.slot))}
+								>
+									<span class="num">{two ? newSlots.join('/') : cell.slot}</span>
+									<span class="lbl"><span class="opn">Open</span><span class="add">{isNew ? 'New breaker…' : '+ Add breaker'}</span></span>
+								</button>
+							{:else}
+								{@const b = view(cell.breaker)}
+								{@const tag = PROTECTION_TAGS[b.kind]}
+								{@const tie = tiedBelow(b, placed, panel)}
+								<button
+									type="button"
+									class="bk bk-{b.poles === 2 ? 2 : 1}"
+									class:tie-down={!!tie}
+									style:--tie-rows={tie ? b.poles / 2 + tie.poles / 2 : undefined}
+									class:bk-r={side === 'r'}
+									class:is-sel={newSlot === null && b.id === sel?.id}
+									class:is-moving={moving && b.id === sel?.id}
+									class:is-dim={!matches(cell.breaker) || (moving && b.id !== sel?.id)}
+									class:is-unl={!b.label.trim()}
+									style:grid-row="{at.row} / span {b.poles === 2 ? 2 : 1}"
+									style:grid-column={side === 'l' ? 1 : 3}
+									aria-pressed={newSlot === null && b.id === sel?.id}
+									aria-label="Breaker {slotLabel(b, panel)}, {b.label.trim() || 'unlabeled'}, {b.amps} amp"
+									data-breaker={b.id}
+									onclick={() => pick(b.id)}
+								>
+									<span class="num">{slotLabel(b, panel)}</span>
+									<span class="lbl">{b.label.trim() || 'Unlabeled'}</span>
+									{#if tag}<span class="tag">{tag}</span>{/if}
+									<span class="amp">{b.amps}</span>
+									<span class="hdl"><span class="tog"></span><span class="tog tog2"></span></span>
+								</button>
+							{/if}
+						{/each}
 					{/snippet}
 					{@render col(left, 'l')}
-					{#if house.settings.showLegs}
-						<div class="legs" aria-hidden="true">
-							{#each { length: rows }, r (r)}
-								<div class="mono">{legOfRow(r + 1)}</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="legs off" aria-hidden="true"></div>
-					{/if}
 					{@render col(right, 'r')}
 				</div>
 			</div>
@@ -407,6 +500,9 @@
 		{@render detail(panel)}
 	</main>
 	<RemoveBreakerDialog bind:this={removeDlg} question={removeQuestion} detail={removeDetail} onremove={removeSelected} />
+	{#if shutoffOpen && sel}
+		<ShutoffDrawer {ix} want={{ room: null, breaker: sel.id, item: null }} onclose={closeShutoff} />
+	{/if}
 {/if}
 
 {#snippet detail(panel: Panel)}
@@ -470,24 +566,34 @@
 							{/each}
 						</select>
 					</div>
-					<div class="fld">
-						<span class="k" id="f-pl">Poles</span>
-						<div class="seg" role="group" aria-labelledby="f-pl">
+					<div class="fld size">
+						<span class="k" id="f-sz">Size</span>
+						<div class="seg" role="group" aria-labelledby="f-sz">
 							<button
 								type="button"
 								class="sb"
-								class:is-on={sel.poles === 1}
-								aria-pressed={sel.poles === 1}
-								onclick={() => edit(selRaw!, { poles: 1 })}>1-pole</button
+								class:is-on={sel.poles === 1 && !sel.half}
+								aria-pressed={sel.poles === 1 && !sel.half}
+								disabled={!!selMate}
+								aria-describedby={selMate ? 'f-nofull' : undefined}
+								onclick={toFull}>1-pole</button
 							>
 							<button
 								type="button"
 								class="sb"
 								class:is-on={sel.poles === 2}
 								aria-pressed={sel.poles === 2}
-								disabled={!!selNo2}
-								aria-describedby={selNo2 ? 'f-no2' : undefined}
+								disabled={!!selNo2 || !!sel.half}
+								aria-describedby={selNo2 && !sel.half ? 'f-no2' : undefined}
 								onclick={() => edit(selRaw!, { poles: 2 })}>2-pole</button
+							>
+							<button
+								type="button"
+								class="sb"
+								class:is-on={!!sel.half}
+								aria-pressed={!!sel.half}
+								disabled={sel.poles === 2 || splitting}
+								onclick={toTandem}>Tandem A+B</button
 							>
 						</div>
 					</div>
@@ -496,7 +602,7 @@
 						<span class="v">{MIN_WIRE[sel.amps] ?? '—'}</span>
 					</div>
 				</div>
-				{#if selNo2}<span class="why" id="f-no2">{selNo2}</span>{/if}
+				{#if selNo2 && !sel.half}<span class="why" id="f-no2">{selNo2}</span>{/if}
 				{#if tiedApart}
 					<div class="warnbox" role="note">
 						<strong>Handle-tied with {tiedApart.join(' + ')}, but not next to {tiedApart.length > 1 ? 'them' : 'it'}</strong>
@@ -506,6 +612,28 @@
 			</div>
 
 			<div class="dbody">
+				{#if sel.half}
+					{#if selMate}
+						{@const mate = selMate}
+						<div class="mate">
+							<span class="mhh" aria-hidden="true"><span class:on={sel.half === 'A'}></span><span class:on={sel.half === 'B'}></span></span>
+							<span class="mt">
+								<strong>Shares slot {sel.slot} with {slotLabel(mate, panel)}</strong>
+								<span>{mate.label.trim() || 'Unlabeled'} · both halves are on leg {legOf(sel.slot, panel)}</span>
+							</span>
+							<button type="button" class="btn" onclick={() => pick(mate.id)}>Select {slotLabel(mate, panel)}</button>
+						</div>
+					{/if}
+					{#if !tandemOk(sel.slot, panel)}
+						<div class="badt" role="alert">
+							<strong>Slot {sel.slot} isn’t rated for tandems.</strong> Your panel label allows them in slots {tandemText(panel)} only. It
+							may still be installed this way — worth checking with an electrician.
+						</div>
+					{/if}
+					{#if selMate}
+						<span class="why" id="f-nofull">To go back to one full-size breaker, remove or move {slotLabel(selMate, panel)} first.</span>
+					{/if}
+				{/if}
 				<div class="powers">
 					<div class="ph">
 						<h2>Powers</h2>
@@ -566,6 +694,7 @@
 				</div>
 				<div class="acts">
 					<a class="btn" href={resolve('/map') + `?circuit=${sel.id}`}><Icon name="map" size={16} />Show on map</a>
+					<a class="btn" href={resolve('/panel') + `?b=${sel.id}&shutoff=1`}><Icon name="power" size={16} />Shut off</a>
 					<button type="button" class="btn btn-pri" onclick={save} disabled={!dirty}>Save changes</button>
 				</div>
 			</div>
@@ -611,9 +740,10 @@
 	}
 	.top {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: flex-end;
 		justify-content: space-between;
-		gap: 16px;
+		gap: 12px 16px;
 	}
 	.title {
 		display: flex;
@@ -641,6 +771,22 @@
 		display: flex;
 		gap: 6px;
 		align-items: center;
+		white-space: nowrap;
+	}
+	.tdk {
+		width: 18px;
+		height: 14px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: 2px;
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+		padding: 1px;
+	}
+	.tdk span {
+		flex: 1;
+		background: var(--handle);
+		border-radius: 1px;
 	}
 	.trace {
 		height: 36px;
@@ -710,34 +856,131 @@
 		font-weight: 800;
 		font-stretch: 112%;
 	}
-	.cols {
-		display: flex;
-		gap: 8px;
+	.face {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+		grid-auto-rows: minmax(var(--breaker-h), auto);
+		column-gap: 8px;
+		row-gap: var(--breaker-gap);
 	}
-	.col {
-		flex: 1 1 0;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--breaker-gap);
-	}
-	.legs {
-		width: 28px;
-		flex-shrink: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--breaker-gap);
-		background: var(--bus);
-		border-radius: var(--r-sm);
-	}
-	.legs div {
-		height: var(--breaker-h);
+	.leg {
+		grid-column: 2;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		font-size: 9px;
 		font-weight: 600;
 		color: var(--bus-ink);
+		background: var(--bus);
+	}
+
+	/* ---- Tandem slot: two stacked half-height breakers (DESIGN.md §5.15). */
+	.tdm {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 2px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: var(--r-sm);
+		background: var(--enclosure-hi);
+		min-height: 46px;
+	}
+	.tdm.bad {
+		border-color: var(--warn);
+		border-style: dashed;
+	}
+	.th {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex: 1 1 0;
+		min-height: 20px;
+		padding: 0 4px 0 6px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: 3px;
+		background: var(--raised);
+		font: inherit;
+		color: var(--ink);
+		cursor: pointer;
+		text-align: left;
+	}
+	.th.r {
+		flex-direction: row-reverse;
+		padding: 0 6px 0 4px;
+		text-align: right;
+	}
+	.th .num {
+		font-size: 10px;
+		width: 30px;
+	}
+	.th.r .num {
+		text-align: right;
+	}
+	.th .lbl {
+		font-stretch: 78%;
+		font-size: 12px;
+	}
+	.th .amp {
+		font-size: 11px;
+		width: 20px;
+	}
+	.th .hdl {
+		width: 30px;
+		height: 12px;
+		border-radius: 2px;
+		align-items: center;
+		justify-content: center;
+	}
+	.th .hdl::after {
+		content: '';
+		width: 10px;
+		height: 5px;
+		border-radius: 1px;
+		background: var(--toggle);
+	}
+	.th:hover {
+		border-color: var(--ink);
+	}
+	.th.is-sel {
+		background: var(--amber);
+		color: var(--on-amber);
+		border-color: var(--on-amber);
+		box-shadow: 0 0 0 2px var(--fed-bd);
+	}
+	.th.is-sel .num,
+	.th.is-sel.is-unl .lbl {
+		color: var(--on-amber);
+	}
+	.th.is-unl .lbl {
+		color: var(--warn);
+		font-style: italic;
+	}
+	.th.is-dim {
+		opacity: 0.3;
+	}
+	.th.is-moving {
+		box-shadow: none;
+		outline: 2px dashed var(--amber);
+		outline-offset: 1px;
+	}
+	.th-open {
+		border-style: dashed;
+		border-color: var(--enclosure-bd);
+		background: transparent;
+		cursor: default;
+	}
+	.th-open .lbl {
+		font-style: italic;
+		color: var(--muted);
+	}
+	.th-open.is-target {
+		border-color: var(--ink);
+		cursor: pointer;
+	}
+	.th-open.is-target .lbl {
+		font-style: normal;
+		font-weight: 600;
+		color: var(--ink);
 	}
 
 	/* ---- Breaker */
@@ -759,10 +1002,10 @@
 			background 0.15s;
 	}
 	.bk-1 {
-		height: var(--breaker-h);
+		min-height: var(--breaker-h);
 	}
 	.bk-2 {
-		height: calc(var(--breaker-h) * 2 + var(--breaker-gap));
+		min-height: calc(var(--breaker-h) * 2 + var(--breaker-gap));
 	}
 	.bk-r {
 		flex-direction: row-reverse;
@@ -948,6 +1191,10 @@
 	.pedit .detail :global(.grid4) {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
+	/* Moving happens on the panel face, which isn't on this screen. */
+	.pedit .dhead .nav {
+		display: none;
+	}
 	.pedit .grid2 {
 		grid-template-columns: minmax(0, 1fr);
 	}
@@ -1044,6 +1291,68 @@
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: 12px;
+	}
+	.fld.size {
+		grid-column: span 2;
+	}
+	.fld.size .sb {
+		flex: 1 1 0;
+		justify-content: center;
+	}
+	/* The other half of a tandem slot. */
+	.mate {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 14px 16px;
+		border: 1px solid var(--line-2);
+		border-radius: var(--r-xl);
+		background: var(--raised);
+	}
+	.mhh {
+		width: 34px;
+		height: 34px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: var(--r-sm);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 3px;
+		flex-shrink: 0;
+	}
+	.mhh span {
+		flex: 1;
+		border-radius: 1px;
+		background: var(--handle);
+	}
+	.mhh span.on {
+		background: var(--amber);
+	}
+	.mt {
+		flex-grow: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		font-size: 13px;
+		color: var(--muted);
+	}
+	.mt strong {
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--ink);
+	}
+	.mate .btn {
+		height: 38px;
+	}
+	.badt {
+		padding: 12px 14px;
+		border-radius: var(--r-lg);
+		border: 1.5px solid var(--warn);
+		font-size: 13px;
+		line-height: 1.45;
+	}
+	.badt strong {
+		color: var(--warn);
 	}
 	.dbody {
 		flex-grow: 1;

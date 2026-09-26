@@ -292,7 +292,7 @@
 					</div>
 					<button type="button" class="ibtn" aria-label="Close room" onclick={() => go(NONE)}><Icon name="close" size={16} /></button>
 				</div>
-				<a class="btn shut" href={`${resolve('/shutoff')}?room=${room.id}`}>
+				<a class="btn shut" href={`${resolve('/map')}?floor=${room.floorId}&room=${room.id}&shutoff=1`}>
 					<Icon name="power" size={16} stroke={2.2} />Shut off this room · {plural(nCirc, 'breaker')}
 				</a>
 				{#if hasShape}
