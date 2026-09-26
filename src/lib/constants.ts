@@ -40,3 +40,8 @@ export const MIN_WIRE: Record<number, string> = { 15: '14 AWG', 20: '12 AWG', 30
 /** Tandem halves: A is the upper half of the space, B the lower (DESIGN.md §5.15). */
 export const HALVES = ['A', 'B'] as const;
 export type Half = (typeof HALVES)[number];
+
+/** Subpanels (DESIGN.md §5.17): usually small, with main lugs and a 2-pole feeder in the panel above. */
+export const SUB_SPACES = [4, 6, 8, 12, 16, 20, 24, 30, 40];
+export const SUB_MAIN_AMPS = [60, 70, 100, 125, 150, 200];
+export const FEEDER_AMPS = [30, 40, 50, 60, 70, 80, 90, 100, 125];

@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Trace a breaker (docs/design/DESIGN.md §5.6): pick & flip → mark what died → name & save.
 	// /trace?b=<breakerId> opens the flip sheet for that breaker.
-	import { compareBreakers } from '$lib/panel';
+	import { compareBreakers, panelShort } from '$lib/panel';
 	import { onDestroy, tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
@@ -37,7 +37,19 @@
 	let busy = $state(false);
 
 	const order = (a: Breaker, b: Breaker) => compareBreakers(a, b);
-	const all = $derived([...data.house.breakers].sort(order));
+	// Feeders aren't traceable: flipping one kills a whole subpanel (DESIGN.md §5.17).
+	const all = $derived([...data.house.breakers].filter((b) => !ix.fedPanelOf(b)).sort(order));
+	const feeders = $derived(data.house.breakers.filter((b) => ix.fedPanelOf(b)).sort(order));
+	const tree = $derived(ix.panelTree());
+	/** A list split by panel, in tree order. One panel: one group with no heading. */
+	const byPanel = (list: Breaker[], withFeeders = false) =>
+		tree
+			.map((t) => ({
+				panel: t.panel,
+				bs: list.filter((b) => b.panelId === t.panel.id),
+				fs: withFeeders ? feeders.filter((b) => b.panelId === t.panel.id) : []
+			}))
+			.filter((g) => g.bs.length || g.fs.length);
 	const isChecked = (b: Breaker) => b.lastCheckedAt !== null;
 	const todo = $derived(all.filter((b) => !isChecked(b)).sort((a, b) => (a.label ? 1 : 0) - (b.label ? 1 : 0) || order(a, b)));
 	const done = $derived(all.filter(isChecked));
@@ -68,7 +80,7 @@
 	$effect(() => {
 		const id = bParam && /^\d+$/.test(bParam) ? +bParam : null;
 		untrack(() => {
-			if (id !== null && ix.breakerById.has(id)) {
+			if (id !== null && ix.breakerById.has(id) && !ix.fedPanelOf(ix.breakerById.get(id)!)) {
 				step = 'pick';
 				sheetFor = id;
 				opener = null;
@@ -173,12 +185,21 @@
 			</div>
 			<div class="dlist">
 				<h2 class="ov">Not checked yet · {todo.length}</h2>
-				{#each todo.filter(hit) as b (b.id)}
-					{@render drow(b, false)}
+				{#each byPanel(todo.filter(hit), true) as g (g.panel.id)}
+					{#if tree.length > 1}<h3 class="ov pg">{g.panel.name}</h3>{/if}
+					{#each g.bs as b (b.id)}
+						{@render drow(b, false)}
+					{/each}
+					{#each g.fs as b (b.id)}
+						{@render feed(b)}
+					{/each}
 				{/each}
 				<h2 class="ov later">Checked · {done.length}</h2>
-				{#each done.filter(hit) as b (b.id)}
-					{@render drow(b, true)}
+				{#each byPanel(done.filter(hit)) as g (g.panel.id)}
+					{#if tree.length > 1}<h3 class="ov pg">{g.panel.name}</h3>{/if}
+					{#each g.bs as b (b.id)}
+						{@render drow(b, true)}
+					{/each}
 				{/each}
 			</div>
 		</section>
@@ -214,12 +235,21 @@
 			</div>
 			<div class="scroll">
 				<h2 class="ov">Not checked yet · {todo.length}</h2>
-				{#each todo as b (b.id)}
-					{@render row(b, false)}
+				{#each byPanel(todo, true) as g (g.panel.id)}
+					{#if tree.length > 1}<h3 class="ov pg">{g.panel.name}</h3>{/if}
+					{#each g.bs as b (b.id)}
+						{@render row(b, false)}
+					{/each}
+					{#each g.fs as b (b.id)}
+						{@render feed(b)}
+					{/each}
 				{/each}
 				<h2 class="ov later">Checked · {done.length}</h2>
-				{#each done as b (b.id)}
-					{@render row(b, true)}
+				{#each byPanel(done) as g (g.panel.id)}
+					{#if tree.length > 1}<h3 class="ov pg">{g.panel.name}</h3>{/if}
+					{#each g.bs as b (b.id)}
+						{@render row(b, true)}
+					{/each}
 				{/each}
 			</div>
 		</div>
@@ -237,6 +267,17 @@
 		<span class="ln">{ix.labelOf(b)}</span>
 		<span class="sub">{checked ? 'Checked' : 'Not checked'} · {plural(ix.itemsOf(b.id).length, 'item')}</span>
 	</button>
+{/snippet}
+
+{#snippet feed(b: Breaker)}
+	{@const sub = panelShort(ix.fedPanelOf(b)!)}
+	<div class="frow">
+		<span class="bnum big">{ix.slotOf(b)}</span>
+		<span class="lm">
+			<span class="ln">{ix.fedPanelOf(b)!.name} feeder</span>
+			<span class="sub">Flipping this kills the whole {sub} panel. Trace its breakers from the {sub} panel instead.</span>
+		</span>
+	</div>
 {/snippet}
 
 {#snippet row(b: Breaker, checked: boolean)}
@@ -440,6 +481,22 @@
 		text-align: left;
 		cursor: pointer;
 		flex-shrink: 0;
+	}
+	.pg {
+		margin: 6px 0 0;
+		color: var(--soft);
+	}
+	.frow {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 10px 12px;
+		border: 1px solid var(--line-2);
+		border-radius: var(--r-xl);
+		flex-shrink: 0;
+	}
+	.frow .sub {
+		line-height: 1.4;
 	}
 	.lrow:hover {
 		border-color: var(--btn-bd-h);

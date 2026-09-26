@@ -43,6 +43,13 @@
       "when": 1790273733948,
       "tag": "0005_tandem",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790274778146,
+      "tag": "0006_subpanels",
+      "breakpoints": true
     }
   ]
 }

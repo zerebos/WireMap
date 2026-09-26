@@ -9,6 +9,8 @@ export { PROTECTIONS, ITEM_TYPES };
 export const panels = sqliteTable('panels', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
+	// 1–3 letters that prefix a subpanel's breaker numbers ("G6"). Null for the main panel.
+	shortCode: text('short_code'),
 	location: text('location'),
 	mainAmps: integer('main_amps'),
 	// Number of spaces in the panel.

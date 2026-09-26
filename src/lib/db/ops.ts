@@ -22,6 +22,63 @@ export async function createPanel(values: typeof t.panels.$inferInsert): Promise
 	return row.id;
 }
 
+export type SubpanelValues = {
+	name: string;
+	shortCode: string;
+	slotCount: number;
+	mainAmps: number | null;
+	location: string | null;
+	/** An existing 2-pole breaker, or a new 2-pole breaker at an open slot. */
+	fedBy: { breakerId: number } | { panelId: number; slot: number; amps: number };
+};
+
+/**
+ * Adds a subpanel (DESIGN.md §5.17). The feeder breaker's label becomes the subpanel's name;
+ * "New breaker in an open slot" adds that 2-pole breaker first. Returns the new panel's id.
+ */
+export async function createSubpanel(v: SubpanelValues): Promise<number> {
+	const feeder =
+		'breakerId' in v.fedBy
+			? v.fedBy.breakerId
+			: await createBreaker({ panelId: v.fedBy.panelId, slot: v.fedBy.slot, poles: 2, amps: v.fedBy.amps, kind: 'standard', label: v.name });
+	await updateBreaker(feeder, { label: v.name });
+	return createPanel({
+		name: v.name,
+		shortCode: v.shortCode,
+		slotCount: v.slotCount,
+		mainAmps: v.mainAmps,
+		location: v.location,
+		numbering: 'odd_left_even_right',
+		fedByBreakerId: feeder
+	});
+}
+
+/** Renames a panel; a subpanel's feeder label follows its name. */
+export async function renamePanel(id: number, name: string) {
+	await updatePanel(id, { name });
+	const p = await db.select().from(t.panels).where(eq(t.panels.id, id)).get();
+	if (p?.fedByBreakerId != null) await updateBreaker(p.fedByBreakerId, { label: name });
+}
+
+/**
+ * Deletes a subpanel and any subpanels fed from it. Their breakers go with them, so the items on
+ * those breakers become "No breaker". The feeder in the parent panel stays.
+ */
+export async function deletePanel(id: number) {
+	const doomed = [id];
+	for (let i = 0; i < doomed.length; i++) {
+		const inside = await db.select({ id: t.breakers.id }).from(t.breakers).where(eq(t.breakers.panelId, doomed[i])).all();
+		if (!inside.length) continue;
+		const subs = await db
+			.select({ id: t.panels.id })
+			.from(t.panels)
+			.where(inArray(t.panels.fedByBreakerId, inside.map((b) => b.id)))
+			.all();
+		doomed.push(...subs.map((s) => s.id).filter((s) => !doomed.includes(s)));
+	}
+	await db.delete(t.panels).where(inArray(t.panels.id, doomed));
+}
+
 // ---- Breakers
 
 export async function updateBreaker(id: number, patch: Partial<Omit<Breaker, 'id' | 'panelId'>>) {

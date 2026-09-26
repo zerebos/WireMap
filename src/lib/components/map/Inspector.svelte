@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FedPath from '$lib/components/FedPath.svelte';
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
 	import ItemRow from './ItemRow.svelte';
@@ -171,6 +172,7 @@
 								<span class="bs">{specOf(b)}</span>
 							</div>
 						</div>
+						<FedPath {ix} breaker={b} />
 						<div class="fld">
 							<label for="reb-{b.id}">Move to another breaker</label>
 							<select id="reb-{b.id}" class="inp" value={String(b.id)} onchange={(e) => reassign(b.id, e)}>
