@@ -3,7 +3,7 @@
 	// clickable (Cancel or Escape closes it); focus stays inside while it's open.
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import { trapTab } from './trap';
-	import { occupiedSlots, physicalPosition, rowCount, slotAt, slotLabel } from '$lib/panel';
+	import { physicalPosition, rowCount, slotAt, slotLabel, spacesOf } from '$lib/panel';
 
 	let {
 		breaker,
@@ -12,7 +12,8 @@
 		oncancel
 	}: { breaker: Breaker; panel: Panel; onstart: () => void; oncancel: () => void } = $props();
 
-	const hit = $derived(new Set(occupiedSlots(breaker, panel)));
+	// Which half of each slot it takes: null = the whole slot (a quad pair takes a half of two slots).
+	const hit = $derived(new Map(spacesOf(breaker, panel).map((sp) => [sp.slot, sp.half])));
 	const cells = $derived(
 		Array.from({ length: rowCount(panel) }, (_, r) =>
 			(['left', 'right'] as const).map((side) => slotAt(side, r + 1, panel))
@@ -42,9 +43,9 @@
 	<div class="top">
 		<div class="mini" aria-hidden="true">
 			{#each cells as s, i (i)}
-				{#if hit.has(s) && breaker.half}
-					<!-- A tandem half: only its half of the slot lights. -->
-					<span class="cell split"><span class:is-t={breaker.half === 'A'}></span><span class:is-t={breaker.half === 'B'}></span></span>
+				{#if hit.get(s)}
+					<!-- A tandem or quad half: only its half of the slot lights. -->
+					<span class="cell split"><span class:is-t={hit.get(s) === 'A'}></span><span class:is-t={hit.get(s) === 'B'}></span></span>
 				{:else}
 					<span class="cell" class:is-t={hit.has(s)}></span>
 				{/if}

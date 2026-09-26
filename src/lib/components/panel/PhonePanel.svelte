@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import type { HouseIndex } from '$lib/house';
-	import { faceColumns, legOfRow, rowCount, slotLabel, spaceLabel, tandemOk, type Cell } from '$lib/panel';
+	import { faceColumns, legOfRow, quadLayout, rowCount, slotLabel, spaceLabel, tandemOk, type Cell } from '$lib/panel';
 	import { PROTECTION_TAGS } from '$lib/constants';
 	import { search } from '$lib/search.svelte';
 	import BreakerSheet from '$lib/components/phone/BreakerSheet.svelte';
@@ -53,7 +53,36 @@
 				{#snippet col(cells: Cell<Breaker>[], r: boolean)}
 					<div class="col">
 						{#each cells as c (c.slot)}
-							{#if c.halves}
+							{#if c.quad}
+								{@const lay = quadLayout(c.quad, c.slot, panel)}
+								<div class="qd" class:bad={!tandemOk(c.slot, panel)} role="group" aria-label="Quad breaker in slots {c.slot} and below">
+									{#each lay.segs as g (g.key)}
+										{#if g.b}
+											{@const h = g.b}
+											<button
+												type="button"
+												class="pch"
+												class:r
+												class:cont={!g.first}
+												class:is-sel={selected?.id === h.id}
+												class:is-unl={!h.label.trim()}
+												class:is-dim={!matches(h)}
+												style:grid-row="{g.row} / span {g.span}"
+												data-breaker={g.first ? h.id : undefined}
+												aria-label="Breaker {slotLabel(h, panel)}, {h.label.trim() || 'unlabeled'}, {h.amps} amp"
+												onclick={() => onpick(h)}
+												><span class="n">{g.first ? slotLabel(h, panel) : '↳'}</span><span class="pl"
+													>{g.first ? h.label.trim() || 'Unlabeled' : `same breaker · ${slotLabel(h, panel)}`}</span
+												></button
+											>
+										{:else}
+											<div class="pch open" class:r style:grid-row={g.row}>
+												<span class="n">{(panel.shortCode ?? '') + g.key}</span><span class="pl">Open</span>
+											</div>
+										{/if}
+									{/each}
+								</div>
+							{:else if c.halves}
 								<div class="tdm" class:bad={!tandemOk(c.slot, panel)} role="group" aria-label="Tandem slot {c.slot}">
 									{#each c.halves as h, i (i)}
 										{#if h}
@@ -303,6 +332,31 @@
 		padding: 2px;
 		border: 1px solid var(--breaker-bd);
 		border-radius: var(--r-sm);
+	}
+	/* Quad: two slots tall (94px), four half-rows (DESIGN.md §5.18). */
+	.qd {
+		height: 94px;
+		display: grid;
+		grid-template-rows: repeat(4, minmax(0, 1fr));
+		gap: 2px;
+		padding: 2px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: var(--r-sm);
+	}
+	.qd .pch {
+		height: auto;
+	}
+	.qd.bad {
+		border-color: var(--warn);
+		border-style: dashed;
+	}
+	.pch.cont .pl {
+		color: var(--muted);
+		font-style: italic;
+		font-weight: 500;
+	}
+	.pch.is-sel.cont .pl {
+		color: var(--on-amber);
 	}
 	.tdm.bad {
 		border-color: var(--warn);

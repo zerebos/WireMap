@@ -3,13 +3,16 @@
 // left column, then down the right. A 2-pole breaker takes its slot and the one below it; a
 // tandem half (§5.15) takes the upper (A) or lower (B) half of one slot.
 //
+// Which spaces a breaker takes is stored in breaker_spaces (DATA-MODEL.md "Occupancy"), because a
+// quad breaker (§5.18) pairs across halves: outer = 21A + 23B, inner = 21B + 23A. The house loads
+// them onto each breaker as `spaces`; without them (a new or resized breaker) they're derived.
 // Everything that asks which spaces a breaker takes goes through `spacesOf`, and everything that
 // prints a breaker's number goes through `slotLabel`.
 import type { Half, Numbering } from './constants';
 
 export type Side = 'left' | 'right';
 type PanelShape = { slotCount: number; numbering: Numbering; tandemSlots?: string | null; shortCode?: string | null };
-type Placed = { slot: number; poles: number; half?: Half | null };
+type Placed = { slot: number; poles: number; half?: Half | null; spaces?: Space[] };
 
 /** One space a breaker takes: a whole slot (half null) or half of one. */
 export type Space = { slot: number; half: Half | null };
@@ -35,8 +38,17 @@ export function slotAt(side: Side, row: number, p: PanelShape): number {
 export const nextInColumn = (slot: number, p: PanelShape) =>
 	p.numbering === 'down_left_then_right' ? slot + 1 : slot + 2;
 
-/** The spaces a breaker takes, in order. */
+/** Panel order for spaces: by slot, then half A before B. */
+const bySpace = (a: Space, b: Space) => a.slot - b.slot || (a.half ?? '').localeCompare(b.half ?? '');
+
+/** The spaces a breaker takes, in order: its stored spaces, or else derived from slot, poles and half. */
 export function spacesOf(b: Placed, p: PanelShape): Space[] {
+	if (b.spaces?.length) return [...b.spaces].sort(bySpace);
+	return deriveSpaces(b, p);
+}
+
+/** The spaces a plain (non-quad) breaker takes: slot, plus the slot below for 2-pole, or one half. */
+export function deriveSpaces(b: Placed, p: PanelShape): Space[] {
 	if (b.poles === 2) return [{ slot: b.slot, half: null }, { slot: nextInColumn(b.slot, p), half: null }];
 	return [{ slot: b.slot, half: b.half ?? null }];
 }
@@ -44,6 +56,27 @@ export function spacesOf(b: Placed, p: PanelShape): Space[] {
 /** Slots a breaker occupies (a tandem half counts its whole slot). */
 export function occupiedSlots(b: Placed, p: PanelShape): number[] {
 	return [...new Set(spacesOf(b, p).map((s) => s.slot))];
+}
+
+/** A quad pair (§5.18): a 2-pole breaker on half spaces of two slots. */
+export function quadPair(b: Placed, p: PanelShape): 'outer' | 'inner' | null {
+	const sp = spacesOf(b, p);
+	if (sp.length !== 2 || sp.some((x) => x.half === null) || sp[0].slot === sp[1].slot) return null;
+	return sp[0].half === 'A' ? 'outer' : 'inner';
+}
+
+/** A quad pair's spaces at `slot` and the slot below: outer = sA + (s+2)B, inner = sB + (s+2)A. */
+export function quadSpaces(slot: number, p: PanelShape, pair: 'outer' | 'inner'): Space[] {
+	const below = nextInColumn(slot, p);
+	return pair === 'outer'
+		? [
+				{ slot, half: 'A' },
+				{ slot: below, half: 'B' }
+			]
+		: [
+				{ slot, half: 'B' },
+				{ slot: below, half: 'A' }
+			];
 }
 
 /** "17", "17B". */
@@ -61,7 +94,13 @@ export function compareBreakers(a: Placed & { panelId: number }, b: Placed & { p
  * One place in a column of the panel face: a full-size breaker (starting here), a tandem slot
  * (its A and B halves, either of which may be empty), or an open slot.
  */
-export type Cell<B> = { slot: number; breaker: B | null; halves: [B | null, B | null] | null };
+export type Cell<B> = {
+	slot: number;
+	breaker: B | null;
+	halves: [B | null, B | null] | null;
+	/** A quad (§5.18) over this slot and the one below: sA, sB, (s+2)A, (s+2)B. */
+	quad: [B | null, B | null, B | null, B | null] | null;
+};
 
 /**
  * The panel face, column by column, top to bottom. A breaker appears once, at its first slot;
@@ -80,14 +119,26 @@ export function faceColumns<B extends Placed>(p: PanelShape, breakers: B[]): Rec
 			}
 		}
 	}
+	// A quad takes its slot and the one below as one cell.
+	const quadTops = new Set<number>();
+	for (const b of breakers) if (quadPair(b, p)) quadTops.add(spacesOf(b, p)[0].slot);
 	const column = (side: Side) => {
 		const out: Cell<B>[] = [];
+		const skip = new Set<number>();
 		for (let row = 1; row <= rowCount(p); row++) {
 			const slot = slotAt(side, row, p);
-			if (slot > p.slotCount) continue;
+			if (slot > p.slotCount || skip.has(slot)) continue;
+			if (quadTops.has(slot)) {
+				const below = nextInColumn(slot, p);
+				const a = halves.get(slot) ?? [null, null];
+				const c = halves.get(below) ?? [null, null];
+				skip.add(below);
+				out.push({ slot, breaker: null, halves: null, quad: [a[0], a[1], c[0], c[1]] });
+				continue;
+			}
 			const b = whole.get(slot);
 			if (b && b.slot !== slot) continue;
-			out.push({ slot, breaker: b ?? null, halves: b ? null : (halves.get(slot) ?? null) });
+			out.push({ slot, breaker: b ?? null, halves: b ? null : (halves.get(slot) ?? null), quad: null });
 		}
 		return out;
 	};
@@ -120,6 +171,8 @@ export function legsText(b: Placed, p: PanelShape): string {
 export function physicalPosition(b: Placed, p: PanelShape): string {
 	const { side, row } = position(b.slot, p);
 	const where = side === 'left' ? 'Left' : 'Right';
+	const pair = quadPair(b, p);
+	if (pair) return `${where}, rows ${row}–${row + 1} · ${pair} pair`;
 	if (b.poles === 2) return `${where}, row ${row}–${row + 1}`;
 	if (b.half) return `${where}, row ${row} · ${b.half === 'A' ? 'upper' : 'lower'} half`;
 	return `${where}, row ${row}`;
@@ -128,6 +181,11 @@ export function physicalPosition(b: Placed, p: PanelShape): string {
 /** "Slot 16 · Leg L2", "Slots 1 + 3 · Legs L1 + L2", or "Slot 17 · Tandem half B · Leg L1". */
 export function slotText(b: Placed, p: PanelShape): string {
 	const slots = occupiedSlots(b, p);
+	const pair = quadPair(b, p);
+	if (pair) {
+		const sp = spacesOf(b, p);
+		return `Slots ${spaceText(sp[0])} + ${spaceText(sp[1])} · Legs ${legOf(slots[0], p)} + ${legOf(slots[1], p)} · Quad, ${pair} pair`;
+	}
 	if (slots.length === 2)
 		return `Slots ${slots[0]} + ${slots[1]} · Legs ${legOf(slots[0], p)} + ${legOf(slots[1], p)}`;
 	if (b.half) return `Slot ${b.slot} · Tandem half ${b.half} · Leg ${legOf(b.slot, p)}`;
@@ -199,4 +257,46 @@ export function tiedBelow<B extends Placed & { tieGroup: number | null }>(b: B, 
 	const below = nextInColumn(slots[slots.length - 1], p);
 	if (position(below, p).side !== position(b.slot, p).side) return null;
 	return all.find((o) => o !== b && o.tieGroup === b.tieGroup && o.slot === below && !o.half) ?? null;
+}
+
+/** The top slot of the quad a breaker is part of (a quad pair, or a 1-pole half filling one), or null. */
+export function quadTopOf<B extends Placed>(b: B, all: B[], p: PanelShape): number | null {
+	const mine = spacesOf(b, p);
+	for (const q of all) {
+		if (!quadPair(q, p)) continue;
+		const top = spacesOf(q, p)[0].slot;
+		const below = nextInColumn(top, p);
+		if (mine.every((s) => s.half !== null && (s.slot === top || s.slot === below))) return top;
+	}
+	return null;
+}
+
+/** One row of a quad cell. A 2-pole pair on two adjacent rows (the inner pair) is one row spanning both. */
+export type QuadSeg<B> = { key: string; row: number; span: number; b: B | null; first: boolean };
+
+/**
+ * A quad cell's four half-rows in physical order (sA, sB, (s+2)A, (s+2)B) and its tie bars, which
+ * join each 2-pole pair's handles (row indexes 0–3).
+ */
+export function quadLayout<B extends Placed & { id: number }>(q: (B | null)[], top: number, p: PanelShape) {
+	const below = nextInColumn(top, p);
+	const keys = [`${top}A`, `${top}B`, `${below}A`, `${below}B`];
+	const segs: QuadSeg<B>[] = [];
+	const seen = new Set<number>();
+	for (let i = 0; i < 4; i++) {
+		const b = q[i];
+		if (!b) {
+			segs.push({ key: keys[i], row: i + 1, span: 1, b: null, first: true });
+			continue;
+		}
+		if (seen.has(b.id) && segs[segs.length - 1]?.b === b && segs[segs.length - 1].span === 2) continue;
+		const span = b.poles === 2 && i < 3 && q[i + 1] === b && !seen.has(b.id) ? 2 : 1;
+		segs.push({ key: keys[i], row: i + 1, span, b, first: !seen.has(b.id) });
+		seen.add(b.id);
+	}
+	const ties = [...new Set(q.filter((b): b is B => !!b && b.poles === 2))].map((b) => {
+		const at = q.flatMap((x, i) => (x === b ? [i] : []));
+		return { b, lo: Math.min(...at), hi: Math.max(...at), pair: quadPair(b, p) };
+	});
+	return { segs, ties };
 }

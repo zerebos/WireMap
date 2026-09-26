@@ -1,5 +1,6 @@
 import type { DB } from './index';
-import { panels, breakers, floors, rooms, items, itemBreakers, planImages } from './schema';
+import { panels, breakers, breakerSpaces, floors, rooms, items, itemBreakers, planImages } from './schema';
+import { deriveSpaces } from '../panel';
 import house from '../../../docs/design/seed.json';
 import { parseShape } from '../shape';
 import mainFloorPlan from './main-floor.png?inline';
@@ -40,6 +41,7 @@ export async function seed(db: DB) {
 			)
 			.returning()
 			.all();
+		await tx.insert(breakerSpaces).values(bs.flatMap((b) => deriveSpaces(b, panel).map((sp) => ({ breakerId: b.id, ...sp }))));
 		const bySlot = new Map(bs.map((b) => [b.slot, b.id]));
 
 		await tx.insert(planImages).values({ name: 'main-floor.png', type: 'image/png', data: new Uint8Array(png) });

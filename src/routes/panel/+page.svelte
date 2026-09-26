@@ -16,9 +16,21 @@
 	import { AMPS, ITEM_TYPES, ITEM_TYPE_LABELS, MIN_WIRE, PROTECTIONS, PROTECTION_LABELS, PROTECTION_TAGS } from '$lib/constants';
 	import type { Half, Protection } from '$lib/constants';
 	import type { Breaker, Panel } from '$lib/db/schema';
-	import { createBreaker, createItem, createSubpanel, deleteBreaker, makeTandem, updateBreaker, type SubpanelValues } from '$lib/db/ops';
-	import { index, mutate, plural } from '$lib/house';
-	import { checkFit, faceColumns, legOf, legOfRow, tandemOk, tandemText, nextInColumn, occupiedSlots, position, rowCount, slotLabel, slotText, spaceLabel, panelShort, compareBreakers, spacesUsed, tiedBelow, tiedTogether, type Cell as FaceCell } from '$lib/panel';
+	import {
+		createBreaker,
+		createItem,
+		createQuad,
+		createSubpanel,
+		deleteBreaker,
+		makeQuad,
+		makeTandem,
+		setSpaces,
+		swapQuadPairs,
+		updateBreaker,
+		type SubpanelValues
+	} from '$lib/db/ops';
+	import { index, mutate, plural, type HouseBreaker } from '$lib/house';
+	import { checkFit, faceColumns, legOf, legOfRow, tandemOk, tandemText, nextInColumn, occupiedSlots, position, rowCount, slotLabel, slotText, spaceLabel, panelShort, compareBreakers, quadLayout, quadPair, quadTopOf, spacesOf, spacesUsed, tiedBelow, tiedTogether, type Cell as FaceCell } from '$lib/panel';
 	import { query, search } from '$lib/search.svelte';
 
 	let { data } = $props();
@@ -68,7 +80,10 @@
 
 	const view = (b: Breaker): Breaker => {
 		const d = drafts[b.id];
-		return d ? { ...b, label: d.label, amps: d.amps, kind: d.kind, poles: d.poles, notes: d.notes } : b;
+		if (!d) return b;
+		// A pole change re-derives the spaces it takes (the stored ones are for the saved size).
+		const spaces = d.poles === b.poles ? (b as HouseBreaker).spaces : undefined;
+		return { ...b, label: d.label, amps: d.amps, kind: d.kind, poles: d.poles, notes: d.notes, spaces } as Breaker;
 	};
 	const isChanged = (b: Breaker, d: Draft) =>
 		d.label.trim() !== b.label ||
@@ -153,8 +168,11 @@
 		return `A 2-pole breaker needs slot ${below}, which is taken.`;
 	}
 	const no2Why = $derived(newSlot === null ? null : why2(newSlot));
-	const newTandem = $derived(!!panel && newSlot !== null && form.tandem && tandemOk(newSlot, panel));
-	const newPoles = $derived(no2Why || newTandem ? 1 : form.poles);
+	const newQuad = $derived(
+		!!panel && newSlot !== null && form.quad && !no2Why && tandemOk(newSlot, panel) && tandemOk(nextInColumn(newSlot, panel), panel)
+	);
+	const newTandem = $derived(!!panel && newSlot !== null && !newQuad && form.tandem && tandemOk(newSlot, panel));
+	const newPoles = $derived(no2Why || newTandem ? 1 : newQuad ? 2 : form.poles);
 	const newSlots = $derived(panel && newSlot !== null ? occupiedSlots({ slot: newSlot, poles: newPoles }, panel) : []);
 
 	async function openSlot(slot: number, amps = 20) {
@@ -179,7 +197,15 @@
 		const poles = newPoles;
 		const amps = form.amps;
 		const f = form;
+		const quad = newQuad;
 		const id = await mutate(async () => {
+			if (quad) {
+				const kind = f.kind;
+				const outer = { label: f.label.trim(), amps, kind };
+				const b = { label: f.labelB.trim(), amps: f.ampsB, kind };
+				const below = nextInColumn(slot, panel);
+				return createQuad(panel.id, slot, below, outer, f.mixed ? { b, c: { label: f.labelC.trim(), amps: f.ampsC, kind } } : b);
+			}
 			if (!newTandem) return createBreaker({ panelId: panel.id, slot, poles, amps, kind: f.kind, label: f.label.trim() });
 			const a = await createBreaker({ panelId: panel.id, slot, half: 'A', poles: 1, amps, kind: f.kind, label: f.label.trim() });
 			await createBreaker({ panelId: panel.id, slot, half: 'B', poles: 1, amps: f.ampsB, kind: f.kind, label: f.labelB.trim() });
@@ -309,9 +335,61 @@
 
 	// ---- Tandem halves (DESIGN.md §5.15): the other half of the selected breaker's slot.
 	const selMate = $derived(sel?.half ? (placed.find((b) => b.slot === sel.slot && b.half && b.id !== sel.id) ?? null) : null);
+	// ---- Quads (DESIGN.md §5.18): the quad the selected breaker is part of, and what else is in it.
+	const selQuad = $derived(sel && panel ? quadTopOf(sel, placed, panel) : null);
+	const selPair = $derived(sel && panel ? quadPair(sel, panel) : null);
+	const quadBelow = $derived(selQuad !== null && panel ? nextInColumn(selQuad, panel) : null);
+	const quadRows = $derived.by(() => {
+		if (selQuad === null || quadBelow === null || !panel) return [];
+		const keys: [number, Half][] = [
+			[selQuad, 'A'],
+			[selQuad, 'B'],
+			[quadBelow, 'A'],
+			[quadBelow, 'B']
+		];
+		return keys.map(([slot, half]) => ({
+			key: `${slot}${half}`,
+			b: placed.find((b) => spacesOf(b, panel).some((x) => x.slot === slot && x.half === half)) ?? null
+		}));
+	});
+	const quadMates = $derived([...new Set(quadRows.map((r) => r.b).filter((b): b is Breaker => !!b && b.id !== sel?.id))]);
+	/** Why the selected 2-pole breaker can't become a quad, or null if it can. */
+	const noQuadWhy = $derived.by(() => {
+		if (!sel || !panel) return 'x';
+		if (selQuad !== null) return null;
+		if (sel.poles !== 2 || sel.half) return 'Only a full-size 2-pole breaker can become a quad.';
+		return null;
+	});
+	/** A tandem or quad split is saving: the buttons are off so a double-click can't split twice. */
 	let splitting = $state(false);
+	async function toQuad() {
+		if (!sel || !panel || selQuad !== null || noQuadWhy || splitting) return;
+		const id = sel.id;
+		const below = nextInColumn(sel.slot, panel);
+		splitting = true;
+		try {
+			const inner = await mutate(() => makeQuad(id, below));
+			await pick(inner);
+		} finally {
+			splitting = false;
+		}
+	}
+	async function toTwoPole() {
+		if (!sel) return;
+		if (selQuad === null) return edit(selRaw!, { poles: 2 });
+		if (quadMates.length) return;
+		const id = sel.id;
+		await mutate(() => setSpaces(id, undefined).then(() => updateBreaker(id, { half: null })));
+	}
+	async function swapPairs() {
+		if (selQuad === null || quadBelow === null) return;
+		const ids = [sel!.id, ...quadMates.map((b) => b.id)];
+		const below = quadBelow;
+		await mutate(() => swapQuadPairs(ids, below));
+	}
+
 	async function toTandem() {
-		if (!sel || sel.half || sel.poles !== 1 || splitting) return;
+		if (!sel || sel.half || sel.poles !== 1 || selQuad !== null || splitting) return;
 		const id = sel.id;
 		splitting = true;
 		try {
@@ -426,7 +504,7 @@
 						{#if breakers.some((b) => b.half)}
 							<span><span class="tdk" aria-hidden="true"><span></span><span></span></span>Tandem (A/B)</span>
 						{/if}
-						{#if tandemText(panel)}<span class="mono">Tandem slots {tandemText(panel)}</span>{/if}
+						{#if tandemText(panel)}<span class="mono">Tandem / quad slots {tandemText(panel)}</span>{/if}
 						<a class="btn trace" href={resolve('/trace')}><Icon name="bolt" size={14} />Trace</a>
 					</div>
 				{/if}
@@ -464,7 +542,61 @@
 					{#snippet col(cells: Cell[], side: 'l' | 'r')}
 						{#each cells as cell (cell.slot)}
 							{@const at = position(cell.slot, panel)}
-							{#if cell.halves}
+							{#if cell.quad}
+								{@const lay = quadLayout(cell.quad.map((b) => (b ? view(b) : null)), cell.slot, panel)}
+								{@const below = nextInColumn(cell.slot, panel)}
+								<div
+									class="quad"
+									class:r={side === 'r'}
+									class:bad={!tandemOk(cell.slot, panel)}
+									style:grid-row="{at.row} / span 2"
+									style:grid-column={side === 'l' ? 1 : 3}
+									role="group"
+									aria-label="Quad breaker in slots {spaceLabel({ slot: cell.slot, half: null }, panel)} and {spaceLabel(
+										{ slot: below, half: null },
+										panel
+									)}"
+								>
+									{#each lay.segs as g (g.key)}
+										{#if g.b}
+											{@const b = g.b}
+											<button
+												type="button"
+												class="th"
+												class:r={side === 'r'}
+												class:cont={!g.first}
+												class:is-sel={newSlot === null && b.id === sel?.id}
+												class:is-dim={!matches(b) || moving}
+												class:is-unl={!b.label.trim()}
+												style:grid-row="{g.row} / span {g.span}"
+												aria-label="Breaker {slotLabel(b, panel)}, {b.label.trim() || 'unlabeled'}, {b.amps} amp{g.first ? '' : ', lower handle'}"
+												data-breaker={g.first ? b.id : undefined}
+												onclick={() => pick(b.id)}
+											>
+												<span class="num">{g.first ? slotLabel(b, panel) : '↳'}</span>
+												<span class="lbl">{g.first ? b.label.trim() || 'Unlabeled' : `same breaker · ${slotLabel(b, panel)}`}</span>
+												<span class="amp">{g.first ? b.amps : ''}</span>
+												<span class="hdl"></span>
+											</button>
+										{:else}
+											<div class="th th-open" class:r={side === 'r'} style:grid-row={g.row}>
+												<span class="num">{(panel.shortCode ?? '') + g.key}</span>
+												<span class="lbl">Open</span>
+											</div>
+										{/if}
+									{/each}
+									{#each lay.ties as t (t.b.id)}
+										<span
+											class="tie"
+											class:o={t.pair === 'outer'}
+											class:i={t.pair !== 'outer'}
+											class:is-sel={newSlot === null && t.b.id === sel?.id}
+											style:top="{t.lo * 25 + 12}%"
+											style:bottom="{(3 - t.hi) * 25 + 12}%"
+										></span>
+									{/each}
+								</div>
+							{:else if cell.halves}
 								<div
 									class="tdm"
 									class:bad={!tandemOk(cell.slot, panel)}
@@ -614,9 +746,18 @@
 		{:else}
 			<div class="dhead">
 				<div class="row">
-					<span class="mono slot">{feeder ? `${panelShort(panel)} · ` : ''}{slotText(sel, panel)}{selSub ? ' · Feeder' : ''}</span>
+					<span class="mono slot">{feeder ? `${panelShort(panel)} · ` : ''}{selQuad !== null && !selPair
+								? `Slot ${spaceLabel({ slot: sel.slot, half: sel.half ?? null }, panel)} · Leg ${legOf(sel.slot, panel)} · Quad`
+								: slotText(sel, panel)}{selSub ? ' · Feeder' : ''}</span>
 					<div class="nav">
-						<button type="button" class="btn" aria-pressed={moving} onclick={() => (moving = !moving)}>Move…</button>
+						<button
+								type="button"
+								class="btn"
+								aria-pressed={moving}
+								disabled={selQuad !== null}
+								title={selQuad !== null ? 'Part of a quad: move or remove the whole quad’s breakers instead.' : undefined}
+								onclick={() => (moving = !moving)}>Move…</button
+							>
 						<button type="button" class="ibtn" aria-label="Previous breaker" onclick={() => step(-1)}><Icon name="prev" /></button>
 						<button type="button" class="ibtn" aria-label="Next breaker" onclick={() => step(1)}><Icon name="next" /></button>
 					</div>
@@ -630,6 +771,7 @@
 					oninput={(e) => edit(selRaw!, { label: e.currentTarget.value })}
 					placeholder="Unlabeled — what does it power?"
 				/>
+				{#if house.panels.length > 1}
 				<div class="path" aria-label="Power path">
 					<span class="ov">Power path</span>
 					{#each path as c, i (i)}
@@ -637,6 +779,7 @@
 						<span class="pchip" class:cur={c.cur}>{c.t}</span>
 					{/each}
 				</div>
+				{/if}
 				<div class="grid4">
 					<div class="fld">
 						<label for="f-amp">Amperage</label>
@@ -672,26 +815,35 @@
 								class="sb"
 								class:is-on={sel.poles === 1 && !sel.half}
 								aria-pressed={sel.poles === 1 && !sel.half}
-								disabled={!!selMate}
+								disabled={!!selMate || selQuad !== null}
 								aria-describedby={selMate ? 'f-nofull' : undefined}
 								onclick={toFull}>1-pole</button
 							>
 							<button
 								type="button"
 								class="sb"
-								class:is-on={sel.poles === 2}
-								aria-pressed={sel.poles === 2}
-								disabled={!!selNo2 || !!sel.half}
-								aria-describedby={selNo2 && !sel.half ? 'f-no2' : undefined}
-								onclick={() => edit(selRaw!, { poles: 2 })}>2-pole</button
+								class:is-on={sel.poles === 2 && selQuad === null}
+								aria-pressed={sel.poles === 2 && selQuad === null}
+								disabled={selQuad !== null ? quadMates.length > 0 || sel.poles !== 2 : !!selNo2 || !!sel.half}
+								aria-describedby={selQuad !== null && quadMates.length ? 'f-noq' : selNo2 && !sel.half ? 'f-no2' : undefined}
+								onclick={toTwoPole}>2-pole</button
 							>
 							<button
 								type="button"
 								class="sb"
-								class:is-on={!!sel.half}
-								aria-pressed={!!sel.half}
-								disabled={sel.poles === 2 || splitting}
-								onclick={toTandem}>Tandem A+B</button
+								class:is-on={!!sel.half && selQuad === null}
+								aria-pressed={!!sel.half && selQuad === null}
+								disabled={sel.poles === 2 || selQuad !== null || splitting}
+								onclick={toTandem}>Tandem</button
+							>
+							<button
+								type="button"
+								class="sb"
+								class:is-on={selQuad !== null}
+								aria-pressed={selQuad !== null}
+								disabled={!!noQuadWhy || splitting}
+								title={noQuadWhy ?? undefined}
+								onclick={toQuad}>Quad</button
 							>
 						</div>
 					</div>
@@ -710,7 +862,51 @@
 			</div>
 
 			<div class="dbody">
-				{#if sel.half}
+				{#if selQuad !== null}
+					<div class="qcard">
+						<div class="qmini" aria-hidden="true">
+							{#each quadRows as r (r.key)}
+								<span class="qh" class:on={r.b?.id === sel.id}
+									>{(panel.shortCode ?? '') + r.key}{r.b ? ` · ${spaceLabel(spacesOf(r.b, panel)[0], panel)}` : ''}</span
+								>
+							{/each}
+						</div>
+						<div class="qt">
+							<strong
+								>{selPair
+									? `The ${selPair} pair of a quad in slots ${selQuad}–${quadBelow}`
+									: `Half of a quad in slots ${selQuad}–${quadBelow}`}</strong
+							>
+							{#if quadMates.length}
+								<span
+									>Shares the quad with {quadMates.map((m) => `${slotLabel(m, panel)} ${m.label.trim() || 'Unlabeled'}`).join(', ')}. Both
+									slots are one physical breaker; replacing it affects all of them.</span
+								>
+							{/if}
+							<div class="qacts">
+								{#each quadMates as m (m.id)}
+									<button type="button" class="btn" onclick={() => pick(m.id)}>Select {slotLabel(m, panel)}</button>
+								{/each}
+								<button type="button" class="btn" onclick={swapPairs}>Swap outer and inner</button>
+							</div>
+						</div>
+					</div>
+					<span class="why"
+						>Brands differ on which handles pair up. If yours ties the top-and-bottom handles, that’s the outer pair; the middle two are
+						the inner pair. Swap them if the panel is labelled the other way.</span
+					>
+					{#if quadMates.length && sel.poles === 2}
+						<span class="why" id="f-noq"
+							>To go back to one full-size 2-pole breaker, remove {quadMates.map((m) => slotLabel(m, panel)).join(' and ')} first.</span
+						>
+					{/if}
+					{#if !tandemOk(selQuad, panel) || !tandemOk(quadBelow ?? selQuad, panel)}
+						<div class="badt" role="alert">
+							<strong>Slots {selQuad}–{quadBelow} aren’t rated for quads.</strong> Your panel label allows them in slots {tandemText(panel)}
+							only. It may still be installed this way — worth checking with an electrician.
+						</div>
+					{/if}
+				{:else if sel.half}
 					{#if selMate}
 						{@const mate = selMate}
 						<div class="mate">
@@ -1816,5 +2012,123 @@
 	.rm:disabled {
 		opacity: 0.4;
 		cursor: default;
+	}
+	/* ---- Quad (DESIGN.md §5.18): four half-rows over two slots, tie bars over the handles. */
+	.quad {
+		position: relative;
+		display: grid;
+		grid-template-rows: repeat(4, minmax(0, 1fr));
+		gap: 2px;
+		padding: 2px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: var(--r-sm);
+		background: var(--enclosure-hi);
+		min-height: 94px;
+	}
+	.quad.bad {
+		border-color: var(--warn);
+		border-style: dashed;
+	}
+	.quad .th {
+		min-height: 20px;
+	}
+	.quad .th .num {
+		width: auto;
+		min-width: 30px;
+		flex-shrink: 0;
+	}
+	.quad .th.cont .lbl {
+		color: var(--muted);
+		font-style: italic;
+	}
+	.quad .th.is-sel.cont .lbl {
+		color: var(--on-amber);
+	}
+	.tie {
+		position: absolute;
+		width: 3px;
+		border-radius: 2px;
+		background: var(--tie);
+		pointer-events: none;
+		z-index: 2;
+	}
+	.tie.o {
+		right: 12px;
+	}
+	.tie.i {
+		right: 26px;
+	}
+	.quad.r .tie.o {
+		right: auto;
+		left: 12px;
+	}
+	.quad.r .tie.i {
+		right: auto;
+		left: 26px;
+	}
+	.tie.is-sel {
+		background: var(--ink);
+	}
+	:global([data-theme='dark']) .tie.is-sel {
+		background: var(--amber);
+	}
+	.qcard {
+		display: flex;
+		gap: 18px;
+		align-items: center;
+		padding: 16px;
+		border: 1px solid var(--line-2);
+		border-radius: var(--r-xl);
+		background: var(--raised);
+	}
+	.qmini {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 3px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: 5px;
+		background: var(--enclosure);
+		width: 120px;
+		flex-shrink: 0;
+	}
+	.qh {
+		height: 18px;
+		border-radius: 2px;
+		background: var(--raised);
+		border: 1px solid var(--breaker-bd);
+		display: flex;
+		align-items: center;
+		padding: 0 6px;
+		font-family: var(--font-mono);
+		font-size: 10px;
+		color: var(--soft);
+	}
+	.qh.on {
+		background: var(--amber);
+		border-color: var(--amber);
+		color: var(--on-amber);
+	}
+	.qt {
+		flex-grow: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.qt strong {
+		font-size: 15px;
+	}
+	.qt span {
+		font-size: 13px;
+		color: var(--muted);
+		line-height: 1.5;
+	}
+	.qacts {
+		display: flex;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+	.qacts .btn {
+		height: 36px;
 	}
 </style>
