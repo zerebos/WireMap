@@ -569,7 +569,15 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "panels_short_code_idx": {
+          "name": "panels_short_code_idx",
+          "columns": [
+            "short_code"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
