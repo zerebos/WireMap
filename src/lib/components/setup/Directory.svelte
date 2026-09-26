@@ -98,9 +98,8 @@
 	const isQuad = (v: { s: number; row: Row; cant2: boolean }) => v.row.quad && !v.cant2;
 	const isTwo = (v: { s: number; row: Row; cant2: boolean }) => v.row.two && !v.row.tandem && !isQuad(v) && !v.cant2;
 	const used = $derived(spacesUsed(existing, panel) + entered.reduce((n, v) => n + (isTwo(v) || isQuad(v) ? 2 : 1), 0));
-	const count = $derived(
-		entered.reduce((n, v) => n + (v.row.tandem || isQuad(v) ? Number(hasA(v.row)) + Number(hasB(v.row)) : 1), 0)
-	);
+	// A tandem or quad row is saved as both halves or pairs, even with one left blank.
+	const count = $derived(entered.reduce((n, v) => n + (v.row.tandem || isQuad(v) ? 2 : 1), 0));
 	const breakersText = (n: number) => (n === 1 ? '1 breaker' : `${n} breakers`);
 
 	// ---- Paste a list: one label per line, in slot order, into the slots that are still open.
