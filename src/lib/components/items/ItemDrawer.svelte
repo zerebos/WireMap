@@ -4,6 +4,7 @@
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
+	import { access } from '$lib/access.svelte';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
 	import { mutate, type HouseIndex, type HouseItem } from '$lib/house';
 	import { deleteItems, swapItemBreaker, updateItem } from '$lib/db/ops';
@@ -97,6 +98,40 @@
 		</button>
 	</div>
 
+	{#if access.guest}
+		<!-- Read-only guest view (DESIGN.md §5.13): the same facts, no edit controls. -->
+		<div class="dbody">
+			<dl class="ro">
+				<div class="fld"><dt class="k">Room</dt><dd class="v">{ix.roomName(item.roomId)}</dd></div>
+				<div class="fld">
+					<dt class="k">Breaker</dt>
+					<dd class="v">
+						{#each ix.breakersOf(item) as b (b.id)}<span class="rob"><span class="bnum">{ix.slotOf(b)}</span>{ix.labelOf(b)}</span>{:else}No breaker{/each}
+					</dd>
+				</div>
+				{#if item.critical}
+					<div class="fld"><dt class="k">Critical</dt><dd class="v">{item.criticalNote?.trim() || 'Warn before cutting its power'}</dd></div>
+				{/if}
+				{#if item.notes?.trim()}
+					<div class="fld"><dt class="k">Notes</dt><dd class="v note">{item.notes}</dd></div>
+				{/if}
+			</dl>
+			{#if placed}
+				<div class="mapcard">
+					<span class="ico"><Icon name="map" size={16} /></span>
+					<span class="mtext">
+						<span class="mt">Placed on {floorLabel}</span>
+						<span class="ms">{ix.roomName(roomId)}</span>
+					</span>
+					<a class="btn mbtn" href={mapHref}>Locate</a>
+				</div>
+			{/if}
+		</div>
+		<div class="dfoot">
+			<div class="grow"></div>
+			<button type="button" class="btn" onclick={onclose}>Close</button>
+		</div>
+	{:else}
 	<div class="dbody">
 		{#if firstBreaker === null && breakerId === null}
 			<div class="callout">
@@ -203,9 +238,42 @@
 		<button type="button" class="btn" onclick={onclose}>Close</button>
 		<button type="button" class="btn btn-pri" onclick={save} disabled={saving}>Save</button>
 	</div>
+	{/if}
 </aside>
 
 <style>
+	.ro {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		margin: 0;
+	}
+	.ro dd {
+		margin: 0;
+	}
+	.ro .v {
+		height: auto;
+		min-height: var(--control-h);
+		padding: 10px 12px;
+		flex-direction: column;
+		align-items: flex-start;
+		justify-content: center;
+		font-family: var(--font-ui);
+		font-size: 14px;
+		white-space: normal;
+	}
+	.rob {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.rob + .rob {
+		margin-top: 6px;
+	}
+	.note {
+		white-space: pre-wrap;
+		line-height: 1.5;
+	}
 	.drawer {
 		width: 380px;
 		flex-shrink: 0;

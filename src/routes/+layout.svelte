@@ -11,6 +11,7 @@
 	import { viewport } from '$lib/viewport.svelte';
 	import { traceFlow } from '$lib/trace.svelte';
 	import { applyTheme, effectiveTheme } from '$lib/theme';
+	import { access, syncAccess } from '$lib/access.svelte';
 
 	let { data, children } = $props();
 
@@ -44,6 +45,16 @@
 			nav.cancel();
 			goto(resolve('/setup'));
 		}
+	});
+
+	// Read-only guest view (DESIGN.md §5.13): Settings, Trace, Copy the directory and Setup change
+	// data, so a guest who reaches them by URL lands on the Panel.
+	$effect(() => {
+		if (data.house) syncAccess(data.house.settings.guestReadOnly);
+	});
+	const editOnly = ['/settings', '/trace', '/directory', '/setup'];
+	$effect(() => {
+		if (access.guest && editOnly.includes(route)) goto(resolve('/panel'), { replaceState: true });
 	});
 
 	// Search belongs to the page it was typed on.
@@ -116,7 +127,7 @@
 				<span class="mono step">Setup</span>
 			{:else}
 				<nav aria-label="Primary">
-					{#each links as link (link.href)}
+					{#each access.guest ? links.filter((l) => l.path !== '/settings') : links as link (link.href)}
 						<a class="nav" class:is-on={tabOf(route) === link.path} href={link.href} aria-current={tabOf(route) === link.path ? 'page' : undefined}>
 							{link.label}
 						</a>
@@ -128,9 +139,14 @@
 					<Icon name="search" size={16} />
 					<input id="q" class="search" type="search" placeholder={placeholders[tabOf(route)] ?? 'Search'} bind:value={search.q} />
 				</div>
-				<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
-					<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
-				</button>
+				{#if !access.guest}
+					<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
+						<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
+					</button>
+				{:else}
+					<span class="mono ro">READ-ONLY</span>
+					<a class="btn signin" href={resolve('/signin')}>Sign in</a>
+				{/if}
 				{#if panel && tree.length > 1}
 					<!-- More than one panel: the name becomes a menu of panels as a tree (DESIGN.md §5.17). -->
 					<div class="pmenu" bind:this={menuEl} onfocusout={(e) => !menuEl?.contains(e.relatedTarget as Node) && (menuOpen = false)}>
@@ -288,6 +304,27 @@
 	}
 	.tgl:hover {
 		background: var(--hdr-field);
+	}
+	.ro {
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--amber);
+		border: 1px solid var(--amber);
+		border-radius: 10px;
+		padding: 2px 8px;
+		flex-shrink: 0;
+	}
+	.signin {
+		height: 36px;
+		padding: 0 12px;
+		background: transparent;
+		color: var(--hdr-fg);
+		border-color: var(--hdr-field-bd);
+	}
+	.signin:hover {
+		background: var(--hdr-field);
+		color: var(--hdr-fg);
+		border-color: var(--hdr-field-bd);
 	}
 	.meta {
 		font-size: 12px;

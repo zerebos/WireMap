@@ -20,6 +20,7 @@
 	import type { Theme } from '$lib/constants';
 	import { query } from '$lib/search.svelte';
 	import { itemsCsv } from '$lib/csv';
+	import { setGuestView } from '$lib/access.svelte';
 
 	let { data } = $props();
 
@@ -657,12 +658,12 @@
 				<section id="access">
 					<h2 class="h2">Access</h2>
 					<div class="card">
-						<p class="soon top">Needs the server version — on the roadmap.</p>
 						{#if shows('access', 'auth')}
 							<div class="row">
 								<div class="lab">
 									<span class="sl" id="l-auth">Require sign-in</span>
 									<span class="sd">Turn off only if Breakerbook is reachable on your home network alone.</span>
+									<span class="soon">Needs the server version — on the roadmap.</span>
 								</div>
 								{@render sw(false, 'l-auth', undefined, true)}
 							</div>
@@ -675,8 +676,9 @@
 										>Anyone on the network can see the panel and map without signing in — handy for a tablet mounted by the
 										panel. Editing still needs an account.</span
 									>
+									<span class="soon">Until the server version, this locks only this device. Sign in unlocks it.</span>
 								</div>
-								{@render sw(false, 'l-guest', undefined, true)}
+								{@render sw(settings.guestReadOnly, 'l-guest', () => setGuestView(!settings.guestReadOnly))}
 							</div>
 						{/if}
 						{#if shows('access', 'users')}
@@ -684,6 +686,7 @@
 								<div class="lab">
 									<span class="sl">Users</span>
 									<span class="sd">People who can sign in and make changes.</span>
+									<span class="soon">Needs the server version — on the roadmap.</span>
 								</div>
 								<button type="button" class="btn" disabled>Add user</button>
 							</div>
@@ -860,14 +863,6 @@
 		font-size: 12px;
 		color: var(--muted);
 		font-style: italic;
-	}
-	.soon.top {
-		margin: 0;
-		padding: 18px 0 0;
-	}
-	.soon.top + .row {
-		border-top: 0;
-		padding-top: 12px;
 	}
 	.err {
 		margin: 0 0 14px;

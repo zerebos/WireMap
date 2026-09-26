@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { access } from '$lib/access.svelte';
 	import PlanPopover from './PlanPopover.svelte';
 	import { mutate, plural, type HouseIndex, type HouseItem } from '$lib/house';
 	import { createItem, createRoom, placeItem } from '$lib/db/ops';
@@ -195,7 +196,7 @@
 		if (e.button !== 0 || inOverlay(e) || !floor) return;
 		suppressClick = false;
 		if ((e.target as Element).closest('.it')) return;
-		if (tool === 'room' && !pendingRect) {
+		if (tool === 'room' && !pendingRect && !access.guest) {
 			const a = snap(toPlan(e));
 			drag = { kind: 'draw', a, b: a };
 			grid!.setPointerCapture(e.pointerId);
@@ -263,7 +264,7 @@
 	}
 
 	async function saveRoom() {
-		if (!pendingRect || !floor) return;
+		if (!pendingRect || !floor || access.guest) return;
 		const name = newName.trim();
 		if (!name) return void (nameError = 'Give the room a name.');
 		if (floorRooms.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
@@ -315,11 +316,11 @@
 	// ---- Empty floor (DESIGN.md §5.9): no rooms yet.
 	const noRooms = $derived(!!floor && floorRooms.length === 0);
 	/** The "Map the floor" card: no rooms and no plan, while nothing else is going on. */
-	const showCard = $derived(noRooms && !floor?.planImage && tool === 'select' && !movingItem);
+	const showCard = $derived(!access.guest && noRooms && !floor?.planImage && tool === 'select' && !movingItem);
 	// A floor with a plan but no rooms opens straight into drawing, over the plan.
 	const drawFirst = $derived(noRooms && !!floor?.planImage ? floorId : null);
 	$effect(() => {
-		if (drawFirst !== null) setTool('room');
+		if (drawFirst !== null && !access.guest) setTool('room');
 	});
 	let cardInput: HTMLInputElement | undefined = $state();
 	let cardError = $state('');
@@ -361,6 +362,7 @@
 			{/each}
 		</div>
 		<div class="grow"></div>
+		{#if !access.guest}
 		<div class="seg" role="group" aria-label="Tool">
 			<button type="button" class="sb" class:is-on={tool === 'select'} aria-pressed={tool === 'select'} onclick={() => setTool('select')}
 				><Icon name="cursor" size={16} /><span class="tl">Select</span></button
@@ -375,6 +377,7 @@
 		<button type="button" class="sb planbtn" class:is-on={planOpen} aria-expanded={planOpen} disabled={!floor} onclick={() => (planOpen = !planOpen)}
 			><Icon name="image" size={16} /><span class="tl">Floor plan</span></button
 		>
+		{/if}
 		{#if onedit}
 			<button type="button" class="btn editbtn" disabled={!floor} onclick={onedit}><Icon name="pencil" size={14} stroke={2.2} />Edit layout</button>
 		{/if}

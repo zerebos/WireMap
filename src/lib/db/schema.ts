@@ -158,7 +158,9 @@ export const settings = sqliteTable('settings', {
 	startPage: text('start_page', { enum: START_PAGES }).notNull().default('panel'),
 	theme: text('theme', { enum: THEMES }).notNull().default('system'),
 	showLegs: integer('show_legs', { mode: 'boolean' }).notNull().default(true),
-	mapFadeOthers: integer('map_fade_others', { mode: 'boolean' }).notNull().default(true)
+	mapFadeOthers: integer('map_fade_others', { mode: 'boolean' }).notNull().default(true),
+	/** Settings → Access → Read-only guest view (DESIGN.md §5.13). Without a server it locks this device. */
+	guestReadOnly: integer('guest_read_only', { mode: 'boolean' }).notNull().default(false)
 });
 
 export const panelsRelations = relations(panels, ({ many }) => ({ breakers: many(breakers) }));

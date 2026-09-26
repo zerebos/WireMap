@@ -42,6 +42,7 @@ Confirm with the owner before changing any of these.
 - Every breaker number on screen or paper comes from `slotLabel()` / `spaceLabel()` (short-code prefix + spaces, e.g. "G6", "17A", "21A/23B"). Don't build numbers by hand.
 - Subpanels are panels with `fed_by_breaker_id`. `index(house)` has `feederOf`, `fedPanelOf`, `feedersAbove`, `downstream` and `panelTree`.
 - The printed directory (`/print`) is always light. Its colors are the `--print-*` tokens, which, like the `--pv-*` preview tokens, exist only in `src/lib/tokens.css`.
+- Read-only guest view is `access.guest` (`src/lib/access.svelte.ts`). Every edit control is wrapped in `{#if !access.guest}` (removed, not disabled), and the layout sends guests away from Settings, Trace, Directory and Setup. Without a server it's a lock on this device: Sign in unlocks it with no password check. New edit controls need the same guard.
 - The header search writes `search.q` (`src/lib/search.svelte.ts`). Each page filters itself with it.
 - The theme is `settings.theme`, applied as `data-theme` on `<html>` (`src/lib/theme.ts`) and mirrored to localStorage so `app.html` can set it before paint.
 - Selection state that should survive a reload or a link lives in the URL. For example `/panel?b=`, `/map?item=|circuit=|room=&floor=`, `/items?item=`, `/shutoff?room=|breaker=|item=`, `/trace?b=`, `/panel?p=&b=&add=sub&shutoff=1` and `/print?p=`.

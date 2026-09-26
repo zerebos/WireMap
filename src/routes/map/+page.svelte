@@ -10,6 +10,7 @@
 	import PhoneShell from '$lib/components/phone/PhoneShell.svelte';
 	import { viewport } from '$lib/viewport.svelte';
 	import MapEditor from '$lib/components/map/edit/MapEditor.svelte';
+	import { access } from '$lib/access.svelte';
 	import { NONE, defaultFloor, floorOfCircuit, floorSteps, litBreakers, type Sel, type Tool } from '$lib/components/map/model';
 	import type { Breaker, Room } from '$lib/db/schema';
 	import { index, type HouseItem } from '$lib/house';
@@ -68,7 +69,7 @@
 		if (moving !== null) tool = 'select';
 	}
 	/** Layout editing (DESIGN.md §5.10): ?edit=1, optionally opening on a room. */
-	const editing = $derived(params.get('edit') === '1' && floorId !== null);
+	const editing = $derived(!access.guest && params.get('edit') === '1' && floorId !== null);
 	function edit(room: Room | null = null) {
 		const q = new URLSearchParams({ edit: '1', floor: String(room?.floorId ?? floorId) });
 		if (room) q.set('room', String(room.id));
@@ -96,7 +97,7 @@
 			{/key}
 		{:else}
 			<CircuitList {ix} q={query()} {lit} onpick={pickCircuit} empty={floorId !== null && !steps.placed} />
-			<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:tool bind:hovB bind:moving {go} onedit={() => edit()} />
+			<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:tool bind:hovB bind:moving {go} onedit={access.guest ? undefined : () => edit()} />
 			<Inspector {ix} {sel} {floorId} bind:hovB {moving} {go} onmove={startMove} onshape={(r) => edit(r)} />
 		{/if}
 	</div>

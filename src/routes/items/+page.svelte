@@ -12,6 +12,7 @@
 	import { createItem, moveItemsToBreaker } from '$lib/db/ops';
 	import { query, search } from '$lib/search.svelte';
 	import { importItemsCsv } from '$lib/csv';
+	import { access } from '$lib/access.svelte';
 
 	let { data } = $props();
 	const house = $derived(data.house);
@@ -221,8 +222,8 @@
 					onclick={exportCsv}
 					disabled={house.items.length === 0}
 					title="Downloads the items shown in the table">Export CSV</button>
-				<button type="button" class="btn btn-pri" onclick={addItem}
-					>{#if house.items.length}<Icon name="plus" size={16} stroke={2.2} />{/if}Add item</button>
+				{#if !access.guest}<button type="button" class="btn btn-pri" onclick={addItem}
+					>{#if house.items.length}<Icon name="plus" size={16} stroke={2.2} />{/if}Add item</button>{/if}
 			</div>
 		</div>
 
@@ -239,7 +240,7 @@
 							breaker — flip it off and tap what went dark.
 						</p>
 					</div>
-					<div class="nacts">
+					{#if !access.guest}<div class="nacts">
 						<a class="btn btn-pri" href={resolve('/trace')}>Trace a breaker</a>
 						<button type="button" class="btn" onclick={addItem}>Add item</button>
 						<button type="button" class="btn" disabled={importing} onclick={() => csvInput?.click()}>Import CSV…</button>
@@ -253,7 +254,7 @@
 							onchange={(e) => importCsv(e.currentTarget.files?.[0])}
 						/>
 					</div>
-					<span class="mono hint">CSV columns: name, type, floor, room, breaker</span>
+					<span class="mono hint">CSV columns: name, type, floor, room, breaker</span>{/if}
 				</div>
 			</div>
 		{:else}
@@ -304,7 +305,7 @@
 				<div class="tbl" role="table" aria-label="Items" aria-rowcount={rows.length + 1}>
 					<div class="trow thead" role="row">
 						<span role="columnheader" class="cb"
-							><input type="checkbox" checked={allChecked} onchange={toggleAll} aria-label="Select all shown items" /></span>
+							>{#if !access.guest}<input type="checkbox" checked={allChecked} onchange={toggleAll} aria-label="Select all shown items" />{/if}</span>
 						<span role="columnheader"><span class="sr">Type</span></span>
 						{#each [['name', 'Name'], ['room', 'Room'], ['floor', 'Floor'], ['breaker', 'Breaker']] as const as [k, label] (k)}
 							<span role="columnheader" aria-sort={ariaSort(k)}
@@ -319,11 +320,11 @@
 							{@const tag = bs[0] ? ix.tagOf(bs[0]) : ''}
 							<div class="trow" class:is-chk={checked.has(i.id)} class:is-open={i.id === openId} role="row">
 								<span role="cell" class="cb"
-									><input
+									>{#if !access.guest}<input
 										type="checkbox"
 										checked={checked.has(i.id)}
 										onchange={() => toggle(i.id)}
-										aria-label="Select {i.name || 'Untitled item'}" /></span>
+										aria-label="Select {i.name || 'Untitled item'}" />{/if}</span>
 								<span role="cell" class="ico" title={ITEM_TYPE_LABELS[i.type].one}
 									><Icon name={i.type} size={16} /><span class="sr">{ITEM_TYPE_LABELS[i.type].one}</span></span>
 								<span role="cell" class="nm"
