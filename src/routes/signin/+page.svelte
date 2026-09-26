@@ -54,7 +54,9 @@
 					<input id="p" class="inp" type="password" autocomplete="current-password" bind:value={pw} oninput={() => (err = false)} />
 				</div>
 				<label class="chk"><input type="checkbox" bind:checked={stay} />Stay signed in on this device</label>
-				<button type="submit" class="btn btn-pri go">Sign in</button>
+				<!-- Accounts come with the server version (README → Roadmap), so signing in is off for now. -->
+				<button type="submit" class="btn btn-pri go" disabled aria-describedby="si-d" title="Needs the server version — on the roadmap.">Sign in</button>
+				<span class="sr" id="si-d">Needs the server version — on the roadmap.</span>
 			</div>
 			{#if access.guestEnabled}
 				<div class="guest">
