@@ -37,7 +37,7 @@
 
 	// First-run setup (minimal header) and the pages that belong to a nav tab.
 	const setup = $derived(route === '/setup');
-	const tabOf = (r: string) => (r === '/directory' || r === '/trace' ? '/panel' : r);
+	const tabOf = (r: string) => (r === '/directory' || r === '/trace' || r === '/print' ? '/panel' : r);
 	// With no panel yet, every page but Settings leads to setup.
 	beforeNavigate((nav) => {
 		if (nav.to && data.house && needsSetup(data.house, nav.to.route.id)) {
