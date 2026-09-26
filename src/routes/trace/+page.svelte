@@ -41,13 +41,13 @@
 	const all = $derived([...data.house.breakers].filter((b) => !ix.fedPanelOf(b)).sort(order));
 	const feeders = $derived(data.house.breakers.filter((b) => ix.fedPanelOf(b)).sort(order));
 	const tree = $derived(ix.panelTree());
-	/** A list split by panel, in tree order. One panel: one group with no heading. */
-	const byPanel = (list: Breaker[], withFeeders = false) =>
+	/** A list split by panel, in tree order. One panel: one group with no heading. Feeders that pass `feeds` are added. */
+	const byPanel = (list: Breaker[], feeds: ((b: Breaker) => boolean) | null = null) =>
 		tree
 			.map((t) => ({
 				panel: t.panel,
 				bs: list.filter((b) => b.panelId === t.panel.id),
-				fs: withFeeders ? feeders.filter((b) => b.panelId === t.panel.id) : []
+				fs: feeds ? feeders.filter((b) => b.panelId === t.panel.id && feeds(b)) : []
 			}))
 			.filter((g) => g.bs.length || g.fs.length);
 	const isChecked = (b: Breaker) => b.lastCheckedAt !== null;
@@ -185,7 +185,7 @@
 			</div>
 			<div class="dlist">
 				<h2 class="ov">Not checked yet · {todo.length}</h2>
-				{#each byPanel(todo.filter(hit), true) as g (g.panel.id)}
+				{#each byPanel(todo.filter(hit), hit) as g (g.panel.id)}
 					{#if tree.length > 1}<h3 class="ov pg">{g.panel.name}</h3>{/if}
 					{#each g.bs as b (b.id)}
 						{@render drow(b, false)}
@@ -235,7 +235,7 @@
 			</div>
 			<div class="scroll">
 				<h2 class="ov">Not checked yet · {todo.length}</h2>
-				{#each byPanel(todo, true) as g (g.panel.id)}
+				{#each byPanel(todo, () => true) as g (g.panel.id)}
 					{#if tree.length > 1}<h3 class="ov pg">{g.panel.name}</h3>{/if}
 					{#each g.bs as b (b.id)}
 						{@render row(b, false)}

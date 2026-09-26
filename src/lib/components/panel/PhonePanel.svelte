@@ -104,7 +104,7 @@
 								</div>
 							{:else if c.breaker}
 								{@const b = c.breaker}
-								{@const tag = PROTECTION_TAGS[b.kind]}
+								{@const tag = ix.fedPanelOf(b) ? 'SUB' : PROTECTION_TAGS[b.kind]}
 								<button
 									type="button"
 									class="pb pb-{b.poles === 2 ? 2 : 1}"

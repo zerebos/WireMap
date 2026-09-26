@@ -80,7 +80,10 @@
 		const down = ix.downstream(feeder!);
 		const ids = new Set(down.breakers.map((b) => b.id));
 		const orphans = down.items.filter((i) => i.breakerIds.every((b) => ids.has(b))).length;
-		const what = ` Its ${plural(inside.length, 'breaker')} will be removed${orphans ? ` and ${plural(orphans, 'item')} will have no breaker` : ''}.`;
+		// Deleting a panel takes every panel it feeds with it, so count all of their breakers.
+		const more = down.panels.length - 1;
+		const lead = more ? ` It feeds ${plural(more, 'more panel')}, so ${plural(down.breakers.length, 'breaker')}` : ` Its ${plural(down.breakers.length, 'breaker')}`;
+		const what = `${lead} will be removed${orphans ? ` and ${plural(orphans, 'item')} will have no breaker` : ''}.`;
 		if (!confirm(`Delete ${panel.name}?${what}`)) return;
 		await mutate(() => deletePanel(id));
 	}
