@@ -94,7 +94,8 @@
 	);
 	const isTwo = (v: { row: Row; cant2: boolean }) => v.row.two && !v.row.tandem && !v.cant2;
 	const used = $derived(spacesUsed(existing, panel) + entered.reduce((n, v) => n + (isTwo(v) ? 2 : 1), 0));
-	const count = $derived(entered.reduce((n, v) => n + (v.row.tandem ? Number(hasA(v.row)) + Number(hasB(v.row)) : 1), 0));
+	// A tandem row is saved as both halves, even with one left blank.
+	const count = $derived(entered.reduce((n, v) => n + (v.row.tandem ? 2 : 1), 0));
 	const breakersText = (n: number) => (n === 1 ? '1 breaker' : `${n} breakers`);
 
 	// ---- Paste a list: one label per line, in slot order, into the slots that are still open.

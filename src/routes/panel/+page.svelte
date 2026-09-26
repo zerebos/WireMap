@@ -259,11 +259,17 @@
 
 	// ---- Tandem halves (DESIGN.md §5.15): the other half of the selected breaker's slot.
 	const selMate = $derived(sel?.half ? (placed.find((b) => b.slot === sel.slot && b.half && b.id !== sel.id) ?? null) : null);
+	let splitting = $state(false);
 	async function toTandem() {
-		if (!sel || sel.half || sel.poles !== 1) return;
+		if (!sel || sel.half || sel.poles !== 1 || splitting) return;
 		const id = sel.id;
-		const b = await mutate(() => makeTandem(id));
-		await pick(b);
+		splitting = true;
+		try {
+			const b = await mutate(() => makeTandem(id));
+			await pick(b);
+		} finally {
+			splitting = false;
+		}
 	}
 	async function toFull() {
 		if (!sel) return;
@@ -586,7 +592,7 @@
 								class="sb"
 								class:is-on={!!sel.half}
 								aria-pressed={!!sel.half}
-								disabled={sel.poles === 2}
+								disabled={sel.poles === 2 || splitting}
 								onclick={toTandem}>Tandem A+B</button
 							>
 						</div>
