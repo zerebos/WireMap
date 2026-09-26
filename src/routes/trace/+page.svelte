@@ -67,6 +67,10 @@
 		opener = null;
 		toast = '';
 		sheetFor = b.id;
+		// Keep the pick in the URL (/trace?b=), so a reload or a copied link opens the same breaker.
+		const url = new URL(page.url);
+		url.searchParams.set('b', String(b.id));
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	const sheetB = $derived(sheetFor === null ? null : (ix.breakerById.get(sheetFor) ?? null));

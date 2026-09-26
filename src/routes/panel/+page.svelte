@@ -360,12 +360,19 @@
 		if (sel.poles !== 2 || sel.half) return 'Only a full-size 2-pole breaker can become a quad.';
 		return null;
 	});
+	/** A tandem or quad split is saving: the buttons are off so a double-click can't split twice. */
+	let splitting = $state(false);
 	async function toQuad() {
-		if (!sel || !panel || selQuad !== null || noQuadWhy) return;
+		if (!sel || !panel || selQuad !== null || noQuadWhy || splitting) return;
 		const id = sel.id;
 		const below = nextInColumn(sel.slot, panel);
-		const inner = await mutate(() => makeQuad(id, below));
-		await pick(inner);
+		splitting = true;
+		try {
+			const inner = await mutate(() => makeQuad(id, below));
+			await pick(inner);
+		} finally {
+			splitting = false;
+		}
 	}
 	async function toTwoPole() {
 		if (!sel) return;
@@ -382,10 +389,15 @@
 	}
 
 	async function toTandem() {
-		if (!sel || sel.half || sel.poles !== 1 || selQuad !== null) return;
+		if (!sel || sel.half || sel.poles !== 1 || selQuad !== null || splitting) return;
 		const id = sel.id;
-		const b = await mutate(() => makeTandem(id));
-		await pick(b);
+		splitting = true;
+		try {
+			const b = await mutate(() => makeTandem(id));
+			await pick(b);
+		} finally {
+			splitting = false;
+		}
 	}
 	async function toFull() {
 		if (!sel) return;
@@ -821,7 +833,7 @@
 								class="sb"
 								class:is-on={!!sel.half && selQuad === null}
 								aria-pressed={!!sel.half && selQuad === null}
-								disabled={sel.poles === 2 || selQuad !== null}
+								disabled={sel.poles === 2 || selQuad !== null || splitting}
 								onclick={toTandem}>Tandem</button
 							>
 							<button
@@ -829,7 +841,7 @@
 								class="sb"
 								class:is-on={selQuad !== null}
 								aria-pressed={selQuad !== null}
-								disabled={!!noQuadWhy}
+								disabled={!!noQuadWhy || splitting}
 								title={noQuadWhy ?? undefined}
 								onclick={toQuad}>Quad</button
 							>
