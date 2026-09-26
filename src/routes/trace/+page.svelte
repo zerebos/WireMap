@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Trace a breaker (docs/design/DESIGN.md §5.6): pick & flip → mark what died → name & save.
 	// /trace?b=<breakerId> opens the flip sheet for that breaker.
-	import { tick, untrack } from 'svelte';
+	import { compareBreakers } from '$lib/panel';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -15,6 +16,9 @@
 	import { index, mutate, plural } from '$lib/house';
 	import { saveTrace } from '$lib/db/ops';
 	import type { Breaker } from '$lib/db/schema';
+	import { viewport } from '$lib/viewport.svelte';
+	import { traceFlow } from '$lib/trace.svelte';
+	import { search } from '$lib/search.svelte';
 
 	let { data } = $props();
 	const ix = $derived(index(data.house));
@@ -32,19 +36,35 @@
 	let toast = $state('');
 	let busy = $state(false);
 
-	const order = (a: Breaker, b: Breaker) => a.panelId - b.panelId || a.slot - b.slot;
+	const order = (a: Breaker, b: Breaker) => compareBreakers(a, b);
 	const all = $derived([...data.house.breakers].sort(order));
 	const isChecked = (b: Breaker) => b.lastCheckedAt !== null;
 	const todo = $derived(all.filter((b) => !isChecked(b)).sort((a, b) => (a.label ? 1 : 0) - (b.label ? 1 : 0) || order(a, b)));
 	const done = $derived(all.filter(isChecked));
 	const pct = $derived(all.length ? Math.round((done.length / all.length) * 100) : 0);
 
+	// ?b=<id> opens the sheet for that breaker.
+	const bParam = $derived(page.url.searchParams.get('b'));
+	// Desktop starts on the hand-off card (DESIGN.md §5.16); picking a breaker there hands off to the flow.
+	const card = $derived(!viewport.phone && !traceFlow.handoff && bParam === null);
+	onDestroy(() => (traceFlow.handoff = false));
+	const q = $derived(search.q.trim().toLowerCase());
+	const hit = (b: Breaker) => !q || ix.slotOf(b).toLowerCase().includes(q) || ix.labelOf(b).toLowerCase().includes(q);
+	function handoff(b: Breaker) {
+		traceFlow.handoff = true;
+		opener = null;
+		toast = '';
+		sheetFor = b.id;
+		// Keep the pick in the URL (/trace?b=), so a reload or a copied link opens the same breaker.
+		const url = new URL(page.url);
+		url.searchParams.set('b', String(b.id));
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
 	const sheetB = $derived(sheetFor === null ? null : (ix.breakerById.get(sheetFor) ?? null));
 	const tb = $derived(tbId === null ? null : (ix.breakerById.get(tbId) ?? null));
 	const markedItems = $derived(data.house.items.filter((i) => marked.has(i.id)));
 
-	// ?b=<id> opens the sheet for that breaker.
-	const bParam = $derived(page.url.searchParams.get('b'));
 	$effect(() => {
 		const id = bParam && /^\d+$/.test(bParam) ? +bParam : null;
 		untrack(() => {
@@ -127,6 +147,43 @@
 	<title>Trace circuits · Breakerbook</title>
 </svelte:head>
 
+{#if card}
+	<main class="desk">
+		<section class="dcard" aria-labelledby="dt-t">
+			<div class="dtop">
+				<div class="ttl">
+					<h1 id="dt-t">Trace circuits</h1>
+					<span class="subt">Flip one breaker, tap what goes dark.</span>
+				</div>
+				<div class="qr">
+					<span class="code" aria-hidden="true">QR code</span>
+					<span class="qt">
+						<span class="qh">Open this on your phone</span>
+						<span class="mono qa">[this server’s address]/trace</span>
+						<span class="hint">Tracing from a second device needs the server version — on the roadmap.</span>
+					</span>
+				</div>
+				<div class="prog">
+					<div class="progt">
+						<span class="pt">{done.length} of {plural(all.length, 'breaker')} checked</span>
+						<span class="mono pm">{data.house.panel?.name ?? ''}</span>
+					</div>
+					<div class="bar"><span style:width="{pct}%"></span></div>
+				</div>
+			</div>
+			<div class="dlist">
+				<h2 class="ov">Not checked yet · {todo.length}</h2>
+				{#each todo.filter(hit) as b (b.id)}
+					{@render drow(b, false)}
+				{/each}
+				<h2 class="ov later">Checked · {done.length}</h2>
+				{#each done.filter(hit) as b (b.id)}
+					{@render drow(b, true)}
+				{/each}
+			</div>
+		</section>
+	</main>
+{:else}
 <PhoneFrame>
 	{#if step === 'mark' && tb}
 		<TraceMark {ix} {tb} {marked} {keep} bind:floor onback={() => go('pick')} onreview={() => go('name')} />
@@ -172,6 +229,15 @@
 		{/if}
 	{/if}
 </PhoneFrame>
+{/if}
+
+{#snippet drow(b: Breaker, checked: boolean)}
+	<button type="button" class="drw" class:is-unl={!b.label} onclick={() => handoff(b)}>
+		<span class="bnum">{ix.slotOf(b)}</span>
+		<span class="ln">{ix.labelOf(b)}</span>
+		<span class="sub">{checked ? 'Checked' : 'Not checked'} · {plural(ix.itemsOf(b.id).length, 'item')}</span>
+	</button>
+{/snippet}
 
 {#snippet row(b: Breaker, checked: boolean)}
 	<button type="button" class="lrow" class:is-unl={!b.label} onclick={(e) => openSheet(b, e)}>
@@ -185,6 +251,98 @@
 {/snippet}
 
 <style>
+	.desk {
+		flex: 1 1 0;
+		min-height: 0;
+		overflow: auto;
+		padding: 32px;
+		display: flex;
+		justify-content: center;
+		align-items: flex-start;
+	}
+	.dcard {
+		width: 720px;
+		max-width: 100%;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: var(--r-xl);
+		display: flex;
+		flex-direction: column;
+	}
+	.dtop {
+		padding: 24px;
+		display: flex;
+		flex-direction: column;
+		gap: 18px;
+		border-bottom: 1px solid var(--line);
+	}
+	.qr {
+		display: flex;
+		gap: 16px;
+		align-items: center;
+		padding: 12px;
+		border-radius: var(--r-lg);
+		background: var(--bg);
+	}
+	.code {
+		width: 96px;
+		height: 96px;
+		flex-shrink: 0;
+		border: 1.5px dashed var(--field);
+		border-radius: var(--r-md);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 11px;
+		color: var(--muted);
+	}
+	.qt {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.qh {
+		font-size: 15px;
+		font-weight: 700;
+	}
+	.qa {
+		font-size: 13px;
+	}
+	.qt .hint {
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.dlist {
+		padding: 16px 24px 24px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.drw {
+		display: grid;
+		grid-template-columns: 56px minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 12px;
+		min-height: 44px;
+		padding: 6px 10px;
+		border: 1px solid var(--line-2);
+		border-radius: var(--r-lg);
+		background: var(--raised);
+		font: inherit;
+		color: var(--ink);
+		text-align: left;
+		cursor: pointer;
+	}
+	.drw:hover {
+		border-color: var(--btn-bd-h);
+	}
+	.drw .ln {
+		font-size: 14px;
+	}
+	.drw.is-unl .ln {
+		font-style: italic;
+		color: var(--warn);
+	}
 	.pick {
 		flex: 1 1 0;
 		min-height: 0;

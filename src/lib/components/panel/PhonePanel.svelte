@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import type { HouseIndex } from '$lib/house';
-	import { faceColumns, legOfRow, rowCount, slotLabel, type Cell } from '$lib/panel';
+	import { faceColumns, legOfRow, rowCount, slotLabel, tandemOk, type Cell } from '$lib/panel';
 	import { PROTECTION_TAGS } from '$lib/constants';
 	import { search } from '$lib/search.svelte';
 	import BreakerSheet from '$lib/components/phone/BreakerSheet.svelte';
@@ -53,7 +53,27 @@
 				{#snippet col(cells: Cell<Breaker>[], r: boolean)}
 					<div class="col">
 						{#each cells as c (c.slot)}
-							{#if c.breaker}
+							{#if c.halves}
+								<div class="tdm" class:bad={!tandemOk(c.slot, panel)} role="group" aria-label="Tandem slot {c.slot}">
+									{#each c.halves as h, i (i)}
+										{#if h}
+											<button
+												type="button"
+												class="pch"
+												class:r
+												class:is-sel={selected?.id === h.id}
+												class:is-unl={!h.label.trim()}
+												class:is-dim={!matches(h)}
+												data-breaker={h.id}
+												aria-label="Breaker {slotLabel(h, panel)}, {h.label.trim() || 'unlabeled'}, {h.amps} amp"
+												onclick={() => onpick(h)}><span class="n">{slotLabel(h, panel)}</span><span class="pl">{h.label.trim() || 'Unlabeled'}</span></button
+											>
+										{:else}
+											<div class="pch open" class:r><span class="n">{c.slot}{i === 0 ? 'A' : 'B'}</span><span class="pl">Open</span></div>
+										{/if}
+									{/each}
+								</div>
+							{:else if c.breaker}
 								{@const b = c.breaker}
 								{@const tag = PROTECTION_TAGS[b.kind]}
 								<button
@@ -92,7 +112,7 @@
 </div>
 
 {#if selected}
-	<BreakerSheet {ix} breaker={selected} {panel} onclose={close} />
+	<BreakerSheet {ix} breaker={selected} {panel} onclose={close} {onpick} />
 {/if}
 
 <style>
@@ -273,5 +293,81 @@
 		border-radius: 2px;
 		background: var(--tag-bg);
 		color: var(--tag-fg);
+	}
+	/* Tandem slot: the same 46px, split into two 20px halves (DESIGN.md §5.15). */
+	.tdm {
+		height: 46px;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 2px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: var(--r-sm);
+	}
+	.tdm.bad {
+		border-color: var(--warn);
+		border-style: dashed;
+	}
+	.pch {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		height: 20px;
+		padding: 0 6px;
+		border: 1px solid var(--breaker-bd);
+		border-radius: 3px;
+		background: var(--raised);
+		font: inherit;
+		font-size: 12px;
+		font-stretch: 78%;
+		font-weight: 600;
+		color: var(--ink);
+		text-align: left;
+		cursor: pointer;
+		min-width: 0;
+	}
+	.pch.r {
+		flex-direction: row-reverse;
+		text-align: right;
+	}
+	.pch .n {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		color: var(--muted);
+		font-stretch: 100%;
+		font-weight: 400;
+		flex-shrink: 0;
+	}
+	.pl {
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.pch.is-unl .pl {
+		color: var(--warn);
+		font-style: italic;
+	}
+	.pch.is-sel {
+		background: var(--amber);
+		color: var(--on-amber);
+		border-color: var(--on-amber);
+	}
+	.pch.is-sel .n,
+	.pch.is-sel.is-unl .pl {
+		color: var(--on-amber);
+	}
+	.pch.is-dim {
+		opacity: 0.3;
+	}
+	.pch.open {
+		border-style: dashed;
+		background: transparent;
+		cursor: default;
+	}
+	.pch.open .pl {
+		color: var(--muted);
+		font-style: italic;
+		font-weight: 500;
 	}
 </style>

@@ -92,11 +92,11 @@ export async function importItemsCsv(house: House, text: string): Promise<Import
 		const byLabel = (s: string) => onPanel.find((b) => b.label && norm(b.label) === norm(s));
 		const bySlot = (s: string) => {
 			const t = s.trim();
-			if (!/^\d+(\s*\/\s*\d+)?$/.test(t)) return undefined;
-			const n = Number(t.split('/')[0]);
+			if (!/^\d+[AB]?(\s*\/\s*\d+[AB]?)?$/i.test(t)) return undefined;
+			const n = parseInt(t.split('/')[0], 10);
 			return (
-				onPanel.find((b) => ix.slotOf(b).replace(/\s/g, '') === t.replace(/\s/g, '')) ??
-				onPanel.find((b) => b.slot === n || (b.poles === 2 && b.slot + 2 === n))
+				onPanel.find((b) => ix.slotOf(b).replace(/\s/g, '') === t.replace(/\s/g, '').toUpperCase()) ??
+				onPanel.find((b) => !b.half && (b.slot === n || (b.poles === 2 && b.slot + 2 === n)))
 			);
 		};
 		const whole = bySlot(v) ?? byLabel(v);

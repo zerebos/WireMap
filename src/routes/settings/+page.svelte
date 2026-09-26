@@ -48,7 +48,7 @@
 			fade: 'Fade other items on the map. When a circuit is selected, everything it doesn’t feed fades back.'
 		},
 		panels: {
-			panel: 'Main panel. Add subpanel. Main breaker. Spaces. Slot numbering, odd left, even right, down the left, then the right. Location'
+			panel: 'Main panel. Add subpanel. Main breaker. Spaces. Slot numbering, odd left, even right, down the left, then the right. Location. Tandem slots'
 		},
 		floors: {
 			floors: `Floors. Top to bottom, the way the house stacks. Add floor. Floor plan image. Upload image. Replace image. Delete. ${house.floors.map((f) => f.name).join(' ')}`
@@ -147,7 +147,7 @@
 	);
 
 	function fitProblem(s: { slotCount: number; numbering: Numbering }): string | null {
-		const used = spacesUsed(mainBreakers);
+		const used = spacesUsed(mainBreakers, s);
 		if (used > s.slotCount) {
 			return `${used} spaces are in use. Move or remove breakers above slot ${s.slotCount} first.`;
 		}
@@ -183,6 +183,13 @@
 		const location = e.currentTarget.value.trim() || null;
 		const id = panel.id;
 		if (location !== panel.location) mutate(() => updatePanel(id, { location }));
+	}
+
+	function saveTandem(e: Event & { currentTarget: HTMLInputElement }) {
+		if (!panel) return;
+		const tandemSlots = e.currentTarget.value.trim() || null;
+		const id = panel.id;
+		if (tandemSlots !== panel.tandemSlots) mutate(() => updatePanel(id, { tandemSlots }));
 	}
 
 	// ---- Floors (top floor first)
@@ -556,6 +563,21 @@
 									value={panel.location ?? ''}
 									onchange={saveLocation}
 								/>
+							</div>
+							<div class="fld">
+								<label for="p-tdm">Tandem slots</label>
+								<input
+									id="p-tdm"
+									class="inp"
+									type="text"
+									placeholder="e.g. 17–28"
+									value={panel.tandemSlots ?? ''}
+									onchange={saveTandem}
+									aria-describedby="p-tdm-d"
+								/>
+								<span class="sd" id="p-tdm-d"
+									>Printed on the panel label, e.g. “Class CTL — tandems in spaces 17–28”. Leave blank if you’re not sure.</span
+								>
 							</div>
 							{#if problem}
 								<div class="shrink" role="status">

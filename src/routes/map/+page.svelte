@@ -5,6 +5,7 @@
 	import CircuitList from '$lib/components/map/CircuitList.svelte';
 	import Inspector from '$lib/components/map/Inspector.svelte';
 	import MapView from '$lib/components/map/MapView.svelte';
+	import ShutoffDrawer from '$lib/components/ShutoffDrawer.svelte';
 	import PhoneMap from '$lib/components/map/PhoneMap.svelte';
 	import PhoneShell from '$lib/components/phone/PhoneShell.svelte';
 	import { viewport } from '$lib/viewport.svelte';
@@ -75,6 +76,9 @@
 		tool = 'select';
 		goto(`${resolve('/map')}?${q}`, { replaceState: false, keepFocus: true, noScroll: true });
 	}
+	/** Shut off on desktop (DESIGN.md §5.16): &shutoff=1 opens the drawer for the selection. */
+	const shutoff = $derived(params.get('shutoff') === '1' && sel.kind !== 'none' ? sel : null);
+
 	function doneEditing() {
 		go(NONE);
 	}
@@ -96,6 +100,17 @@
 			<Inspector {ix} {sel} {floorId} bind:hovB {moving} {go} onmove={startMove} onshape={(r) => edit(r)} />
 		{/if}
 	</div>
+	{#if shutoff && !editing}
+		<ShutoffDrawer
+			{ix}
+			want={{
+				room: shutoff.kind === 'room' ? shutoff.id : null,
+				breaker: shutoff.kind === 'circuit' ? shutoff.id : null,
+				item: shutoff.kind === 'item' ? shutoff.id : null
+			}}
+			onclose={() => go(sel)}
+		/>
+	{/if}
 {/if}
 
 <style>

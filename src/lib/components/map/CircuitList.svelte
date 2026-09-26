@@ -23,7 +23,7 @@
 	const shown = $derived(
 		all.filter((b) => {
 			if (!q) return true;
-			if (ix.labelOf(b).toLowerCase().includes(q) || String(b.slot) === q || ix.slotOf(b) === q) return true;
+			if (ix.labelOf(b).toLowerCase().includes(q) || String(b.slot) === q || ix.slotOf(b).toLowerCase() === q) return true;
 			return ix.itemsOf(b.id).some((i) => `${i.name} ${ix.roomName(i.roomId)}`.toLowerCase().includes(q));
 		})
 	);

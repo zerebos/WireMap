@@ -36,3 +36,7 @@ export const SPACES = [20, 24, 30, 40, 42];
 
 /** Minimum copper wire for a breaker's amperage. A guide, not a code check. */
 export const MIN_WIRE: Record<number, string> = { 15: '14 AWG', 20: '12 AWG', 30: '10 AWG', 40: '8 AWG', 50: '6 AWG' };
+
+/** Tandem halves: A is the upper half of the space, B the lower (DESIGN.md §5.15). */
+export const HALVES = ['A', 'B'] as const;
+export type Half = (typeof HALVES)[number];

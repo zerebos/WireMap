@@ -1,5 +1,6 @@
 <script lang="ts">
 	// Items: inventory table with an editor drawer (DESIGN.md §5.3, mockups/Items.dc.html).
+	import { compareBreakers } from '$lib/panel';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -81,7 +82,7 @@
 			const ba = ix.breakersOf(a)[0];
 			const bb = ix.breakersOf(b)[0];
 			if (!ba || !bb) return (ba ? 0 : 1) - (bb ? 0 : 1);
-			return (ba.panelId - bb.panelId || ba.slot - bb.slot) * sd;
+			return compareBreakers(ba, bb) * sd;
 		};
 		return list.sort((a, b) => cmp(a, b) || a.name.localeCompare(b.name));
 	});

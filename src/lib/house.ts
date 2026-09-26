@@ -6,7 +6,7 @@ import { invalidate } from '$app/navigation';
 import { db } from './db';
 import * as t from './db/schema';
 import type { Breaker, Floor, Item, Panel, Room, Settings } from './db/schema';
-import { slotLabel } from './panel';
+import { slotLabel, compareBreakers } from './panel';
 import { ITEM_TYPE_LABELS, PROTECTION_TAGS } from './constants';
 
 export type HouseItem = Item & { breakerIds: number[] };
@@ -30,7 +30,7 @@ export async function loadHouse(): Promise<House> {
 	const [settingsRows, panels, breakers, floors, rooms, items, links] = await Promise.all([
 		db.select().from(t.settings).limit(1).all(),
 		db.select().from(t.panels).orderBy(asc(t.panels.id)).all(),
-		db.select().from(t.breakers).orderBy(asc(t.breakers.panelId), asc(t.breakers.slot)).all(),
+		db.select().from(t.breakers).orderBy(asc(t.breakers.panelId), asc(t.breakers.slot), asc(t.breakers.half)).all(),
 		db.select().from(t.floors).orderBy(asc(t.floors.level), asc(t.floors.id)).all(),
 		db.select().from(t.rooms).orderBy(asc(t.rooms.name)).all(),
 		db.select().from(t.items).orderBy(asc(t.items.id)).all(),
@@ -93,7 +93,7 @@ export function index(house: House) {
 			item.breakerIds
 				.map((id) => breakerById.get(id))
 				.filter((b): b is Breaker => !!b)
-				.sort((a, b) => a.panelId - b.panelId || a.slot - b.slot),
+				.sort(compareBreakers),
 		panelOf,
 		/** An item's breakers other than `breakerId`, as a tag: "+21", "+14 + 21", or ''. */
 		plusOf: (item: HouseItem, breakerId: number) => {
@@ -101,7 +101,7 @@ export function index(house: House) {
 				.filter((id) => id !== breakerId)
 				.map((id) => breakerById.get(id))
 				.filter((b): b is Breaker => !!b)
-				.sort((a, b) => a.panelId - b.panelId || a.slot - b.slot);
+				.sort(compareBreakers);
 			return others.length ? `+${others.map((b) => slotLabel(b, panelOf(b))).join(' + ')}` : '';
 		},
 		/** "16" or "1/3". */

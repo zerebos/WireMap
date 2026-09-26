@@ -42,7 +42,12 @@
 	<div class="top">
 		<div class="mini" aria-hidden="true">
 			{#each cells as s, i (i)}
-				<span class="cell" class:is-t={hit.has(s)}></span>
+				{#if hit.has(s) && breaker.half}
+					<!-- A tandem half: only its half of the slot lights. -->
+					<span class="cell split"><span class:is-t={breaker.half === 'A'}></span><span class:is-t={breaker.half === 'B'}></span></span>
+				{:else}
+					<span class="cell" class:is-t={hit.has(s)}></span>
+				{/if}
 			{/each}
 		</div>
 		<div class="txt">
@@ -108,6 +113,20 @@
 		height: 6px;
 		border-radius: 1px;
 		background: var(--line-2);
+	}
+	.cell.split {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+		background: none;
+	}
+	.cell.split span {
+		flex: 1;
+		border-radius: 1px;
+		background: var(--line-2);
+	}
+	.cell.split span.is-t {
+		background: var(--amber);
 	}
 	.cell.is-t {
 		background: var(--amber);
