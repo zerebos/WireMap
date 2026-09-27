@@ -36,7 +36,7 @@
 			<a class="btn signin" href={resolve('/signin')}>Sign in</a>
 		{:else}
 			{#if access.guestEnabled && access.signedIn}
-				<button type="button" class="btn signin" onclick={lockDevice}>Lock</button>
+				<button type="button" class="btn signin" aria-label="Lock this device" onclick={lockDevice}>Lock</button>
 			{/if}
 			<a class="tgl" href={resolve('/settings')} aria-label="Settings" aria-current={route === '/settings' ? 'page' : undefined}
 				><Icon name="gear" size={18} /></a

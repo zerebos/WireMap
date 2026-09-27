@@ -89,8 +89,8 @@ See [`docs/design/DATA-MODEL.md`](docs/design/DATA-MODEL.md). In short:
 
 ## Roadmap
 
-These are in the design but need a server version of the app, so Settings shows them as
-disabled placeholders for now:
+These are in the design but need a server version of the app to be done properly. Until then
+Settings shows them as disabled placeholders, or as the local stand-in described below:
 
 - **Access**: sign-in, users and passwords.
 - **Read-only guest view, done properly**: today Settings → Access → "Read-only guest view"

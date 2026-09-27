@@ -253,6 +253,8 @@
 		dataMsg = null;
 		try {
 			await importDatabase(new Uint8Array(await file.arrayBuffer()));
+			// The guest lock is per device: a backup taken on a locked tablet doesn't lock this one.
+			await updateSettings({ guestReadOnly: false });
 			location.assign(resolve('/'));
 		} catch (err) {
 			dataMsg = { text: err instanceof Error ? err.message : "Couldn't restore that file.", error: true };

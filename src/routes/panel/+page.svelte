@@ -781,7 +781,7 @@
 				onadd={addBreaker}
 			/>
 		{:else if !sel && access.guest}
-			<div></div>
+			<div class="gempty"><p>No breakers on this panel yet.</p></div>
 		{:else if !sel}
 			<PanelEmpty slotCount={panel.slotCount} {directoryHref} />
 		{:else}
@@ -2211,5 +2211,9 @@
 	}
 	.qacts .btn {
 		height: 36px;
+	}
+	.gempty {
+		padding: 24px;
+		color: var(--muted);
 	}
 </style>
