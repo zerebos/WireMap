@@ -42,6 +42,11 @@ export async function setGuestView(on: boolean) {
 	setSignedIn(false);
 }
 
+/** Locks this device again after signing in (owner's call, 2026-09-27: not in the design). */
+export function lockDevice() {
+	setSignedIn(false);
+}
+
 /** Signs in on this device. Without a server there are no accounts, so any username and password unlock it. */
 export async function signIn(user: string, password: string, stay: boolean): Promise<boolean> {
 	void user;

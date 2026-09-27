@@ -11,7 +11,7 @@
 	import { viewport } from '$lib/viewport.svelte';
 	import { traceFlow } from '$lib/trace.svelte';
 	import { applyTheme, effectiveTheme } from '$lib/theme';
-	import { access, syncAccess } from '$lib/access.svelte';
+	import { access, lockDevice, syncAccess } from '$lib/access.svelte';
 
 	let { data, children } = $props();
 
@@ -145,6 +145,9 @@
 					<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
 						<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
 					</button>
+					{#if access.guestEnabled && access.signedIn}
+						<button type="button" class="btn signin" onclick={lockDevice}>Lock this device</button>
+					{/if}
 				{:else}
 					<span class="mono ro">READ-ONLY</span>
 					<a class="btn signin" href={resolve('/signin')}>Sign in</a>

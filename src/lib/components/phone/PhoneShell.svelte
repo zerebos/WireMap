@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
-	import { access } from '$lib/access.svelte';
+	import { access, lockDevice } from '$lib/access.svelte';
 
 	let { title, sub = '', children }: { title: string; sub?: string; children: Snippet } = $props();
 
@@ -35,6 +35,9 @@
 			<span class="mono ro">READ-ONLY</span>
 			<a class="btn signin" href={resolve('/signin')}>Sign in</a>
 		{:else}
+			{#if access.guestEnabled && access.signedIn}
+				<button type="button" class="btn signin" onclick={lockDevice}>Lock</button>
+			{/if}
 			<a class="tgl" href={resolve('/settings')} aria-label="Settings" aria-current={route === '/settings' ? 'page' : undefined}
 				><Icon name="gear" size={18} /></a
 			>
