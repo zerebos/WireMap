@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import type { HouseIndex } from '$lib/house';
-	import { faceColumns, legOfRow, quadLayout, rowCount, slotLabel, spaceLabel, tandemOk, type Cell } from '$lib/panel';
+	import { faceColumns, legOfRow, nextInColumn, quadLayout, rowCount, slotLabel, spaceLabel, tandemOk, type Cell } from '$lib/panel';
 	import { PROTECTION_TAGS } from '$lib/constants';
 	import { search } from '$lib/search.svelte';
 	import BreakerSheet from '$lib/components/phone/BreakerSheet.svelte';
@@ -57,7 +57,7 @@
 						{#each cells as c (c.slot)}
 							{#if c.quad}
 								{@const lay = quadLayout(c.quad, c.slot, panel)}
-								<div class="qd" class:bad={!tandemOk(c.slot, panel)} role="group" aria-label="Quad breaker in slots {c.slot} and below">
+								<div class="qd" class:bad={!tandemOk(c.slot, panel)} role="group" aria-label="Quad breaker in slots {spaceLabel({ slot: c.slot, half: null }, panel)} and {spaceLabel({ slot: nextInColumn(c.slot, panel), half: null }, panel)}">
 									{#each lay.segs as g (g.key)}
 										{#if g.b}
 											{@const h = g.b}
@@ -71,7 +71,7 @@
 												class:is-dim={!matches(h)}
 												style:grid-row="{g.row} / span {g.span}"
 												data-breaker={g.first ? h.id : undefined}
-												aria-label="Breaker {slotLabel(h, panel)}, {h.label.trim() || 'unlabeled'}, {h.amps} amp"
+												aria-label="Breaker {slotLabel(h, panel)}, {h.label.trim() || 'unlabeled'}, {h.amps} amp{g.first ? '' : ', lower handle'}"
 												onclick={() => onpick(h)}
 												><span class="n">{g.first ? slotLabel(h, panel) : '↳'}</span><span class="pl"
 													>{g.first ? h.label.trim() || 'Unlabeled' : `same breaker · ${slotLabel(h, panel)}`}</span
