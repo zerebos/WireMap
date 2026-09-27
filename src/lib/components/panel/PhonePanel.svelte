@@ -32,6 +32,8 @@
 
 	const face = $derived(faceColumns(panel, breakers));
 	const rows = $derived(rowCount(panel));
+	const feeder = $derived(ix.feederOf(panel));
+	const amps = $derived(panel.mainAmps ?? feeder?.amps ?? null);
 
 	async function close() {
 		const id = selected?.id;
@@ -48,7 +50,7 @@
 	</div>
 	<div class="scroll">
 		<div class="enc">
-			<div class="main mono"><span class="mh"></span>MAIN {panel.mainAmps ? `${panel.mainAmps}A` : '—'}</div>
+			<div class="main mono"><span class="mh"></span>{feeder && panel.mainAmps === null ? 'MAIN LUGS' : 'MAIN'} {amps ? `${amps}A` : '—'}</div>
 			<div class="cols">
 				{#snippet col(cells: Cell<Breaker>[], r: boolean)}
 					<div class="col">
