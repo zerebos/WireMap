@@ -254,3 +254,15 @@
   --pv-d-ink: #ECEAE4;
   --pv-d-dim: #3C4046;
 }
+
+/* Printed panel directory (DESIGN.md §5.19): always light, ink-only, whatever theme is on. */
+:root {
+  --print-paper: #FFFFFF;
+  --print-ink: #111214;
+  --print-meta: #2E3034;
+  --print-soft: #4A4D52;
+  --print-dim: #767676;
+  --print-rule: #BDBDBD;
+  --print-gutter: #EDEDED;
+  --print-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+}

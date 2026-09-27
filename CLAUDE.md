@@ -37,10 +37,14 @@ Confirm with the owner before changing any of these.
 ## How the code fits together
 - `src/routes/+layout.ts` loads the whole house once (`loadHouse()` in `src/lib/house.ts`). Every page reads `data.house` and derives what it needs with `index(house)`.
 - All writes are in `src/lib/db/ops.ts`. Call them through `mutate(() => op(...))`, which reloads the house afterwards.
-- Panel geometry lives in `src/lib/panel.ts`: slot numbering (both schemes), legs, "Left, row 5" and 2-pole occupancy.
+- Panel geometry lives in `src/lib/panel.ts`: slot numbering (both schemes), legs, "Left, row 5", tandem and quad layout, and fit checks.
+- `breaker_spaces` is the source of truth for which spaces a breaker takes (whole slots, or A/B halves for tandems and quads). `loadHouse()` puts them on each breaker as `spaces`; `spacesOf()` reads them. Writes that move or resize a breaker go through `setSpaces`/`updateBreaker` in `ops.ts` so the rows stay in sync.
+- Every breaker number on screen or paper comes from `slotLabel()` / `spaceLabel()` (short-code prefix + spaces, e.g. "G6", "17A", "21A/23B"). Don't build numbers by hand.
+- Subpanels are panels with `fed_by_breaker_id`. `index(house)` has `feederOf`, `fedPanelOf`, `feedersAbove`, `downstream` and `panelTree`.
+- The printed directory (`/print`) is always light. Its colors are the `--print-*` tokens, which, like the `--pv-*` preview tokens, exist only in `src/lib/tokens.css`.
 - The header search writes `search.q` (`src/lib/search.svelte.ts`). Each page filters itself with it.
 - The theme is `settings.theme`, applied as `data-theme` on `<html>` (`src/lib/theme.ts`) and mirrored to localStorage so `app.html` can set it before paint.
-- Selection state that should survive a reload or a link lives in the URL. For example `/panel?b=`, `/map?item=|circuit=|room=&floor=`, `/items?item=`, `/shutoff?room=|breaker=|item=` and `/trace?b=`.
+- Selection state that should survive a reload or a link lives in the URL. For example `/panel?b=`, `/map?item=|circuit=|room=&floor=`, `/items?item=`, `/shutoff?room=|breaker=|item=`, `/trace?b=`, `/panel?p=&b=&add=sub&shutoff=1` and `/print?p=`.
 
 ## Commands
 - `bun install`, then `bun run dev`.

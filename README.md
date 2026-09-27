@@ -100,6 +100,10 @@ disabled placeholders for now:
   computer's house yet. For now Trace runs on the device you start it from, and the QR code is a
   placeholder.
 - **Owner account** in first-run setup: the fields are shown but disabled.
+- **Download PDF** of the printed panel directory: the design renders it with a headless browser
+  on the server. For now, Print and choose "Save as PDF" in the browser's print dialog.
+- **QR code on the printed directory**: it would link to the live map on your home network, which
+  needs a server. It prints as an empty box for now.
 
 The local-first version is meant for prototyping and demoing; a server version is the likely
 long-term direction.
