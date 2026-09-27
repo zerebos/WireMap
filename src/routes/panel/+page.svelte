@@ -339,6 +339,11 @@
 	const selQuad = $derived(sel && panel ? quadTopOf(sel, placed, panel) : null);
 	const selPair = $derived(sel && panel ? quadPair(sel, panel) : null);
 	const quadBelow = $derived(selQuad !== null && panel ? nextInColumn(selQuad, panel) : null);
+	const quadSlots = $derived(
+		selQuad !== null && quadBelow !== null && panel
+			? `${spaceLabel({ slot: selQuad, half: null }, panel)}–${spaceLabel({ slot: quadBelow, half: null }, panel)}`
+			: ''
+	);
 	const quadRows = $derived.by(() => {
 		if (selQuad === null || quadBelow === null || !panel) return [];
 		const keys: [number, Half][] = [
@@ -382,10 +387,15 @@
 		await mutate(() => setSpaces(id, undefined).then(() => updateBreaker(id, { half: null })));
 	}
 	async function swapPairs() {
-		if (selQuad === null || quadBelow === null) return;
+		if (selQuad === null || quadBelow === null || splitting) return;
 		const ids = [sel!.id, ...quadMates.map((b) => b.id)];
 		const below = quadBelow;
-		await mutate(() => swapQuadPairs(ids, below));
+		splitting = true;
+		try {
+			await mutate(() => swapQuadPairs(ids, below));
+		} finally {
+			splitting = false;
+		}
 	}
 
 	async function toTandem() {
@@ -580,10 +590,23 @@
 												<span class="hdl"></span>
 											</button>
 										{:else}
-											<div class="th th-open" class:r={side === 'r'} style:grid-row={g.row}>
-												<span class="num">{(panel.shortCode ?? '') + g.key}</span>
-												<span class="lbl">Open</span>
-											</div>
+											{@const qs = Number(g.key.slice(0, -1))}
+											{@const qh = g.key.slice(-1) as Half}
+											{@const ok = moving && fits(qs, qh)}
+											<!-- An open half of a mixed quad takes a 1-pole half, like a tandem's. -->
+											<button
+												type="button"
+												class="th th-open"
+												class:r={side === 'r'}
+												class:is-target={ok}
+												style:grid-row={g.row}
+												disabled={moving ? !ok : true}
+												aria-label={ok ? `Move here: slot ${spaceLabel({ slot: qs, half: qh }, panel)}` : `Slot ${spaceLabel({ slot: qs, half: qh }, panel)}, open`}
+												onclick={() => moveTo(qs, qh)}
+											>
+												<span class="num">{spaceLabel({ slot: qs, half: qh }, panel)}</span>
+												<span class="lbl">{ok ? 'Move here' : 'Open'}</span>
+											</button>
 										{/if}
 									{/each}
 									{#each lay.ties as t (t.b.id)}
@@ -906,8 +929,8 @@
 						<div class="qt">
 							<strong
 								>{selPair
-									? `The ${selPair} pair of a quad in slots ${selQuad}–${quadBelow}`
-									: `Half of a quad in slots ${selQuad}–${quadBelow}`}</strong
+									? `The ${selPair} pair of a quad in slots ${quadSlots}`
+									: `Half of a quad in slots ${quadSlots}`}</strong
 							>
 							{#if quadMates.length}
 								<span
@@ -919,7 +942,7 @@
 								{#each quadMates as m (m.id)}
 									<button type="button" class="btn" onclick={() => pick(m.id)}>Select {slotLabel(m, panel)}</button>
 								{/each}
-								{#if !access.guest}<button type="button" class="btn" onclick={swapPairs}>Swap outer and inner</button>{/if}
+								{#if !access.guest}<button type="button" class="btn" disabled={splitting} onclick={swapPairs}>Swap outer and inner</button>{/if}
 							</div>
 						</div>
 					</div>
@@ -934,7 +957,7 @@
 					{/if}
 					{#if !tandemOk(selQuad, panel) || !tandemOk(quadBelow ?? selQuad, panel)}
 						<div class="badt" role="alert">
-							<strong>Slots {selQuad}–{quadBelow} aren’t rated for quads.</strong> Your panel label allows them in slots {tandemText(panel)}
+							<strong>Slots {quadSlots} aren’t rated for quads.</strong> Your panel label allows them in slots {tandemText(panel)}
 							only. It may still be installed this way — worth checking with an electrician.
 						</div>
 					{/if}

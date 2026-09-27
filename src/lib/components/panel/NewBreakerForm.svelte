@@ -166,7 +166,7 @@
 					class:is-on={quad}
 					aria-pressed={quad}
 					disabled={!!noQuadWhy}
-					aria-describedby={noQuadWhy ? 'n-noq' : undefined}
+					aria-describedby={noQuadWhy ? (noTandemWhy ? 'n-not' : 'n-noq') : undefined}
 					onclick={() => size(2, false, true)}
 				>
 					Quad (2 × 2-pole)
