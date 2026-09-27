@@ -83,6 +83,17 @@
 											</div>
 										{/if}
 									{/each}
+									{#each lay.ties as t (t.b.id)}
+										<span
+											class="tie"
+											class:r
+											class:o={t.pair === 'outer'}
+											class:i={t.pair !== 'outer'}
+											class:is-sel={selected?.id === t.b.id}
+											style:top="{t.lo * 25 + 12}%"
+											style:bottom="{(3 - t.hi) * 25 + 12}%"
+										></span>
+									{/each}
 								</div>
 							{:else if c.halves}
 								<div class="tdm" class:bad={!tandemOk(c.slot, panel)} role="group" aria-label="Tandem slot {c.slot}">
@@ -347,6 +358,43 @@
 	}
 	.qd .pch {
 		height: auto;
+		padding-right: 22px;
+	}
+	.qd .pch.r {
+		padding-right: 6px;
+		padding-left: 22px;
+	}
+	/* Tie bars join a 2-pole's handles on the gutter side, outer pair outermost (as on desktop). */
+	.qd {
+		position: relative;
+	}
+	.tie {
+		position: absolute;
+		width: 3px;
+		border-radius: 2px;
+		background: var(--tie);
+		pointer-events: none;
+		z-index: 2;
+	}
+	.tie.o {
+		right: 6px;
+	}
+	.tie.i {
+		right: 14px;
+	}
+	.tie.r.o {
+		right: auto;
+		left: 6px;
+	}
+	.tie.r.i {
+		right: auto;
+		left: 14px;
+	}
+	.tie.is-sel {
+		background: var(--ink);
+	}
+	:global([data-theme='dark']) .tie.is-sel {
+		background: var(--amber);
 	}
 	.qd.bad {
 		border-color: var(--warn);
