@@ -23,8 +23,9 @@ export const panels = sqliteTable('panels', {
 	fedByBreakerId: integer('fed_by_breaker_id'),
 	notes: text('notes')
 },
-	// Two panels can't share a prefix, or breaker numbers would be ambiguous (the main panel's is null).
-	(t) => [uniqueIndex('panels_short_code_idx').on(t.shortCode)]
+	// Two panels can't share a prefix, or breaker numbers would be ambiguous (the main panel's is null),
+	// and one breaker can't feed two panels.
+	(t) => [uniqueIndex('panels_short_code_idx').on(t.shortCode), uniqueIndex('panels_fed_by_idx').on(t.fedByBreakerId)]
 );
 
 export const breakers = sqliteTable(

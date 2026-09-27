@@ -363,7 +363,7 @@
 	/** A tandem or quad split is saving: the buttons are off so a double-click can't split twice. */
 	let splitting = $state(false);
 	async function toQuad() {
-		if (!sel || !panel || selQuad !== null || noQuadWhy || splitting) return;
+		if (!sel || !panel || selQuad !== null || noQuadWhy || splitting || selSub) return;
 		const id = sel.id;
 		const below = nextInColumn(sel.slot, panel);
 		splitting = true;
@@ -389,7 +389,7 @@
 	}
 
 	async function toTandem() {
-		if (!sel || sel.half || sel.poles !== 1 || selQuad !== null || splitting) return;
+		if (!sel || sel.half || sel.poles !== 1 || selQuad !== null || splitting || selSub) return;
 		const id = sel.id;
 		splitting = true;
 		try {
@@ -400,7 +400,7 @@
 		}
 	}
 	async function toFull() {
-		if (!sel) return;
+		if (!sel || selSub) return;
 		if (sel.poles === 2) return edit(selRaw!, { poles: 1 });
 		if (!sel.half || selMate) return;
 		const id = sel.id;
@@ -845,8 +845,9 @@
 								class="sb"
 								class:is-on={sel.poles === 1 && !sel.half}
 								aria-pressed={sel.poles === 1 && !sel.half}
-								disabled={!!selMate || selQuad !== null}
+								disabled={!!selMate || selQuad !== null || !!selSub}
 								aria-describedby={selMate ? 'f-nofull' : undefined}
+								title={selSub ? `It feeds the ${selSub.name}, so it stays 2-pole.` : undefined}
 								onclick={toFull}>1-pole</button
 							>
 							<button
@@ -863,7 +864,7 @@
 								class="sb"
 								class:is-on={!!sel.half && selQuad === null}
 								aria-pressed={!!sel.half && selQuad === null}
-								disabled={sel.poles === 2 || selQuad !== null || splitting}
+								disabled={sel.poles === 2 || selQuad !== null || splitting || !!selSub}
 								onclick={toTandem}>Tandem</button
 							>
 							<button
@@ -871,8 +872,8 @@
 								class="sb"
 								class:is-on={selQuad !== null}
 								aria-pressed={selQuad !== null}
-								disabled={!!noQuadWhy || splitting}
-								title={noQuadWhy ?? undefined}
+								disabled={!!noQuadWhy || splitting || !!selSub}
+								title={selSub ? `It feeds the ${selSub.name}, so it stays 2-pole.` : (noQuadWhy ?? undefined)}
 								onclick={toQuad}>Quad</button
 							>
 						</div>
