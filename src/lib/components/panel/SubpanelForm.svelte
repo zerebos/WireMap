@@ -7,7 +7,7 @@
 	import type { HouseIndex } from '$lib/house';
 	import { checkFit, nextInColumn, panelShort, position, slotLabel } from '$lib/panel';
 
-	let { ix, oncancel, onadd }: { ix: HouseIndex; oncancel: () => void; onadd: (v: SubpanelValues) => void } = $props();
+	let { ix, oncancel, onadd }: { ix: HouseIndex; oncancel: () => void; onadd: (v: SubpanelValues) => Promise<void> | void } = $props();
 
 	const house = $derived(ix.house);
 	const many = $derived(house.panels.length > 1);
@@ -53,17 +53,24 @@
 	const pair = $derived(openPairs.find((o) => o.key === openAt) ?? null);
 	const ready = $derived(!!name.trim() && !!codeUp && !codeWhy && (fedBy !== 'new' || !!pair));
 
-	function submit(e: SubmitEvent) {
+	/** Saving: the button is off so a double-click can't add the subpanel twice. */
+	let saving = $state(false);
+	async function submit(e: SubmitEvent) {
 		e.preventDefault();
-		if (!ready) return;
-		onadd({
-			name: name.trim(),
-			shortCode: codeUp,
-			slotCount: spaces,
-			mainAmps: mainAmps ? Number(mainAmps) : null,
-			location: location.trim() || null,
-			fedBy: fedBy === 'new' ? { panelId: pair!.panelId, slot: pair!.slot, amps } : { breakerId: Number(fedBy) }
-		});
+		if (!ready || saving) return;
+		saving = true;
+		try {
+			await onadd({
+				name: name.trim(),
+				shortCode: codeUp,
+				slotCount: spaces,
+				mainAmps: mainAmps ? Number(mainAmps) : null,
+				location: location.trim() || null,
+				fedBy: fedBy === 'new' ? { panelId: pair!.panelId, slot: pair!.slot, amps } : { breakerId: Number(fedBy) }
+			});
+		} finally {
+			saving = false;
+		}
 	}
 	let nameInput = $state<HTMLInputElement>();
 	export function focus() {
@@ -144,7 +151,7 @@
 	</p>
 	<div class="acts">
 		<button type="button" class="btn" onclick={oncancel}>Cancel</button>
-		<button type="submit" class="btn btn-pri" disabled={!ready}>Add subpanel</button>
+		<button type="submit" class="btn btn-pri" disabled={!ready || saving}>Add subpanel</button>
 	</div>
 </form>
 
