@@ -89,7 +89,7 @@
 				{#if i.breakerIds.length > 1}<span class="plus">{ix.plusOf(i, breaker.id)}</span>{/if}
 			</div>
 		{:else}
-			<span class="none">Nothing mapped yet. Trace it to find out.</span>
+			<span class="none">{access.guest ? 'Nothing mapped yet.' : 'Nothing mapped yet. Trace it to find out.'}</span>
 		{/each}
 	</div>
 </div>

@@ -136,7 +136,8 @@
 
 	// ---- Nothing selected on a floor that isn't mapped yet (DESIGN.md §5.9)
 	const steps = $derived(floorSteps(ix, floorId));
-	const gettingStarted = $derived(floorId !== null && (!steps.rooms || !steps.placed));
+	// The setup checklist is for whoever maps the house; a guest sees "Nothing selected".
+	const gettingStarted = $derived(!access.guest && floorId !== null && (!steps.rooms || !steps.placed));
 	const checklist = $derived([
 		{ title: 'Add rooms', body: 'Upload a plan and trace it, or draw on the grid.', done: steps.rooms },
 		{ title: 'Place items', body: 'Outlets, lights, switches and appliances, where they really are.', done: steps.placed },

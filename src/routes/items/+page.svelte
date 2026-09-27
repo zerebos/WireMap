@@ -236,8 +236,8 @@
 					<div class="ntxt">
 						<h2>No items yet</h2>
 						<p>
-							Items are what your breakers feed: outlets, lights, switches and appliances. The quickest way to add them is to trace a
-							breaker — flip it off and tap what went dark.
+							Items are what your breakers feed: outlets, lights, switches and appliances.{#if !access.guest}
+								The quickest way to add them is to trace a breaker — flip it off and tap what went dark.{/if}
 						</p>
 					</div>
 					{#if !access.guest}<div class="nacts">

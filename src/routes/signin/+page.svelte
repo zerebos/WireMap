@@ -13,6 +13,7 @@
 
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
+		if (!access.guestEnabled) return;
 		if (!(await signIn(user, pw, stay))) {
 			err = true;
 			return;
@@ -54,7 +55,13 @@
 					<input id="p" class="inp" type="password" autocomplete="current-password" bind:value={pw} oninput={() => (err = false)} />
 				</div>
 				<label class="chk"><input type="checkbox" bind:checked={stay} />Stay signed in on this device</label>
-				<button type="submit" class="btn btn-pri go">Sign in</button>
+				<!-- Signing in only unlocks guest view; with it off there's nothing to sign in to yet. -->
+				{#if access.guestEnabled}
+					<button type="submit" class="btn btn-pri go">Sign in</button>
+				{:else}
+					<button type="submit" class="btn btn-pri go" disabled aria-describedby="si-d" title="Needs the server version — on the roadmap.">Sign in</button>
+					<span class="sr" id="si-d">Needs the server version — on the roadmap.</span>
+				{/if}
 			</div>
 			{#if access.guestEnabled}
 				<div class="guest">

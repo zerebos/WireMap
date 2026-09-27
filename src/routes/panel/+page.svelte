@@ -430,7 +430,7 @@
 	<main class="empty-app">
 		<h1>No panel yet</h1>
 		<p>Setting up a panel from scratch isn't designed yet. Load the example house from Settings to look around.</p>
-		<a class="btn" href={resolve('/settings') + '#data'}>Open Settings</a>
+		{#if !access.guest}<a class="btn" href={resolve('/settings') + '#data'}>Open Settings</a>{/if}
 	</main>
 {:else if viewport.phone}
 	<PhoneShell title={panel.name} sub="{ampsOf(panel) ? `${ampsOf(panel)}A · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces">

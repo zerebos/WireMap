@@ -41,7 +41,7 @@
 	const tabOf = (r: string) => (r === '/directory' || r === '/trace' || r === '/print' ? '/panel' : r);
 	// With no panel yet, every page but Settings leads to setup.
 	beforeNavigate((nav) => {
-		if (nav.to && data.house && needsSetup(data.house, nav.to.route.id)) {
+		if (nav.to && data.house && !access.guest && needsSetup(data.house, nav.to.route.id)) {
 			nav.cancel();
 			goto(resolve('/setup'));
 		}
