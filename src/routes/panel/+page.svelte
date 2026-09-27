@@ -433,7 +433,7 @@
 		<a class="btn" href={resolve('/settings') + '#data'}>Open Settings</a>
 	</main>
 {:else if viewport.phone}
-	<PhoneShell title={panel.name} sub="{panel.mainAmps ? `${panel.mainAmps}A · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces">
+	<PhoneShell title={panel.name} sub="{ampsOf(panel) ? `${ampsOf(panel)}A · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces">
 		{#if phoneEdit && sel && !access.guest}
 			<div class="pedit">
 				<div class="pback">

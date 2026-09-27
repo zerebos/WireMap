@@ -56,6 +56,9 @@ export async function createSubpanel(v: SubpanelValues): Promise<number> {
 		let feeder: number;
 		if ('breakerId' in v.fedBy) {
 			feeder = v.fedBy.breakerId;
+			// A feeder is a full-size 2-pole breaker (DESIGN.md §5.17).
+			const b = await tx.select().from(t.breakers).where(eq(t.breakers.id, feeder)).get();
+			if (!b || b.poles !== 2 || b.half !== null) throw new Error('A subpanel has to be fed from a full-size 2-pole breaker.');
 			await tx.update(t.breakers).set({ label: v.name }).where(eq(t.breakers.id, feeder));
 		} else {
 			const [b] = await tx
@@ -98,23 +101,21 @@ export async function renamePanel(id: number, name: string) {
  * those breakers become "No breaker". The feeder in the parent panel stays.
  */
 export async function deletePanel(id: number) {
-	const doomed = [id];
-	for (let i = 0; i < doomed.length; i++) {
-		const inside = await db.select({ id: t.breakers.id }).from(t.breakers).where(eq(t.breakers.panelId, doomed[i])).all();
-		if (!inside.length) continue;
-		const subs = await db
-			.select({ id: t.panels.id })
-			.from(t.panels)
-			.where(
-				inArray(
-					t.panels.fedByBreakerId,
-					inside.map((b) => b.id)
-				)
-			)
-			.all();
-		doomed.push(...subs.map((s) => s.id).filter((s) => !doomed.includes(s)));
-	}
-	await db.delete(t.panels).where(inArray(t.panels.id, doomed));
+	// One transaction, so a subpanel added meanwhile can't be missed and left without its feeder.
+	await db.transaction(async (tx) => {
+		const doomed = [id];
+		for (let i = 0; i < doomed.length; i++) {
+			const inside = await tx.select({ id: t.breakers.id }).from(t.breakers).where(eq(t.breakers.panelId, doomed[i])).all();
+			if (!inside.length) continue;
+			const subs = await tx
+				.select({ id: t.panels.id })
+				.from(t.panels)
+				.where(inArray(t.panels.fedByBreakerId, inside.map((b) => b.id)))
+				.all();
+			doomed.push(...subs.map((s) => s.id).filter((s) => !doomed.includes(s)));
+		}
+		await tx.delete(t.panels).where(inArray(t.panels.id, doomed));
+	});
 }
 
 // ---- Breakers
