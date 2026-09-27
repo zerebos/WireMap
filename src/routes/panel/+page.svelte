@@ -311,7 +311,7 @@
 	const selMate = $derived(sel?.half ? (placed.find((b) => b.slot === sel.slot && b.half && b.id !== sel.id) ?? null) : null);
 	let splitting = $state(false);
 	async function toTandem() {
-		if (!sel || sel.half || sel.poles !== 1 || splitting) return;
+		if (!sel || sel.half || sel.poles !== 1 || splitting || selSub) return;
 		const id = sel.id;
 		splitting = true;
 		try {
@@ -322,7 +322,7 @@
 		}
 	}
 	async function toFull() {
-		if (!sel) return;
+		if (!sel || selSub) return;
 		if (sel.poles === 2) return edit(selRaw!, { poles: 1 });
 		if (!sel.half || selMate) return;
 		const id = sel.id;
@@ -672,8 +672,9 @@
 								class="sb"
 								class:is-on={sel.poles === 1 && !sel.half}
 								aria-pressed={sel.poles === 1 && !sel.half}
-								disabled={!!selMate}
+								disabled={!!selMate || !!selSub}
 								aria-describedby={selMate ? 'f-nofull' : undefined}
+								title={selSub ? `It feeds the ${selSub.name}, so it stays 2-pole.` : undefined}
 								onclick={toFull}>1-pole</button
 							>
 							<button
@@ -690,7 +691,7 @@
 								class="sb"
 								class:is-on={!!sel.half}
 								aria-pressed={!!sel.half}
-								disabled={sel.poles === 2 || splitting}
+								disabled={sel.poles === 2 || splitting || !!selSub}
 								onclick={toTandem}>Tandem A+B</button
 							>
 						</div>

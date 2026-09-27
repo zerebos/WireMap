@@ -37,19 +37,34 @@ export type SubpanelValues = {
  * "New breaker in an open slot" adds that 2-pole breaker first. Returns the new panel's id.
  */
 export async function createSubpanel(v: SubpanelValues): Promise<number> {
-	const feeder =
-		'breakerId' in v.fedBy
-			? v.fedBy.breakerId
-			: await createBreaker({ panelId: v.fedBy.panelId, slot: v.fedBy.slot, poles: 2, amps: v.fedBy.amps, kind: 'standard', label: v.name });
-	await updateBreaker(feeder, { label: v.name });
-	return createPanel({
-		name: v.name,
-		shortCode: v.shortCode,
-		slotCount: v.slotCount,
-		mainAmps: v.mainAmps,
-		location: v.location,
-		numbering: 'odd_left_even_right',
-		fedByBreakerId: feeder
+	// One transaction, so a failed insert (say, a taken short code) leaves no stray or relabeled feeder.
+	return db.transaction(async (tx) => {
+		let feeder: number;
+		if ('breakerId' in v.fedBy) {
+			feeder = v.fedBy.breakerId;
+			await tx.update(t.breakers).set({ label: v.name }).where(eq(t.breakers.id, feeder));
+		} else {
+			const [b] = await tx
+				.insert(t.breakers)
+				.values({ panelId: v.fedBy.panelId, slot: v.fedBy.slot, poles: 2, amps: v.fedBy.amps, kind: 'standard', label: v.name })
+				.returning({ id: t.breakers.id })
+				.all();
+			feeder = b.id;
+		}
+		const [row] = await tx
+			.insert(t.panels)
+			.values({
+				name: v.name,
+				shortCode: v.shortCode,
+				slotCount: v.slotCount,
+				mainAmps: v.mainAmps,
+				location: v.location,
+				numbering: 'odd_left_even_right',
+				fedByBreakerId: feeder
+			})
+			.returning({ id: t.panels.id })
+			.all();
+		return row.id;
 	});
 }
 
@@ -82,6 +97,7 @@ export async function deletePanel(id: number) {
 // ---- Breakers
 
 export async function updateBreaker(id: number, patch: Partial<Omit<Breaker, 'id' | 'panelId'>>) {
+	if ((patch.poles !== undefined && patch.poles !== 2) || patch.half) await keepFeeder(id);
 	await db.update(t.breakers).set(patch).where(eq(t.breakers.id, id));
 }
 
@@ -95,7 +111,14 @@ export async function createBreaker(values: typeof t.breakers.$inferInsert): Pro
  * an empty, unlabeled half B is added. Returns half B's id. Running it again on a breaker that is
  * already a half changes nothing and returns its slot's B half.
  */
+/** A subpanel feeder stays a full-size 2-pole breaker (DESIGN.md §5.17). */
+async function keepFeeder(id: number) {
+	const fed = await db.select({ id: t.panels.id }).from(t.panels).where(eq(t.panels.fedByBreakerId, id)).get();
+	if (fed) throw new Error('A subpanel feeder has to stay 2-pole.');
+}
+
 export async function makeTandem(id: number): Promise<number> {
+	await keepFeeder(id);
 	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
 	if (!b) throw new Error('No such breaker');
 	if (b.half !== null) {
