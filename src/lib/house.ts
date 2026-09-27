@@ -6,10 +6,12 @@ import { invalidate } from '$app/navigation';
 import { db } from './db';
 import * as t from './db/schema';
 import type { Breaker, Floor, Item, Panel, Room, Settings } from './db/schema';
-import { slotLabel, compareBreakers } from './panel';
+import { slotLabel, compareBreakers, type Space } from './panel';
 import { ITEM_TYPE_LABELS, PROTECTION_TAGS } from './constants';
 
 export type HouseItem = Item & { breakerIds: number[] };
+/** A breaker with the spaces it takes (breaker_spaces, DATA-MODEL.md "Occupancy"). */
+export type HouseBreaker = Breaker & { spaces: Space[] };
 
 export type House = {
 	settings: Settings;
@@ -17,7 +19,7 @@ export type House = {
 	panel: Panel | null;
 	panels: Panel[];
 	/** All breakers, by panel then slot. */
-	breakers: Breaker[];
+	breakers: HouseBreaker[];
 	/** Bottom floor first. */
 	floors: Floor[];
 	rooms: Room[];
@@ -27,15 +29,18 @@ export type House = {
 export const HOUSE = 'app:house';
 
 export async function loadHouse(): Promise<House> {
-	const [settingsRows, panels, breakers, floors, rooms, items, links] = await Promise.all([
+	const [settingsRows, panels, breakers, floors, rooms, items, links, spaces] = await Promise.all([
 		db.select().from(t.settings).limit(1).all(),
 		db.select().from(t.panels).orderBy(asc(t.panels.id)).all(),
 		db.select().from(t.breakers).orderBy(asc(t.breakers.panelId), asc(t.breakers.slot), asc(t.breakers.half)).all(),
 		db.select().from(t.floors).orderBy(asc(t.floors.level), asc(t.floors.id)).all(),
 		db.select().from(t.rooms).orderBy(asc(t.rooms.name)).all(),
 		db.select().from(t.items).orderBy(asc(t.items.id)).all(),
-		db.select().from(t.itemBreakers).all()
+		db.select().from(t.itemBreakers).all(),
+		db.select().from(t.breakerSpaces).all()
 	]);
+	const spacesOf = new Map<number, Space[]>();
+	for (const s of spaces) spacesOf.set(s.breakerId, [...(spacesOf.get(s.breakerId) ?? []), { slot: s.slot, half: s.half }]);
 	const byItem = new Map<number, number[]>();
 	for (const l of links) byItem.set(l.itemId, [...(byItem.get(l.itemId) ?? []), l.breakerId]);
 	return {
@@ -49,7 +54,7 @@ export async function loadHouse(): Promise<House> {
 		},
 		panel: panels.find((p) => p.fedByBreakerId === null) ?? panels[0] ?? null,
 		panels,
-		breakers,
+		breakers: breakers.map((b) => ({ ...b, spaces: spacesOf.get(b.id) ?? [] })),
 		floors,
 		rooms,
 		items: items.map((i) => ({ ...i, breakerIds: byItem.get(i.id) ?? [] }))
@@ -136,7 +141,7 @@ export function index(house: House) {
 		breakersOf: (item: HouseItem) =>
 			item.breakerIds
 				.map((id) => breakerById.get(id))
-				.filter((b): b is Breaker => !!b)
+				.filter((b): b is HouseBreaker => !!b)
 				.sort(compareBreakers),
 		panelOf,
 		fedPanelOf,
@@ -149,7 +154,7 @@ export function index(house: House) {
 			const others = item.breakerIds
 				.filter((id) => id !== breakerId)
 				.map((id) => breakerById.get(id))
-				.filter((b): b is Breaker => !!b)
+				.filter((b): b is HouseBreaker => !!b)
 				.sort(compareBreakers);
 			return others.length ? `+${others.map((b) => slotLabel(b, panelOf(b))).join(' + ')}` : '';
 		},

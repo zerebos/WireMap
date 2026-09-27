@@ -9,7 +9,7 @@
 	// off is only on-screen state: nothing here is saved.
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
-	import { plural, type HouseIndex, type HouseItem } from '$lib/house';
+	import { plural, type HouseBreaker, type HouseIndex, type HouseItem } from '$lib/house';
 	import { physicalPosition, compareBreakers, panelShort } from '$lib/panel';
 	import type { Breaker } from '$lib/db/schema';
 
@@ -70,7 +70,7 @@
 		for (const b of data.house.breakers) if (b.tieGroup !== null && ties.has(b.tieGroup)) ids.add(b.id);
 		return [...ids]
 			.map((id) => ix.breakerById.get(id))
-			.filter((b): b is Breaker => !!b)
+			.filter((b): b is HouseBreaker => !!b)
 			.sort(compareBreakers);
 	});
 	const ids = $derived(new Set(breakers.map((b) => b.id)));

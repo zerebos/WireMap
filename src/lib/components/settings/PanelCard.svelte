@@ -6,7 +6,7 @@
 	import { mutate, plural, type HouseIndex } from '$lib/house';
 	import { deletePanel, renamePanel, updatePanel } from '$lib/db/ops';
 	import type { Panel } from '$lib/db/schema';
-	import { checkFit, occupiedSlots, panelShort, slotLabel, spacesUsed } from '$lib/panel';
+	import { checkFit, occupiedSlots, panelShort, quadPair, slotLabel, spacesUsed } from '$lib/panel';
 	import { MAIN_AMPS, SPACES, SUB_MAIN_AMPS, SUB_SPACES, type Numbering } from '$lib/constants';
 
 	let { ix, panel, depth = 0 }: { ix: HouseIndex; panel: Panel; depth?: number } = $props();
@@ -15,7 +15,7 @@
 	const feeder = $derived(ix.feederOf(panel));
 	const sub = $derived(feeder !== null);
 	const id = $derived(panel.id);
-	const inside = $derived(house.breakers.filter((b) => b.panelId === panel.id));
+	const placed = $derived(house.breakers.filter((b) => b.panelId === panel.id));
 	let open = $state(false);
 	const shown = $derived(!sub || open);
 
@@ -28,6 +28,11 @@
 	const shape = $derived({ slotCount: spacesPick ?? panel.slotCount, numbering: numberingPick ?? panel.numbering });
 
 	function fitProblem(s: { slotCount: number; numbering: Numbering }): string | null {
+		// Quads are placed for the current numbering, and their spaces aren't re-derived.
+		const quad = s.numbering !== panel.numbering ? placed.find((b) => quadPair(b, panel)) : null;
+		if (quad) return `Quad breaker ${slotLabel(quad, panel)} is placed for the current numbering. Remove it first.`;
+		// Other breakers' spaces follow the numbering, so check them as they'd be under the new one.
+		const inside = placed.map((b) => (s.numbering === panel.numbering ? b : { ...b, spaces: undefined }));
 		const used = spacesUsed(inside, s);
 		if (used > s.slotCount) {
 			return `${used} spaces are in use. Move or remove breakers above slot ${s.slotCount} first.`;
