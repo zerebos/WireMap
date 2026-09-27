@@ -134,6 +134,9 @@ export async function makeTandem(id: number): Promise<number> {
 }
 
 export async function deleteBreaker(id: number) {
+	// Delete the subpanel first (Settings → Panels), or it would point at a breaker that's gone.
+	const fed = await db.select({ id: t.panels.id }).from(t.panels).where(eq(t.panels.fedByBreakerId, id)).get();
+	if (fed) throw new Error('This breaker feeds a subpanel. Delete the subpanel first.');
 	await db.delete(t.breakers).where(eq(t.breakers.id, id));
 }
 

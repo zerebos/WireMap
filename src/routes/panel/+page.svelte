@@ -56,7 +56,7 @@
 	}
 	async function addSub(v: SubpanelValues) {
 		const id = await mutate(() => createSubpanel(v));
-		goto(resolve('/panel') + `?p=${id}`);
+		await goto(resolve('/panel') + `?p=${id}`);
 	}
 
 	const breakers = $derived(panel ? house.breakers.filter((b) => b.panelId === panel.id) : []);
