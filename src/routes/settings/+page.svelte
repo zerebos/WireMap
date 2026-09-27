@@ -3,19 +3,21 @@
 	import { resolve } from '$app/paths';
 	import { replaceState } from '$app/navigation';
 	import Icon from '$lib/components/Icon.svelte';
-	import { mutate, plural } from '$lib/house';
+	import { index, mutate, plural } from '$lib/house';
+	import PanelCard from '$lib/components/settings/PanelCard.svelte';
+	import SubpanelForm from '$lib/components/panel/SubpanelForm.svelte';
 	import {
 		createFloor,
 		deleteFloor,
 		moveFloor,
 		setFloorPlan,
 		updateFloor,
-		updatePanel,
-		updateSettings
+		createSubpanel,
+		updateSettings,
+		type SubpanelValues
 	} from '$lib/db/ops';
 	import { exportDatabase, importDatabase, resetDatabase } from '$lib/db';
-	import { checkFit, occupiedSlots, slotLabel, spacesUsed } from '$lib/panel';
-	import { MAIN_AMPS, SPACES, type Numbering, type Theme } from '$lib/constants';
+	import type { Theme } from '$lib/constants';
 	import { query } from '$lib/search.svelte';
 	import { itemsCsv } from '$lib/csv';
 
@@ -24,6 +26,7 @@
 	const house = $derived(data.house);
 	const settings = $derived(house.settings);
 	const panel = $derived(house.panel);
+	const ix = $derived(index(house));
 
 	// ---- Sections, and what the header search matches in each row
 
@@ -136,60 +139,10 @@
 
 	// ---- Panels
 
-	const mainBreakers = $derived(panel ? house.breakers.filter((b) => b.panelId === panel.id) : []);
-	// A spaces or numbering choice that doesn't fit the breakers isn't saved; it waits here.
-	let spacesPick = $state<number | null>(null);
-	let numberingPick = $state<Numbering | null>(null);
-	const shape = $derived(
-		panel
-			? { slotCount: spacesPick ?? panel.slotCount, numbering: numberingPick ?? panel.numbering }
-			: { slotCount: 0, numbering: 'odd_left_even_right' as Numbering }
-	);
-
-	function fitProblem(s: { slotCount: number; numbering: Numbering }): string | null {
-		const used = spacesUsed(mainBreakers, s);
-		if (used > s.slotCount) {
-			return `${used} spaces are in use. Move or remove breakers above slot ${s.slotCount} first.`;
-		}
-		const bad = mainBreakers.find((b) => checkFit(b, s, []));
-		if (bad) {
-			if (occupiedSlots(bad, s).some((slot) => slot > s.slotCount)) {
-				return `Breaker ${slotLabel(bad, s)} sits past slot ${s.slotCount}. Move or remove breakers above slot ${s.slotCount} first.`;
-			}
-			return `With this numbering, the 2-pole breaker at slot ${bad.slot} would span both columns. Move it first.`;
-		}
-		const clash = mainBreakers.find((b) => checkFit(b, s, mainBreakers));
-		if (!clash) return null;
-		return `With this numbering, the 2-pole breaker at slot ${clash.slot} would overlap another breaker. Move one of them first.`;
-	}
-	const problem = $derived(panel ? fitProblem(shape) : null);
-
-	function tryShape(next: { slotCount?: number; numbering?: Numbering }) {
-		if (!panel) return;
-		if (next.slotCount !== undefined) spacesPick = next.slotCount;
-		if (next.numbering !== undefined) numberingPick = next.numbering;
-		const s = { slotCount: spacesPick ?? panel.slotCount, numbering: numberingPick ?? panel.numbering };
-		if (fitProblem(s)) return;
-		spacesPick = null;
-		numberingPick = null;
-		if (s.slotCount !== panel.slotCount || s.numbering !== panel.numbering) {
-			const id = panel.id;
-			mutate(() => updatePanel(id, s));
-		}
-	}
-
-	function saveLocation(e: Event & { currentTarget: HTMLInputElement }) {
-		if (!panel) return;
-		const location = e.currentTarget.value.trim() || null;
-		const id = panel.id;
-		if (location !== panel.location) mutate(() => updatePanel(id, { location }));
-	}
-
-	function saveTandem(e: Event & { currentTarget: HTMLInputElement }) {
-		if (!panel) return;
-		const tandemSlots = e.currentTarget.value.trim() || null;
-		const id = panel.id;
-		if (tandemSlots !== panel.tandemSlots) mutate(() => updatePanel(id, { tandemSlots }));
+	let adding = $state(false);
+	async function addSub(v: SubpanelValues) {
+		await mutate(() => createSubpanel(v));
+		adding = false;
 	}
 
 	// ---- Floors (top floor first)
@@ -498,94 +451,17 @@
 				<section id="panels">
 					<div class="shead">
 						<h2 class="h2">Panels</h2>
-						<button type="button" class="btn" disabled title="Subpanels aren't designed yet">
+						<button type="button" class="btn" aria-pressed={adding} disabled={!panel} onclick={() => (adding = !adding)}>
 							<Icon name="plus" size={16} stroke={2.2} />Add subpanel
 						</button>
 					</div>
+					{#if adding}
+						<div class="card pcard"><SubpanelForm {ix} oncancel={() => (adding = false)} onadd={addSub} /></div>
+					{/if}
 					{#if panel}
-						<div class="card pcard">
-							<div class="pname">
-								<span>{panel.name}</span>
-								{#if panel.fedByBreakerId === null}<span class="tag">MAIN</span>{/if}
-							</div>
-							<div class="pgrid">
-								<div class="fld">
-									<label for="p-amp">Main breaker</label>
-									<select
-										id="p-amp"
-										class="inp"
-										value={panel.mainAmps ?? ''}
-										onchange={(e) => {
-											const id = panel.id;
-											const v = e.currentTarget.value;
-											mutate(() => updatePanel(id, { mainAmps: v ? Number(v) : null }));
-										}}
-									>
-										{#if panel.mainAmps === null}<option value="">Not set</option>{/if}
-										{#if panel.mainAmps !== null && !MAIN_AMPS.includes(panel.mainAmps)}
-											<option value={panel.mainAmps}>{panel.mainAmps} A</option>
-										{/if}
-										{#each MAIN_AMPS as a (a)}<option value={a}>{a} A</option>{/each}
-									</select>
-								</div>
-								<div class="fld">
-									<label for="p-sp">Spaces</label>
-									<select
-										id="p-sp"
-										class="inp"
-										value={shape.slotCount}
-										onchange={(e) => tryShape({ slotCount: Number(e.currentTarget.value) })}
-									>
-										{#if !SPACES.includes(panel.slotCount)}<option value={panel.slotCount}>{panel.slotCount}</option>{/if}
-										{#each SPACES as n (n)}<option value={n}>{n}</option>{/each}
-									</select>
-								</div>
-								<div class="fld">
-									<label for="p-num">Slot numbering</label>
-									<select
-										id="p-num"
-										class="inp"
-										value={shape.numbering}
-										onchange={(e) => tryShape({ numbering: e.currentTarget.value as Numbering })}
-									>
-										<option value="odd_left_even_right">Odd left, even right</option>
-										<option value="down_left_then_right">Down the left, then the right</option>
-									</select>
-								</div>
-							</div>
-							<div class="fld">
-								<label for="p-loc">Location</label>
-								<input
-									id="p-loc"
-									class="inp"
-									type="text"
-									placeholder="Where the panel is, e.g. basement utility room"
-									value={panel.location ?? ''}
-									onchange={saveLocation}
-								/>
-							</div>
-							<div class="fld">
-								<label for="p-tdm">Tandem slots</label>
-								<input
-									id="p-tdm"
-									class="inp"
-									type="text"
-									placeholder="e.g. 17–28"
-									value={panel.tandemSlots ?? ''}
-									onchange={saveTandem}
-									aria-describedby="p-tdm-d"
-								/>
-								<span class="sd" id="p-tdm-d"
-									>Printed on the panel label, e.g. “Class CTL — tandems in spaces 17–28”. Leave blank if you’re not sure.</span
-								>
-							</div>
-							{#if problem}
-								<div class="shrink" role="status">
-									<strong>Some breakers won’t fit.</strong>
-									{problem} This change isn’t saved until they fit.
-								</div>
-							{/if}
-						</div>
+						{#each ix.panelTree() as t (t.panel.id)}
+							<PanelCard {ix} panel={t.panel} depth={t.depth} />
+						{/each}
 					{:else}
 						<div class="card">
 							<div class="row">
@@ -1173,32 +1049,6 @@
 	.pcard {
 		padding-top: 20px;
 		padding-bottom: 20px;
-		display: flex;
-		flex-direction: column;
-		gap: 18px;
-	}
-	.pname {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		font-size: 17px;
-		font-weight: 700;
-	}
-	.pgrid {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 14px;
-	}
-	.shrink {
-		background: var(--amber-soft);
-		border: 1px solid var(--amber);
-		border-radius: var(--r-lg);
-		padding: 12px 14px;
-		font-size: 13px;
-		line-height: 1.45;
-	}
-	.shrink strong {
-		color: var(--amber-ink);
 	}
 
 	/* Floors */

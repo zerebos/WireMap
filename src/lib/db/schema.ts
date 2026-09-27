@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index, primaryKey, customType } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex, primaryKey, customType } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 import type { Shape } from '../shape';
 import { HALVES, PROTECTIONS, ITEM_TYPES, NUMBERINGS, START_PAGES, THEMES } from '../constants';
@@ -9,6 +9,8 @@ export { PROTECTIONS, ITEM_TYPES };
 export const panels = sqliteTable('panels', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
+	// 1–3 letters that prefix a subpanel's breaker numbers ("G6"). Null for the main panel.
+	shortCode: text('short_code'),
 	location: text('location'),
 	mainAmps: integer('main_amps'),
 	// Number of spaces in the panel.
@@ -20,7 +22,11 @@ export const panels = sqliteTable('panels', {
 	// Set when this is a sub-panel fed from a breaker in another panel.
 	fedByBreakerId: integer('fed_by_breaker_id'),
 	notes: text('notes')
-});
+},
+	// Two panels can't share a prefix, or breaker numbers would be ambiguous (the main panel's is null),
+	// and one breaker can't feed two panels.
+	(t) => [uniqueIndex('panels_short_code_idx').on(t.shortCode), uniqueIndex('panels_fed_by_idx').on(t.fedByBreakerId)]
+);
 
 export const breakers = sqliteTable(
 	'breakers',

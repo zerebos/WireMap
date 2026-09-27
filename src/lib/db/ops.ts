@@ -22,9 +22,88 @@ export async function createPanel(values: typeof t.panels.$inferInsert): Promise
 	return row.id;
 }
 
+export type SubpanelValues = {
+	name: string;
+	shortCode: string;
+	slotCount: number;
+	mainAmps: number | null;
+	location: string | null;
+	/** An existing 2-pole breaker, or a new 2-pole breaker at an open slot. */
+	fedBy: { breakerId: number } | { panelId: number; slot: number; amps: number };
+};
+
+/**
+ * Adds a subpanel (DESIGN.md §5.17). The feeder breaker's label becomes the subpanel's name;
+ * "New breaker in an open slot" adds that 2-pole breaker first. Returns the new panel's id.
+ */
+export async function createSubpanel(v: SubpanelValues): Promise<number> {
+	// One transaction, so a failed insert (say, a taken short code) leaves no stray or relabeled feeder.
+	return db.transaction(async (tx) => {
+		let feeder: number;
+		if ('breakerId' in v.fedBy) {
+			feeder = v.fedBy.breakerId;
+			// A feeder is a full-size 2-pole breaker (DESIGN.md §5.17).
+			const b = await tx.select().from(t.breakers).where(eq(t.breakers.id, feeder)).get();
+			if (!b || b.poles !== 2 || b.half !== null) throw new Error('A subpanel has to be fed from a full-size 2-pole breaker.');
+			await tx.update(t.breakers).set({ label: v.name }).where(eq(t.breakers.id, feeder));
+		} else {
+			const [b] = await tx
+				.insert(t.breakers)
+				.values({ panelId: v.fedBy.panelId, slot: v.fedBy.slot, poles: 2, amps: v.fedBy.amps, kind: 'standard', label: v.name })
+				.returning({ id: t.breakers.id })
+				.all();
+			feeder = b.id;
+		}
+		const [row] = await tx
+			.insert(t.panels)
+			.values({
+				name: v.name,
+				shortCode: v.shortCode,
+				slotCount: v.slotCount,
+				mainAmps: v.mainAmps,
+				location: v.location,
+				numbering: 'odd_left_even_right',
+				fedByBreakerId: feeder
+			})
+			.returning({ id: t.panels.id })
+			.all();
+		return row.id;
+	});
+}
+
+/** Renames a panel; a subpanel's feeder label follows its name. */
+export async function renamePanel(id: number, name: string) {
+	await updatePanel(id, { name });
+	const p = await db.select().from(t.panels).where(eq(t.panels.id, id)).get();
+	if (p?.fedByBreakerId != null) await updateBreaker(p.fedByBreakerId, { label: name });
+}
+
+/**
+ * Deletes a subpanel and any subpanels fed from it. Their breakers go with them, so the items on
+ * those breakers become "No breaker". The feeder in the parent panel stays.
+ */
+export async function deletePanel(id: number) {
+	// One transaction, so a subpanel added meanwhile can't be missed and left without its feeder.
+	await db.transaction(async (tx) => {
+		const doomed = [id];
+		for (let i = 0; i < doomed.length; i++) {
+			const inside = await tx.select({ id: t.breakers.id }).from(t.breakers).where(eq(t.breakers.panelId, doomed[i])).all();
+			if (!inside.length) continue;
+			const subs = await tx
+				.select({ id: t.panels.id })
+				.from(t.panels)
+				.where(inArray(t.panels.fedByBreakerId, inside.map((b) => b.id)))
+				.all();
+			doomed.push(...subs.map((s) => s.id).filter((s) => !doomed.includes(s)));
+		}
+		await tx.delete(t.panels).where(inArray(t.panels.id, doomed));
+	});
+}
+
 // ---- Breakers
 
 export async function updateBreaker(id: number, patch: Partial<Omit<Breaker, 'id' | 'panelId'>>) {
+	if ((patch.poles !== undefined && patch.poles !== 2) || patch.half) await keepFeeder(id);
 	await db.update(t.breakers).set(patch).where(eq(t.breakers.id, id));
 }
 
@@ -38,7 +117,14 @@ export async function createBreaker(values: typeof t.breakers.$inferInsert): Pro
  * an empty, unlabeled half B is added. Returns half B's id. Running it again on a breaker that is
  * already a half changes nothing and returns its slot's B half.
  */
+/** A subpanel feeder stays a full-size 2-pole breaker (DESIGN.md §5.17). */
+async function keepFeeder(id: number) {
+	const fed = await db.select({ id: t.panels.id }).from(t.panels).where(eq(t.panels.fedByBreakerId, id)).get();
+	if (fed) throw new Error('A subpanel feeder has to stay 2-pole.');
+}
+
 export async function makeTandem(id: number): Promise<number> {
+	await keepFeeder(id);
 	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
 	if (!b) throw new Error('No such breaker');
 	if (b.half !== null) {
@@ -54,6 +140,9 @@ export async function makeTandem(id: number): Promise<number> {
 }
 
 export async function deleteBreaker(id: number) {
+	// Delete the subpanel first (Settings → Panels), or it would point at a breaker that's gone.
+	const fed = await db.select({ id: t.panels.id }).from(t.panels).where(eq(t.panels.fedByBreakerId, id)).get();
+	if (fed) throw new Error('This breaker feeds a subpanel. Delete the subpanel first.');
 	await db.delete(t.breakers).where(eq(t.breakers.id, id));
 }
 

@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import type { HouseIndex } from '$lib/house';
-	import { faceColumns, legOfRow, rowCount, slotLabel, tandemOk, type Cell } from '$lib/panel';
+	import { faceColumns, legOfRow, rowCount, slotLabel, spaceLabel, tandemOk, type Cell } from '$lib/panel';
 	import { PROTECTION_TAGS } from '$lib/constants';
 	import { search } from '$lib/search.svelte';
 	import BreakerSheet from '$lib/components/phone/BreakerSheet.svelte';
@@ -32,6 +32,8 @@
 
 	const face = $derived(faceColumns(panel, breakers));
 	const rows = $derived(rowCount(panel));
+	const feeder = $derived(ix.feederOf(panel));
+	const amps = $derived(panel.mainAmps ?? feeder?.amps ?? null);
 
 	async function close() {
 		const id = selected?.id;
@@ -48,7 +50,7 @@
 	</div>
 	<div class="scroll">
 		<div class="enc">
-			<div class="main mono"><span class="mh"></span>MAIN {panel.mainAmps ? `${panel.mainAmps}A` : '—'}</div>
+			<div class="main mono"><span class="mh"></span>{feeder && panel.mainAmps === null ? 'MAIN LUGS' : 'MAIN'} {amps ? `${amps}A` : '—'}</div>
 			<div class="cols">
 				{#snippet col(cells: Cell<Breaker>[], r: boolean)}
 					<div class="col">
@@ -69,13 +71,13 @@
 												onclick={() => onpick(h)}><span class="n">{slotLabel(h, panel)}</span><span class="pl">{h.label.trim() || 'Unlabeled'}</span></button
 											>
 										{:else}
-											<div class="pch open" class:r><span class="n">{c.slot}{i === 0 ? 'A' : 'B'}</span><span class="pl">Open</span></div>
+											<div class="pch open" class:r><span class="n">{spaceLabel({ slot: c.slot, half: i === 0 ? 'A' : 'B' }, panel)}</span><span class="pl">Open</span></div>
 										{/if}
 									{/each}
 								</div>
 							{:else if c.breaker}
 								{@const b = c.breaker}
-								{@const tag = PROTECTION_TAGS[b.kind]}
+								{@const tag = ix.fedPanelOf(b) ? 'SUB' : PROTECTION_TAGS[b.kind]}
 								<button
 									type="button"
 									class="pb pb-{b.poles === 2 ? 2 : 1}"
@@ -88,11 +90,11 @@
 									onclick={() => onpick(b)}
 								>
 									<span class="n">{slotLabel(b, panel)} · {b.amps}A{#if tag}<span class="tg">{tag}</span>{/if}</span>
-									<span class="l">{b.label.trim() || 'Unlabeled'}</span>
+									<span class="l">{ix.fedPanelOf(b) ? `→ ${ix.fedPanelOf(b)?.name}` : b.label.trim() || 'Unlabeled'}</span>
 								</button>
 							{:else}
 								<div class="pb pb-1 pb-open" class:r>
-									<span class="n">{c.slot}</span>
+									<span class="n">{spaceLabel({ slot: c.slot, half: null }, panel)}</span>
 									<span class="l">Open</span>
 								</div>
 							{/if}
