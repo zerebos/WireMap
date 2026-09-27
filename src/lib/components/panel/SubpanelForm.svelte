@@ -13,8 +13,8 @@
 	const many = $derived(house.panels.length > 1);
 	const where = (panelId: number) => (many ? ` · ${panelShort(ix.panelById.get(panelId)!)}` : '');
 
-	// Existing 2-pole breakers that don't already feed a panel.
-	const twoPoles = $derived(house.breakers.filter((b) => b.poles === 2 && !ix.fedPanelOf(b)));
+	// Existing full-size 2-pole breakers (not a quad pair) that don't already feed a panel.
+	const twoPoles = $derived(house.breakers.filter((b) => b.poles === 2 && !b.half && !ix.fedPanelOf(b)));
 	// Open places a new 2-pole breaker fits, in every panel.
 	const openPairs = $derived(
 		house.panels.flatMap((p) => {
