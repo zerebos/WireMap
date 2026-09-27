@@ -278,7 +278,10 @@ export type QuadSeg<B> = { key: string; row: number; span: number; b: B | null; 
  * A quad cell's four half-rows in physical order (sA, sB, (s+2)A, (s+2)B) and its tie bars, which
  * join each 2-pole pair's handles (row indexes 0–3).
  */
-export function quadLayout<B extends Placed & { id: number }>(q: (B | null)[], top: number, p: PanelShape) {
+export function quadLayout<B extends Placed & { id: number }>(cells: (B | null)[], top: number, p: PanelShape) {
+	// One object per breaker, so a pair found on two halves compares equal (and keys once).
+	const byId = new Map<number, B>();
+	const q = cells.map((b) => (b ? (byId.get(b.id) ?? (byId.set(b.id, b), b)) : null));
 	const below = nextInColumn(top, p);
 	const keys = [`${top}A`, `${top}B`, `${below}A`, `${below}B`];
 	const segs: QuadSeg<B>[] = [];

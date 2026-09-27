@@ -140,8 +140,11 @@ export async function setSpaces(id: number, spaces?: Space[]) {
 
 export async function updateBreaker(id: number, patch: Partial<Omit<Breaker, 'id' | 'panelId'>>) {
 	if ((patch.poles !== undefined && patch.poles !== 2) || patch.half) await keepFeeder(id);
+	const before = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
 	await db.update(t.breakers).set(patch).where(eq(t.breakers.id, id));
-	if ('slot' in patch || 'half' in patch || 'poles' in patch) await setSpaces(id);
+	// Only a real move or resize re-derives the spaces, so saving a label keeps a quad pair's halves.
+	const moved = (['slot', 'half', 'poles'] as const).some((k) => k in patch && patch[k] !== before?.[k]);
+	if (moved) await setSpaces(id);
 }
 
 export async function createBreaker(values: typeof t.breakers.$inferInsert, spaces?: Space[]): Promise<number> {
@@ -219,20 +222,24 @@ export async function makeQuad(id: number, below: number): Promise<number> {
  * quad's second slot for everything in it.
  */
 export async function swapQuadPairs(ids: number[], below: number) {
-	for (const id of ids) {
-		const rows = await db.select().from(t.breakerSpaces).where(eq(t.breakerSpaces.breakerId, id)).all();
-		await setSpaces(
-			id,
-			rows.map((r) =>
-				r.slot === below && r.half
-					? {
-							slot: r.slot,
-							half: r.half === 'A' ? ('B' as const) : ('A' as const)
-						}
-					: { slot: r.slot, half: r.half }
-			)
-		);
-	}
+	// Outer (sA + belowB) and inner (sB + belowA) trade places: every half in the quad flips.
+	await db.transaction(async (tx) => {
+		const rows = await tx.select().from(t.breakerSpaces).where(inArray(t.breakerSpaces.breakerId, ids)).all();
+		for (const r of rows) {
+			if (!r.half) continue;
+			const half = r.half === 'A' ? ('B' as const) : ('A' as const);
+			await tx
+				.update(t.breakerSpaces)
+				.set({ half })
+				.where(and(eq(t.breakerSpaces.breakerId, r.breakerId), eq(t.breakerSpaces.slot, r.slot), eq(t.breakerSpaces.half, r.half)));
+		}
+		// Each breaker's anchor is its first space.
+		for (const id of ids) {
+			const mine = rows.filter((r) => r.breakerId === id && r.half).map((r) => ({ slot: r.slot, half: r.half === 'A' ? 'B' : 'A' }));
+			const first = mine.sort((a, c) => a.slot - c.slot || a.half.localeCompare(c.half))[0];
+			if (first) await tx.update(t.breakers).set({ slot: first.slot, half: first.half as 'A' | 'B' }).where(eq(t.breakers.id, id));
+		}
+	});
 }
 
 /**
