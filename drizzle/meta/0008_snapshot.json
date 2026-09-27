@@ -570,6 +570,13 @@
         }
       },
       "indexes": {
+        "panels_fed_by_idx": {
+          "name": "panels_fed_by_idx",
+          "columns": [
+            "fed_by_breaker_id"
+          ],
+          "isUnique": true
+        },
         "panels_short_code_idx": {
           "name": "panels_short_code_idx",
           "columns": [
