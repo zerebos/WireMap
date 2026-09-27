@@ -8,6 +8,9 @@ import { updateSettings } from './db/ops';
 
 const KEY = 'breakerbook:signed-in';
 
+/** Pages that change data; a guest is sent to the Panel instead. */
+export const EDIT_ONLY = ['/settings', '/trace', '/directory', '/setup'];
+
 function readSignedIn(): boolean {
 	try {
 		return sessionStorage.getItem(KEY) === '1' || localStorage.getItem(KEY) === '1';
@@ -45,6 +48,9 @@ export async function setGuestView(on: boolean) {
 /** Locks this device again after signing in (owner's call, 2026-09-27: not in the design). */
 export function lockDevice() {
 	setSignedIn(false);
+	// Reload so no edit mode that was open (Move…, Place item, Floor plan, a bulk selection) outlives
+	// the lock: every page starts again as the guest sees it.
+	location.reload();
 }
 
 /** Signs in on this device. Without a server there are no accounts, so any username and password unlock it. */

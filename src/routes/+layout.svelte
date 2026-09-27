@@ -11,7 +11,7 @@
 	import { viewport } from '$lib/viewport.svelte';
 	import { traceFlow } from '$lib/trace.svelte';
 	import { applyTheme, effectiveTheme } from '$lib/theme';
-	import { access, lockDevice, syncAccess } from '$lib/access.svelte';
+	import { access, EDIT_ONLY, lockDevice, syncAccess } from '$lib/access.svelte';
 
 	let { data, children } = $props();
 
@@ -41,6 +41,12 @@
 	const tabOf = (r: string) => (r === '/directory' || r === '/trace' || r === '/print' ? '/panel' : r);
 	// With no panel yet, every page but Settings leads to setup.
 	beforeNavigate((nav) => {
+		// A guest never reaches the edit-only pages, not even for a frame.
+		if (nav.to && access.guest && EDIT_ONLY.includes(nav.to.route.id ?? '')) {
+			nav.cancel();
+			goto(resolve('/panel'), { replaceState: true });
+			return;
+		}
 		if (nav.to && data.house && !access.guest && needsSetup(data.house, nav.to.route.id)) {
 			nav.cancel();
 			goto(resolve('/setup'));
@@ -52,9 +58,8 @@
 	$effect(() => {
 		if (data.house) syncAccess(data.house.settings.guestReadOnly);
 	});
-	const editOnly = ['/settings', '/trace', '/directory', '/setup'];
 	$effect(() => {
-		if (access.guest && editOnly.includes(route)) goto(resolve('/panel'), { replaceState: true });
+		if (access.guest && EDIT_ONLY.includes(route)) goto(resolve('/panel'), { replaceState: true });
 	});
 
 	// Search belongs to the page it was typed on.
@@ -185,7 +190,7 @@
 		{#if data.storage && !data.storage.persistent}
 			<p class="warning" role="status">
 				This browser can't store data for Breakerbook, so changes are lost when you close the tab.
-				<a href={resolve('/settings') + '#data'}>Download a backup</a> before you leave.
+				{#if !access.guest}<a href={resolve('/settings') + '#data'}>Download a backup</a> before you leave.{/if}
 			</p>
 		{/if}
 	{/if}

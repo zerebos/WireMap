@@ -589,6 +589,11 @@
 												<span class="amp">{g.first ? b.amps : ''}</span>
 												<span class="hdl"></span>
 											</button>
+										{:else if access.guest}
+											<div class="th th-open" class:r={side === 'r'} style:grid-row={g.row}>
+												<span class="num">{spaceLabel({ slot: Number(g.key.slice(0, -1)), half: g.key.slice(-1) as Half }, panel)}</span>
+												<span class="lbl">Open</span>
+											</div>
 										{:else}
 											{@const qs = Number(g.key.slice(0, -1))}
 											{@const qh = g.key.slice(-1) as Half}
