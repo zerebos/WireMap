@@ -50,7 +50,8 @@ export async function loadHouse(): Promise<House> {
 			startPage: 'panel',
 			theme: 'system',
 			showLegs: true,
-			mapFadeOthers: true
+			mapFadeOthers: true,
+			guestReadOnly: false
 		},
 		panel: panels.find((p) => p.fedByBreakerId === null) ?? panels[0] ?? null,
 		panels,

@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `guest_read_only` integer DEFAULT false NOT NULL;

@@ -51,7 +51,7 @@
 	const panelHref = (p: Panel) => resolve('/panel') + `?p=${p.id}`;
 
 	// ---- Add subpanel (?add=sub) in the detail pane.
-	const adding = $derived(page.url.searchParams.get('add') === 'sub');
+	const adding = $derived(!access.guest && page.url.searchParams.get('add') === 'sub');
 	let subForm = $state<ReturnType<typeof SubpanelForm>>();
 	async function openAdd() {
 		const url = new URL(page.url);
@@ -152,7 +152,7 @@
 	// ---- A new breaker in an open slot (?slot=<n>). While it's open, ?b= is kept so Cancel goes back.
 	const newSlot = $derived.by(() => {
 		const n = Number(page.url.searchParams.get('slot'));
-		if (!panel || !Number.isInteger(n) || n < 1 || n > panel.slotCount || cover.has(n)) return null;
+		if (access.guest || !panel || !Number.isInteger(n) || n < 1 || n > panel.slotCount || cover.has(n)) return null;
 		return n;
 	});
 	let form = $state<NewBreaker>(blankBreaker());
@@ -440,7 +440,7 @@
 	<main class="empty-app">
 		<h1>No panel yet</h1>
 		<p>Setting up a panel from scratch isn't designed yet. Load the example house from Settings to look around.</p>
-		<a class="btn" href={resolve('/settings') + '#data'}>Open Settings</a>
+		{#if !access.guest}<a class="btn" href={resolve('/settings') + '#data'}>Open Settings</a>{/if}
 	</main>
 {:else if viewport.phone}
 	<PhoneShell title={panel.name} sub="{ampsOf(panel) ? `${ampsOf(panel)}A · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces">
@@ -481,9 +481,9 @@
 							</span>
 						</a>
 					{/each}
-					<button type="button" class="btn addsub" aria-pressed={adding} onclick={openAdd}
+					{#if !access.guest}<button type="button" class="btn addsub" aria-pressed={adding} onclick={openAdd}
 						><Icon name="plus" size={14} stroke={2.2} />Subpanel</button
-					>
+					>{/if}
 				</div>
 			{/if}
 			<div class="top">
@@ -515,7 +515,7 @@
 							<span><span class="tdk" aria-hidden="true"><span></span><span></span></span>Tandem (A/B)</span>
 						{/if}
 						{#if tandemText(panel)}<span class="mono">Tandem / quad slots {tandemText(panel)}</span>{/if}
-						<a class="btn trace" href={resolve('/trace')}><Icon name="bolt" size={14} />Trace</a>
+						{#if !access.guest}<a class="btn trace" href={resolve('/trace')}><Icon name="bolt" size={14} />Trace</a>{/if}
 						<a class="btn trace" href={resolve('/print') + `?p=${panel.id}`}><Icon name="print" size={14} />Print</a>
 					</div>
 				{/if}
@@ -589,6 +589,11 @@
 												<span class="amp">{g.first ? b.amps : ''}</span>
 												<span class="hdl"></span>
 											</button>
+										{:else if access.guest}
+											<div class="th th-open" class:r={side === 'r'} style:grid-row={g.row}>
+												<span class="num">{spaceLabel({ slot: Number(g.key.slice(0, -1)), half: g.key.slice(-1) as Half }, panel)}</span>
+												<span class="lbl">Open</span>
+											</div>
 										{:else}
 											{@const qs = Number(g.key.slice(0, -1))}
 											{@const qh = g.key.slice(-1) as Half}
@@ -650,6 +655,11 @@
 												<span class="amp">{b.amps}</span>
 												<span class="hdl"></span>
 											</button>
+										{:else if access.guest}
+											<div class="th th-open" class:r={side === 'r'}>
+												<span class="num">{spaceLabel({ slot: cell.slot, half: i === 0 ? 'A' : 'B' }, panel)}</span>
+												<span class="lbl">Open</span>
+											</div>
 										{:else}
 											{@const half = i === 0 ? ('A' as const) : ('B' as const)}
 											{@const ok = moving && fits(cell.slot, half)}
@@ -686,6 +696,11 @@
 									<span class="num">{spaceLabel({ slot: cell.slot, half: null }, panel)}</span>
 									<span class="lbl">{ok ? 'Move here' : 'Open'}</span>
 								</button>
+							{:else if !cell.breaker && access.guest}
+								<div class="bk bk-1 bk-open" class:bk-r={side === 'r'} style:grid-row={at.row} style:grid-column={side === 'l' ? 1 : 3}>
+									<span class="num">{spaceLabel({ slot: cell.slot, half: null }, panel)}</span>
+									<span class="lbl"><span class="opn">Open</span></span>
+								</div>
 							{:else if !cell.breaker}
 								{@const isNew = cell.slot === newSlot}
 								{@const two = isNew && newSlots.length === 2}
@@ -765,6 +780,8 @@
 				oncancel={cancelSlot}
 				onadd={addBreaker}
 			/>
+		{:else if !sel && access.guest}
+			<div class="gempty"><p>No breakers on this panel yet.</p></div>
 		{:else if !sel}
 			<PanelEmpty slotCount={panel.slotCount} {directoryHref} />
 		{:else}
@@ -774,18 +791,21 @@
 								? `Slot ${spaceLabel({ slot: sel.slot, half: sel.half ?? null }, panel)} · Leg ${legOf(sel.slot, panel)} · Quad`
 								: slotText(sel, panel)}{selSub ? ' · Feeder' : ''}</span>
 					<div class="nav">
-						<button
+						{#if !access.guest}<button
 								type="button"
 								class="btn"
 								aria-pressed={moving}
 								disabled={selQuad !== null}
 								title={selQuad !== null ? 'Part of a quad: move or remove the whole quad’s breakers instead.' : undefined}
 								onclick={() => (moving = !moving)}>Move…</button
-							>
+							>{/if}
 						<button type="button" class="ibtn" aria-label="Previous breaker" onclick={() => step(-1)}><Icon name="prev" /></button>
 						<button type="button" class="ibtn" aria-label="Next breaker" onclick={() => step(1)}><Icon name="next" /></button>
 					</div>
 				</div>
+				{#if access.guest}
+					<h2 class="ttl ro">{sel.label.trim() || 'Unlabeled'}</h2>
+				{:else}
 				<label for="f-label" class="sr">Breaker label</label>
 				<input
 					id="f-label"
@@ -795,6 +815,7 @@
 					oninput={(e) => edit(selRaw!, { label: e.currentTarget.value })}
 					placeholder="Unlabeled — what does it power?"
 				/>
+				{/if}
 				{#if house.panels.length > 1}
 				<div class="path" aria-label="Power path">
 					<span class="ov">Power path</span>
@@ -804,6 +825,19 @@
 					{/each}
 				</div>
 				{/if}
+				{#if access.guest}
+					<div class="grid4">
+						<div class="fld"><span class="k">Amperage</span><span class="v">{sel.amps} A</span></div>
+						<div class="fld"><span class="k">Protection</span><span class="v">{PROTECTION_LABELS[sel.kind]}</span></div>
+						<div class="fld">
+							<span class="k">Size</span>
+							<span class="v"
+								>{selQuad !== null ? 'Quad' : sel.half ? 'Tandem' : sel.poles === 2 ? '2-pole' : '1-pole'}</span
+							>
+						</div>
+						<div class="fld"><span class="k">Min. wire (copper)</span><span class="v">{MIN_WIRE[sel.amps] ?? '—'}</span></div>
+					</div>
+				{:else}
 				<div class="grid4">
 					<div class="fld">
 						<label for="f-amp">Amperage</label>
@@ -877,7 +911,8 @@
 						<span class="v">{MIN_WIRE[sel.amps] ?? '—'}</span>
 					</div>
 				</div>
-				{#if selNo2 && !sel.half}<span class="why" id="f-no2">{selNo2}</span>{/if}
+				{/if}
+				{#if selNo2 && !sel.half && !access.guest}<span class="why" id="f-no2">{selNo2}</span>{/if}
 				{#if tiedApart}
 					<div class="warnbox" role="note">
 						<strong>Handle-tied with {tiedApart.join(' + ')}, but not next to {tiedApart.length > 1 ? 'them' : 'it'}</strong>
@@ -912,15 +947,15 @@
 								{#each quadMates as m (m.id)}
 									<button type="button" class="btn" onclick={() => pick(m.id)}>Select {slotLabel(m, panel)}</button>
 								{/each}
-								<button type="button" class="btn" disabled={splitting} onclick={swapPairs}>Swap outer and inner</button>
+								{#if !access.guest}<button type="button" class="btn" disabled={splitting} onclick={swapPairs}>Swap outer and inner</button>{/if}
 							</div>
 						</div>
 					</div>
-					<span class="why"
+					{#if !access.guest}<span class="why"
 						>Brands differ on which handles pair up. If yours ties the top-and-bottom handles, that’s the outer pair; the middle two are
 						the inner pair. Swap them if the panel is labelled the other way.</span
-					>
-					{#if quadMates.length && sel.poles === 2}
+					>{/if}
+					{#if quadMates.length && sel.poles === 2 && !access.guest}
 						<span class="why" id="f-noq"
 							>To go back to one full-size 2-pole breaker, remove {quadMates.map((m) => slotLabel(m, panel)).join(' and ')} first.</span
 						>
@@ -949,7 +984,7 @@
 							may still be installed this way — worth checking with an electrician.
 						</div>
 					{/if}
-					{#if selMate}
+					{#if selMate && !access.guest}
 						<span class="why" id="f-nofull">To go back to one full-size breaker, remove or move {slotLabel(selMate, panel)} first.</span>
 					{/if}
 				{/if}
@@ -991,7 +1026,7 @@
 						<h2>Powers</h2>
 						<span>{summary}</span>
 					</div>
-					<button type="button" class="btn" onclick={addItem}><Icon name="plus" size={16} stroke={2.2} />Add item</button>
+					{#if !access.guest}<button type="button" class="btn" onclick={addItem}><Icon name="plus" size={16} stroke={2.2} />Add item</button>{/if}
 				</div>
 
 				{#each groups as g (g.type)}
@@ -1005,7 +1040,7 @@
 									{#if i.breakerIds.length > 1}<span class="plus" title="Also on {ix.plusOf(i, sel.id).slice(1)}">{ix.plusOf(i, sel.id)}</span>{/if}
 									{#if i.x !== null}
 										<a class="loc" href={resolve('/map') + `?item=${i.id}`}>Locate</a>
-									{:else}
+									{:else if !access.guest}
 										<a class="loc" href={resolve('/items') + `?item=${i.id}`}>Place</a>
 									{/if}
 								</div>
@@ -1015,11 +1050,13 @@
 				{:else}
 					<div class="none">
 						<span class="nt">Nothing mapped to this breaker yet</span>
+						{#if !access.guest}
 						<span class="nd">Flip it off, walk the house, and add whatever went dark. Anything you add here shows up on the map too.</span>
 						<div class="nb">
 							<button type="button" class="btn btn-pri" onclick={addItem}>Add the first item</button>
 							<a class="btn" href={resolve('/trace') + `?b=${sel.id}`}>Trace it</a>
 						</div>
+						{/if}
 					</div>
 				{/each}
 				{#if feeder}
@@ -1027,6 +1064,11 @@
 				{/if}
 				{/if}
 
+				{#if access.guest}
+					{#if sel.notes?.trim()}
+						<div class="fld"><span class="k">Notes</span><p class="note">{sel.notes}</p></div>
+					{/if}
+				{:else}
 				<div class="fld">
 					<label for="f-notes">Notes</label>
 					<textarea
@@ -1038,9 +1080,11 @@
 						oninput={(e) => edit(selRaw!, { notes: e.currentTarget.value })}
 					></textarea>
 				</div>
+				{/if}
 			</div>
 
-			<div class="dfoot">
+			<div class="dfoot" class:solo={access.guest}>
+				{#if !access.guest}
 				<div class="fleft">
 					<button
 						type="button"
@@ -1054,10 +1098,11 @@
 						{dirty ? 'Unsaved changes' : savedJustNow ? 'Saved just now' : 'All changes saved'}
 					</span>
 				</div>
+				{/if}
 				<div class="acts">
 					<a class="btn" href={resolve('/map') + `?circuit=${sel.id}`}><Icon name="map" size={16} />Show on map</a>
 					<a class="btn" href={resolve('/panel') + `?b=${sel.id}&shutoff=1`}><Icon name="power" size={16} />Shut off</a>
-					<button type="button" class="btn btn-pri" onclick={save} disabled={!dirty}>Save changes</button>
+					{#if !access.guest}<button type="button" class="btn btn-pri" onclick={save} disabled={!dirty}>Save changes</button>{/if}
 				</div>
 			</div>
 		{/if}
@@ -1640,6 +1685,14 @@
 	.ttl:hover {
 		border-bottom-color: var(--line-2);
 	}
+	h2.ttl:hover {
+		border-bottom-color: transparent;
+	}
+	.note {
+		font-size: 14px;
+		line-height: 1.5;
+		white-space: pre-wrap;
+	}
 	.ttl:focus {
 		outline: none;
 		border-bottom-color: var(--amber);
@@ -1819,6 +1872,9 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
+	}
+	.dfoot.solo {
+		justify-content: flex-end;
 	}
 	.fleft {
 		display: flex;
@@ -2155,5 +2211,9 @@
 	}
 	.qacts .btn {
 		height: 36px;
+	}
+	.gempty {
+		padding: 24px;
+		color: var(--muted);
 	}
 </style>

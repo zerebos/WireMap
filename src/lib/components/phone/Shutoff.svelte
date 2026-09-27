@@ -9,6 +9,7 @@
 	// off is only on-screen state: nothing here is saved.
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
+	import { access } from '$lib/access.svelte';
 	import { plural, type HouseBreaker, type HouseIndex, type HouseItem } from '$lib/house';
 	import { physicalPosition, compareBreakers, panelShort } from '$lib/panel';
 	import type { Breaker } from '$lib/db/schema';
@@ -265,7 +266,7 @@
 				<div class="unk">
 					<span class="unk-t">{plural(unknown.length, 'item')} could still be live</span>
 					<span class="unk-b">{unknown.map((i) => i.name).join(', ')} — no breaker on record. Treat as live until you trace it.</span>
-					<a href={resolve('/trace')}>Trace it now →</a>
+					{#if !access.guest}<a href={resolve('/trace')}>Trace it now →</a>{/if}
 				</div>
 			{/if}
 
