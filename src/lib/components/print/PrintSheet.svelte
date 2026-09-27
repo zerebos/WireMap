@@ -124,6 +124,9 @@
 <style>
 	.sheet {
 		box-sizing: border-box;
+		/* Keep the gutter fill even when "Background graphics" is off. */
+		print-color-adjust: exact;
+		-webkit-print-color-adjust: exact;
 		background: var(--print-paper);
 		color: var(--print-ink);
 		display: flex;
@@ -222,6 +225,9 @@
 		min-width: 0;
 		min-height: 0;
 		box-sizing: border-box;
+		/* Tandem and quad halves on a small card with large text mustn't overprint each other. */
+		line-height: 1;
+		overflow: hidden;
 	}
 	.r .prc {
 		flex-direction: row-reverse;

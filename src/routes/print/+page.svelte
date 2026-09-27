@@ -195,9 +195,10 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
+		justify-content: safe center;
 		gap: 14px;
 		padding: 24px;
+		overflow: auto;
 	}
 	.frame {
 		box-shadow: var(--print-shadow);
@@ -215,15 +216,16 @@
 
 	/* Only the sheet prints, at actual size in the page's top-left corner. */
 	@media print {
-		:global(body *) {
+		/* Anchored to this page: route CSS stays loaded after you navigate away. */
+		:global(body:has(.print) *) {
 			visibility: hidden;
 		}
 		.scaler,
 		.scaler :global(*) {
 			visibility: visible;
 		}
-		:global(html),
-		:global(body) {
+		:global(html:has(.print)),
+		:global(body:has(.print)) {
 			background: var(--print-paper);
 		}
 		.frame {
