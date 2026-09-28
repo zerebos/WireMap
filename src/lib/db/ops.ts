@@ -1,12 +1,104 @@
 // Every change the UI makes to the data, in one place. Pages call these through `mutate` from
 // $lib/house so the house reloads afterwards.
-import { and, eq, inArray, max, notInArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, max, notInArray, sql, type SQL } from 'drizzle-orm';
+import type { BatchItem } from 'drizzle-orm/batch';
 import { db } from './index';
 import * as t from './schema';
 import type { Breaker, Floor, Item, Panel, Room, Settings } from './schema';
 import { savePlan, deletePlan } from '../plans';
 import { roomAt, type Shape } from '../shape';
-import { deriveSpaces, type Space } from '../panel';
+import { checkFit, deriveSpaces, panelProblem, reshapeProblem, respace, type Space } from '../panel';
+
+// ---- Occupancy (DATA-MODEL.md): every write that places breakers checks the panel first
+
+/** A write that would leave breakers overlapping or outside the panel. The message is for people. */
+export class FitError extends Error {
+	name = 'FitError';
+}
+
+type Query = BatchItem<'sqlite'>;
+type Placement = Breaker & { spaces: Space[] };
+type PanelState = { p: Panel; bs: Placement[] };
+
+/** Runs statements as one all-or-nothing write. */
+const batch = (qs: Query[]) => (qs.length ? db.batch(qs as [Query, ...Query[]]) : Promise.resolve([]));
+
+/** A panel and its breakers with the spaces each takes. */
+async function panelState(panelId: number): Promise<PanelState> {
+	const p = await db.select().from(t.panels).where(eq(t.panels.id, panelId)).get();
+	if (!p) throw new Error('No such panel');
+	const bs = await db.select().from(t.breakers).where(eq(t.breakers.panelId, panelId)).all();
+	const rows = bs.length
+		? await db.select().from(t.breakerSpaces).where(inArray(t.breakerSpaces.breakerId, bs.map((b) => b.id))).all()
+		: [];
+	const spaces = (id: number) => rows.filter((r) => r.breakerId === id).map((r) => ({ slot: r.slot, half: r.half }));
+	return { p, bs: bs.map((b) => ({ ...b, spaces: spaces(b.id) })) };
+}
+
+/** The first space, which is the breaker's anchor (breakers.slot and .half). */
+const anchorOf = (spaces: Space[]) => [...spaces].sort((a, c) => a.slot - c.slot || (a.half ?? '').localeCompare(c.half ?? ''))[0];
+
+/** The id of the breaker inserted just before, for statements in the same batch. */
+const lastBreaker = sql`(select max(${t.breakers.id}) from ${t.breakers})`;
+
+type Change =
+	| { id: number; set?: Partial<Omit<Breaker, 'id' | 'panelId'>>; spaces?: Space[] }
+	| { values: typeof t.breakers.$inferInsert; spaces: Space[] };
+
+/**
+ * Checks that every breaker `changes` places (existing breakers moved, new ones added) fits the panel
+ * as it would be afterwards, then writes the changes and `extra` statements in one batch. Otherwise
+ * it throws a FitError and writes nothing.
+ * Returns the new breakers' ids in order, and the batch's results.
+ */
+async function commit(s: PanelState, changes: Change[], extra: Query[] = []) {
+	const after = new Map(s.bs.map((b) => [b.id, b]));
+	const placed: number[] = [];
+	let temp = -1;
+	for (const c of changes) {
+		if ('values' in c) {
+			const id = temp--;
+			const a = anchorOf(c.spaces);
+			after.set(id, { poles: 1, ...c.values, id, slot: a.slot, half: a.half, spaces: c.spaces } as Placement);
+			placed.push(id);
+			continue;
+		}
+		const b = after.get(c.id);
+		if (!b) throw new Error('No such breaker');
+		const spaces = c.spaces ?? b.spaces;
+		const a = anchorOf(spaces);
+		after.set(c.id, { ...b, ...c.set, slot: a.slot, half: a.half, spaces });
+		if (c.spaces) placed.push(c.id);
+	}
+	// Only the breakers being placed are checked, so a panel that's already wrong somewhere can still be fixed.
+	const all = [...after.values()];
+	for (const id of placed) {
+		const b = after.get(id)!;
+		const why = checkFit(b, s.p, all) ?? panelProblem(s.p, [b]);
+		if (why) throw new FitError(why);
+	}
+
+	const qs: Query[] = [];
+	const inserts: number[] = [];
+	for (const c of changes) {
+		const a = anchorOf('values' in c ? c.spaces : (c.spaces ?? after.get(c.id)!.spaces));
+		if ('values' in c) {
+			inserts.push(qs.length);
+			qs.push(db.insert(t.breakers).values({ ...c.values, slot: a.slot, half: a.half }).returning({ id: t.breakers.id }));
+			qs.push(db.insert(t.breakerSpaces).values(c.spaces.map((r) => ({ breakerId: lastBreaker, slot: r.slot, half: r.half }))));
+			continue;
+		}
+		const set = { ...c.set, ...(c.spaces ? { slot: a.slot, half: a.half } : {}) };
+		if (Object.keys(set).length) qs.push(db.update(t.breakers).set(set).where(eq(t.breakers.id, c.id)));
+		if (c.spaces) {
+			qs.push(db.delete(t.breakerSpaces).where(eq(t.breakerSpaces.breakerId, c.id)));
+			qs.push(db.insert(t.breakerSpaces).values(c.spaces.map((r) => ({ breakerId: c.id, slot: r.slot, half: r.half }))));
+		}
+	}
+	const results = (await batch([...qs, ...extra])) as unknown[];
+	const ids = inserts.map((i) => (results[i] as { id: number }[])[0].id);
+	return { ids, results: results.slice(qs.length) };
+}
 
 // ---- Settings and panels
 
@@ -14,21 +106,27 @@ export async function updateSettings(patch: Partial<Omit<Settings, 'id'>>) {
 	await db.update(t.settings).set(patch).where(eq(t.settings.id, 1));
 }
 
+/**
+ * Updates a panel. A new slot count or numbering is refused with a FitError when a breaker would be
+ * left outside the panel or overlapping; a new numbering moves the second space of 2-pole breakers
+ * (quads keep their stored spaces).
+ */
 export async function updatePanel(id: number, patch: Partial<Omit<Panel, 'id'>>) {
-	await db.update(t.panels).set(patch).where(eq(t.panels.id, id));
-	// A new numbering moves the second space of 2-pole breakers. Quads keep their stored spaces.
-	if ('numbering' in patch) {
-		const inside = await db
-			.select({
-				id: t.breakers.id,
-				poles: t.breakers.poles,
-				half: t.breakers.half
-			})
-			.from(t.breakers)
-			.where(eq(t.breakers.panelId, id))
-			.all();
-		for (const b of inside) if (b.poles === 2 && b.half === null) await setSpaces(b.id);
+	const update = db.update(t.panels).set(patch).where(eq(t.panels.id, id));
+	if (!('slotCount' in patch) && !('numbering' in patch)) return void (await update);
+	const s = await panelState(id);
+	const next = { ...s.p, ...patch };
+	const why = reshapeProblem(s.p, next, s.bs);
+	if (why) throw new FitError(why);
+	const qs: Query[] = [update];
+	if (next.numbering !== s.p.numbering) {
+		for (const b of respace(s.bs, next)) {
+			if (b.poles !== 2 || b.half) continue;
+			qs.push(db.delete(t.breakerSpaces).where(eq(t.breakerSpaces.breakerId, b.id)));
+			qs.push(db.insert(t.breakerSpaces).values(b.spaces.map((r) => ({ breakerId: b.id, slot: r.slot, half: r.half }))));
+		}
 	}
+	await batch(qs);
 }
 
 export async function createPanel(values: typeof t.panels.$inferInsert): Promise<number> {
@@ -51,28 +149,9 @@ export type SubpanelValues = {
  * "New breaker in an open slot" adds that 2-pole breaker first. Returns the new panel's id.
  */
 export async function createSubpanel(v: SubpanelValues): Promise<number> {
-	// One transaction, so a failed insert (say, a taken short code) leaves no stray or relabeled feeder.
-	return db.transaction(async (tx) => {
-		let feeder: number;
-		if ('breakerId' in v.fedBy) {
-			feeder = v.fedBy.breakerId;
-			// A feeder is a full-size 2-pole breaker (DESIGN.md §5.17).
-			const b = await tx.select().from(t.breakers).where(eq(t.breakers.id, feeder)).get();
-			if (!b || b.poles !== 2 || b.half !== null) throw new Error('A subpanel has to be fed from a full-size 2-pole breaker.');
-			await tx.update(t.breakers).set({ label: v.name }).where(eq(t.breakers.id, feeder));
-		} else {
-			const [b] = await tx
-				.insert(t.breakers)
-				.values({ panelId: v.fedBy.panelId, slot: v.fedBy.slot, poles: 2, amps: v.fedBy.amps, kind: 'standard', label: v.name })
-				.returning({ id: t.breakers.id })
-				.all();
-			feeder = b.id;
-			const p = await tx.select().from(t.panels).where(eq(t.panels.id, v.fedBy.panelId)).get();
-			await tx
-				.insert(t.breakerSpaces)
-				.values(deriveSpaces({ slot: v.fedBy.slot, poles: 2, half: null }, p!).map((r) => ({ breakerId: feeder, slot: r.slot, half: r.half })));
-		}
-		const [row] = await tx
+	// One batch, so a failed insert (say, a taken short code) leaves no stray or relabeled feeder.
+	const panel = (fedByBreakerId: number | SQL) =>
+		db
 			.insert(t.panels)
 			.values({
 				name: v.name,
@@ -81,19 +160,30 @@ export async function createSubpanel(v: SubpanelValues): Promise<number> {
 				mainAmps: v.mainAmps,
 				location: v.location,
 				numbering: 'odd_left_even_right',
-				fedByBreakerId: feeder
+				fedByBreakerId
 			})
-			.returning({ id: t.panels.id })
-			.all();
-		return row.id;
-	});
+			.returning({ id: t.panels.id });
+	let results: unknown[];
+	if ('breakerId' in v.fedBy) {
+		const feeder = v.fedBy.breakerId;
+		// A feeder is a full-size 2-pole breaker (DESIGN.md §5.17).
+		const b = await db.select().from(t.breakers).where(eq(t.breakers.id, feeder)).get();
+		if (!b || b.poles !== 2 || b.half !== null) throw new Error('A subpanel has to be fed from a full-size 2-pole breaker.');
+		results = (await batch([db.update(t.breakers).set({ label: v.name }).where(eq(t.breakers.id, feeder)), panel(feeder)])).slice(1);
+	} else {
+		const s = await panelState(v.fedBy.panelId);
+		const values = { panelId: v.fedBy.panelId, slot: v.fedBy.slot, poles: 2, amps: v.fedBy.amps, kind: 'standard' as const, label: v.name };
+		results = (await commit(s, [{ values, spaces: deriveSpaces(values, s.p) }], [panel(lastBreaker)])).results;
+	}
+	return (results[0] as { id: number }[])[0].id;
 }
 
 /** Renames a panel; a subpanel's feeder label follows its name. */
 export async function renamePanel(id: number, name: string) {
-	await updatePanel(id, { name });
 	const p = await db.select().from(t.panels).where(eq(t.panels.id, id)).get();
-	if (p?.fedByBreakerId != null) await updateBreaker(p.fedByBreakerId, { label: name });
+	const qs: Query[] = [db.update(t.panels).set({ name }).where(eq(t.panels.id, id))];
+	if (p?.fedByBreakerId != null) qs.push(db.update(t.breakers).set({ label: name }).where(eq(t.breakers.id, p.fedByBreakerId)));
+	await batch(qs);
 }
 
 /**
@@ -120,37 +210,35 @@ export async function deletePanel(id: number) {
 
 // ---- Breakers
 
+const breakerById = (id: number) => db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
+
 /**
  * Rewrites a breaker's breaker_spaces rows (DATA-MODEL.md "Occupancy"). Without `spaces`, they're
  * derived from its slot, poles and half; a quad passes its spaces explicitly.
  */
 export async function setSpaces(id: number, spaces?: Space[]) {
-	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
+	const b = await breakerById(id);
 	if (!b) return;
-	const p = await db.select().from(t.panels).where(eq(t.panels.id, b.panelId)).get();
-	if (!p) return;
-	const rows = spaces ?? deriveSpaces(b, p);
-	await db.delete(t.breakerSpaces).where(eq(t.breakerSpaces.breakerId, id));
-	await db.insert(t.breakerSpaces).values(rows.map((r) => ({ breakerId: id, slot: r.slot, half: r.half })));
-	// The anchor is the first space.
-	const first = [...rows].sort((a, c) => a.slot - c.slot || (a.half ?? '').localeCompare(c.half ?? ''))[0];
-	if (first.slot !== b.slot || first.half !== b.half)
-		await db.update(t.breakers).set({ slot: first.slot, half: first.half }).where(eq(t.breakers.id, id));
+	const s = await panelState(b.panelId);
+	await commit(s, [{ id, spaces: spaces ?? deriveSpaces(b, s.p) }]);
 }
 
 export async function updateBreaker(id: number, patch: Partial<Omit<Breaker, 'id' | 'panelId'>>) {
 	if ((patch.poles !== undefined && patch.poles !== 2) || patch.half) await keepFeeder(id);
-	const before = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
-	await db.update(t.breakers).set(patch).where(eq(t.breakers.id, id));
+	const before = await breakerById(id);
+	if (!before) return;
 	// Only a real move or resize re-derives the spaces, so saving a label keeps a quad pair's halves.
-	const moved = (['slot', 'half', 'poles'] as const).some((k) => k in patch && patch[k] !== before?.[k]);
-	if (moved) await setSpaces(id);
+	const moved = (['slot', 'half', 'poles'] as const).some((k) => k in patch && patch[k] !== before[k]);
+	if (!moved) return void (await db.update(t.breakers).set(patch).where(eq(t.breakers.id, id)));
+	const s = await panelState(before.panelId);
+	await commit(s, [{ id, set: patch, spaces: deriveSpaces({ ...before, ...patch }, s.p) }]);
 }
 
 export async function createBreaker(values: typeof t.breakers.$inferInsert, spaces?: Space[]): Promise<number> {
-	const [row] = await db.insert(t.breakers).values(values).returning({ id: t.breakers.id }).all();
-	await setSpaces(row.id, spaces);
-	return row.id;
+	const s = await panelState(values.panelId);
+	const derived = deriveSpaces({ slot: values.slot, poles: values.poles ?? 1, half: values.half ?? null }, s.p);
+	const { ids } = await commit(s, [{ values, spaces: spaces ?? derived }]);
+	return ids[0];
 }
 
 type QuadHalf = { label: string; amps: number; kind?: Breaker['kind'] };
@@ -166,26 +254,29 @@ export async function createQuad(
 	inner: QuadHalf | { b: QuadHalf; c: QuadHalf }
 ): Promise<number> {
 	const base = { panelId, kind: 'standard' as const };
-	const out = await createBreaker({ ...base, ...outer, slot, half: 'A', poles: 2 }, [
-		{ slot, half: 'A' },
-		{ slot: below, half: 'B' }
-	]);
+	const s = await panelState(panelId);
+	const changes: Change[] = [
+		{
+			values: { ...base, ...outer, slot, half: 'A', poles: 2 },
+			spaces: [
+				{ slot, half: 'A' },
+				{ slot: below, half: 'B' }
+			]
+		}
+	];
 	if ('b' in inner) {
-		await createBreaker({ ...base, ...inner.b, slot, half: 'B', poles: 1 });
-		await createBreaker({
-			...base,
-			...inner.c,
-			slot: below,
-			half: 'A',
-			poles: 1
-		});
+		changes.push({ values: { ...base, ...inner.b, slot, half: 'B', poles: 1 }, spaces: [{ slot, half: 'B' }] });
+		changes.push({ values: { ...base, ...inner.c, slot: below, half: 'A', poles: 1 }, spaces: [{ slot: below, half: 'A' }] });
 	} else {
-		await createBreaker({ ...base, ...inner, slot, half: 'B', poles: 2 }, [
-			{ slot, half: 'B' },
-			{ slot: below, half: 'A' }
-		]);
+		changes.push({
+			values: { ...base, ...inner, slot, half: 'B', poles: 2 },
+			spaces: [
+				{ slot, half: 'B' },
+				{ slot: below, half: 'A' }
+			]
+		});
 	}
-	return out;
+	return (await commit(s, changes)).ids[0];
 }
 
 /**
@@ -194,27 +285,26 @@ export async function createQuad(
  */
 export async function makeQuad(id: number, below: number): Promise<number> {
 	await keepFeeder(id);
-	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
+	const b = await breakerById(id);
 	if (!b) throw new Error('No such breaker');
-	await setSpaces(id, [
-		{ slot: b.slot, half: 'A' },
-		{ slot: below, half: 'B' }
-	]);
-	return createBreaker(
+	const s = await panelState(b.panelId);
+	const { ids } = await commit(s, [
 		{
-			panelId: b.panelId,
-			slot: b.slot,
-			half: 'B',
-			poles: 2,
-			amps: b.amps,
-			kind: 'standard',
-			label: ''
+			id,
+			spaces: [
+				{ slot: b.slot, half: 'A' },
+				{ slot: below, half: 'B' }
+			]
 		},
-		[
-			{ slot: b.slot, half: 'B' },
-			{ slot: below, half: 'A' }
-		]
-	);
+		{
+			values: { panelId: b.panelId, slot: b.slot, half: 'B', poles: 2, amps: b.amps, kind: 'standard', label: '' },
+			spaces: [
+				{ slot: b.slot, half: 'B' },
+				{ slot: below, half: 'A' }
+			]
+		}
+	]);
+	return ids[0];
 }
 
 /**
@@ -223,23 +313,20 @@ export async function makeQuad(id: number, below: number): Promise<number> {
  */
 export async function swapQuadPairs(ids: number[], below: number) {
 	// Outer (sA + belowB) and inner (sB + belowA) trade places: every half in the quad flips.
-	await db.transaction(async (tx) => {
-		const rows = await tx.select().from(t.breakerSpaces).where(inArray(t.breakerSpaces.breakerId, ids)).all();
-		for (const r of rows) {
-			if (!r.half) continue;
-			const half = r.half === 'A' ? ('B' as const) : ('A' as const);
-			await tx
-				.update(t.breakerSpaces)
-				.set({ half })
-				.where(and(eq(t.breakerSpaces.breakerId, r.breakerId), eq(t.breakerSpaces.slot, r.slot), eq(t.breakerSpaces.half, r.half)));
-		}
-		// Each breaker's anchor is its first space.
-		for (const id of ids) {
-			const mine = rows.filter((r) => r.breakerId === id && r.half).map((r) => ({ slot: r.slot, half: r.half === 'A' ? 'B' : 'A' }));
-			const first = mine.sort((a, c) => a.slot - c.slot || a.half.localeCompare(c.half))[0];
-			if (first) await tx.update(t.breakers).set({ slot: first.slot, half: first.half as 'A' | 'B' }).where(eq(t.breakers.id, id));
-		}
-	});
+	const first = ids.length ? await breakerById(ids[0]) : undefined;
+	if (!first) return;
+	const s = await panelState(first.panelId);
+	const flip = (h: Space['half']) => (h === 'A' ? 'B' : h === 'B' ? 'A' : null);
+	await commit(
+		s,
+		s.bs.filter((b) => ids.includes(b.id)).map((b) => ({ id: b.id, spaces: b.spaces.map((r) => ({ slot: r.slot, half: flip(r.half) })) }))
+	);
+}
+
+/** A subpanel feeder stays a full-size 2-pole breaker (DESIGN.md §5.17). */
+async function keepFeeder(id: number) {
+	const fed = await db.select({ id: t.panels.id }).from(t.panels).where(eq(t.panels.fedByBreakerId, id)).get();
+	if (fed) throw new Error('A subpanel feeder has to stay 2-pole.');
 }
 
 /**
@@ -247,15 +334,9 @@ export async function swapQuadPairs(ids: number[], below: number) {
  * an empty, unlabeled half B is added. Returns half B's id. Running it again on a breaker that is
  * already a half changes nothing and returns its slot's B half.
  */
-/** A subpanel feeder stays a full-size 2-pole breaker (DESIGN.md §5.17). */
-async function keepFeeder(id: number) {
-	const fed = await db.select({ id: t.panels.id }).from(t.panels).where(eq(t.panels.fedByBreakerId, id)).get();
-	if (fed) throw new Error('A subpanel feeder has to stay 2-pole.');
-}
-
 export async function makeTandem(id: number): Promise<number> {
 	await keepFeeder(id);
-	const b = await db.select().from(t.breakers).where(eq(t.breakers.id, id)).get();
+	const b = await breakerById(id);
 	if (!b) throw new Error('No such breaker');
 	if (b.half !== null) {
 		const mate = await db
@@ -265,16 +346,12 @@ export async function makeTandem(id: number): Promise<number> {
 			.get();
 		return mate?.id ?? b.id;
 	}
-	await updateBreaker(id, { half: 'A', poles: 1 });
-	return createBreaker({
-		panelId: b.panelId,
-		slot: b.slot,
-		half: 'B',
-		poles: 1,
-		amps: b.amps,
-		kind: 'standard',
-		label: ''
-	});
+	const s = await panelState(b.panelId);
+	const { ids } = await commit(s, [
+		{ id, set: { half: 'A', poles: 1 }, spaces: [{ slot: b.slot, half: 'A' }] },
+		{ values: { panelId: b.panelId, slot: b.slot, half: 'B', poles: 1, amps: b.amps, kind: 'standard', label: '' }, spaces: [{ slot: b.slot, half: 'B' }] }
+	]);
+	return ids[0];
 }
 
 export async function deleteBreaker(id: number) {
@@ -295,15 +372,18 @@ export async function setTied(breakerIds: number[], tied: boolean) {
 	if (tied) {
 		const top = await db.select({ g: max(t.breakers.tieGroup) }).from(t.breakers).get();
 		const g = (top?.g ?? 0) + 1;
-		await db.update(t.breakers).set({ tieGroup: g }).where(inArray(t.breakers.id, breakerIds));
-		if (groups.length) await db.update(t.breakers).set({ tieGroup: g }).where(inArray(t.breakers.tieGroup, groups));
-		return;
+		const qs: Query[] = [db.update(t.breakers).set({ tieGroup: g }).where(inArray(t.breakers.id, breakerIds))];
+		if (groups.length) qs.push(db.update(t.breakers).set({ tieGroup: g }).where(inArray(t.breakers.tieGroup, groups)));
+		return void (await batch(qs));
 	}
-	await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.id, breakerIds));
-	if (!groups.length) return;
-	const left = await db.select({ id: t.breakers.id, g: t.breakers.tieGroup }).from(t.breakers).where(inArray(t.breakers.tieGroup, groups)).all();
-	const lone = groups.filter((g) => left.filter((r) => r.g === g).length === 1);
-	if (lone.length) await db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.tieGroup, lone));
+	const left = groups.length
+		? await db.select({ id: t.breakers.id, g: t.breakers.tieGroup }).from(t.breakers).where(inArray(t.breakers.tieGroup, groups)).all()
+		: [];
+	// A group left with one breaker once these come off it isn't a tie any more.
+	const lone = groups.filter((g) => left.filter((r) => r.g === g && !breakerIds.includes(r.id)).length === 1);
+	const qs: Query[] = [db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.id, breakerIds))];
+	if (lone.length) qs.push(db.update(t.breakers).set({ tieGroup: null }).where(inArray(t.breakers.tieGroup, lone)));
+	await batch(qs);
 }
 
 // ---- Items
