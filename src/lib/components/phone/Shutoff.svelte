@@ -6,7 +6,8 @@
 <script lang="ts">
 	// Shut off a room, a circuit or one item, standing at the panel (docs/design/DESIGN.md §5.5).
 	// Full-screen on a phone (/shutoff); in a 420px drawer on desktop (§5.16). Which breakers are
-	// off is only on-screen state: nothing here is saved.
+	// off is kept in localStorage per target, never in the database.
+	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
 	import { access } from '$lib/access.svelte';
@@ -108,15 +109,40 @@
 		return [...groups].map(([room, list]) => ({ room, list: list.join(', ') }));
 	});
 
-	// On-screen state only.
+	// Progress is kept on this device (§5.13), so a locked phone or a reload mid-shutoff
+	// doesn't reset the checklist. It never touches the database, so guests keep it too.
+	type Progress = { restoring: boolean; off: Record<number, boolean>; on: Record<number, boolean> };
+	const storeKey = $derived(
+		want.room !== null ? `room:${want.room}` : want.breaker !== null ? `breaker:${want.breaker}` : want.item !== null ? `item:${want.item}` : null
+	);
+	const keyFor = (k: string) => `breakerbook-shutoff-${k}`;
+	function loadProgress(k: string | null): Progress | null {
+		if (!k) return null;
+		try {
+			const p = JSON.parse(localStorage.getItem(keyFor(k)) ?? 'null');
+			return p && typeof p === 'object' ? { restoring: !!p.restoring, off: p.off ?? {}, on: p.on ?? {} } : null;
+		} catch {
+			return null;
+		}
+	}
+	function saveProgress(k: string, p: Progress | null) {
+		try {
+			if (p) localStorage.setItem(keyFor(k), JSON.stringify(p));
+			else localStorage.removeItem(keyFor(k));
+		} catch {
+			// Storage blocked: progress stays on-screen only.
+		}
+	}
+
 	let restoring = $state(false);
 	let off = $state<Record<number, boolean>>({});
 	let on = $state<Record<number, boolean>>({});
 	$effect(() => {
 		void targetKey;
-		restoring = false;
-		off = {};
-		on = {};
+		const p = loadProgress(untrack(() => storeKey));
+		restoring = p?.restoring ?? false;
+		off = p?.off ?? {};
+		on = p?.on ?? {};
 	});
 	const isDone = (id: number) => (restoring ? !!on[id] : !!off[id]);
 	function toggle(ids: number[]) {
@@ -188,6 +214,15 @@
 	const total = $derived(breakers.length);
 	const nDone = $derived(breakers.filter((b) => isDone(b.id)).length);
 	const allDone = $derived(total > 0 && nDone === total);
+
+	// Save on every change. Forget it once power is restored, or while nothing is off yet.
+	$effect(() => {
+		const k = storeKey;
+		if (!k || !target) return;
+		const anyOff = Object.values(off).some(Boolean);
+		const finished = restoring && total > 0 && nDone === total;
+		saveProgress(k, finished || (!restoring && !anyOff) ? null : { restoring, off: { ...off }, on: { ...on } });
+	});
 
 	const name = $derived(
 		!target

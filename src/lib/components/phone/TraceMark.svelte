@@ -38,6 +38,8 @@
 	);
 
 	const groups = $derived.by(() => {
+		// With no floors at all, the "No floor" group below lists everything.
+		if (floor === null) return [];
 		const its = house.items.filter((i) => i.floorId === floor);
 		const rooms = house.rooms.filter((r) => r.floorId === floor).sort((a, b) => a.id - b.id);
 		const out = rooms
@@ -47,6 +49,12 @@
 		const loose = its.filter((i) => i.roomId === null || !known.has(i.roomId));
 		if (loose.length) out.push({ key: 'none', name: 'Not in a room', items: loose });
 		return out;
+	});
+	// Items with no floor (e.g. a CSV row with a blank floor) aren't on any tab, so they
+	// get their own group under every tab. Otherwise a pre-marked one could never be unmarked.
+	const noFloor = $derived.by(() => {
+		const known = new Set(house.floors.map((f) => f.id));
+		return house.items.filter((i) => i.floorId === null || !known.has(i.floorId));
 	});
 
 	/** "26 · Basement outlets", or "21 + 26" when there are several. */
@@ -126,33 +134,40 @@
 	{/if}
 </header>
 
+{#snippet group(g: { key: string; name: string; items: HouseItem[] })}
+	<section class="grp" aria-label={g.name}>
+		<span class="ov" aria-hidden="true">{g.name}</span>
+		{#each g.items as i (i.id)}
+			{@const on = marked.has(i.id)}
+			{@const c = consequence(i, on)}
+			<button type="button" class="mrow" class:is-on={on} aria-pressed={on} onclick={() => toggle(i.id)}>
+				<span class="ico"><Icon name={i.type} size={16} /></span>
+				<span class="mm">
+					<span class="mn">{i.name}</span>
+					<span class="sub" class:mv={c.moves}>{c.text}</span>
+				</span>
+				<span class="chk"><Icon name="check" size={14} stroke={3} /></span>
+			</button>
+			{#if on && i.breakerIds.length && !i.breakerIds.includes(tb.id)}
+				{@const was = ix.breakersOf(i).map((b) => ix.slotOf(b)).join(' + ')}
+				<div class="segm" role="group" aria-label="What to do with breaker {was} for {i.name}">
+					<button type="button" class:is-on={!keep.has(i.id)} aria-pressed={!keep.has(i.id)} onclick={() => keep.delete(i.id)}>Move to {num}</button>
+					<button type="button" class:is-on={keep.has(i.id)} aria-pressed={keep.has(i.id)} onclick={() => keep.add(i.id)}>On both {was} + {num}</button>
+				</div>
+			{/if}
+		{/each}
+	</section>
+{/snippet}
+
 <div class="scroll">
 	{#each groups as g (g.key)}
-		<section class="grp" aria-label={g.name}>
-			<span class="ov" aria-hidden="true">{g.name}</span>
-			{#each g.items as i (i.id)}
-				{@const on = marked.has(i.id)}
-				{@const c = consequence(i, on)}
-				<button type="button" class="mrow" class:is-on={on} aria-pressed={on} onclick={() => toggle(i.id)}>
-					<span class="ico"><Icon name={i.type} size={16} /></span>
-					<span class="mm">
-						<span class="mn">{i.name}</span>
-						<span class="sub" class:mv={c.moves}>{c.text}</span>
-					</span>
-					<span class="chk"><Icon name="check" size={14} stroke={3} /></span>
-				</button>
-				{#if on && i.breakerIds.length && !i.breakerIds.includes(tb.id)}
-					{@const was = ix.breakersOf(i).map((b) => ix.slotOf(b)).join(' + ')}
-					<div class="segm" role="group" aria-label="What to do with breaker {was} for {i.name}">
-						<button type="button" class:is-on={!keep.has(i.id)} aria-pressed={!keep.has(i.id)} onclick={() => keep.delete(i.id)}>Move to {num}</button>
-						<button type="button" class:is-on={keep.has(i.id)} aria-pressed={keep.has(i.id)} onclick={() => keep.add(i.id)}>On both {was} + {num}</button>
-					</div>
-				{/if}
-			{/each}
-		</section>
+		{@render group(g)}
 	{:else}
-		<p class="empty">Nothing on this floor yet.</p>
+		{#if floor !== null || !noFloor.length}<p class="empty">Nothing on this floor yet.</p>{/if}
 	{/each}
+	{#if noFloor.length}
+		{@render group({ key: 'nofloor', name: 'No floor', items: noFloor })}
+	{/if}
 
 	{#if adding}
 		<form class="addf" onsubmit={add}>

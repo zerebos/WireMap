@@ -34,18 +34,25 @@
 
 	const suggestions = $derived.by(() => {
 		if (!items.length) return ['Spare'];
-		const count = new Map<string, number>();
-		for (const i of items) {
-			const r = ix.roomName(i.roomId);
-			count.set(r, (count.get(r) ?? 0) + 1);
+		// Most common first. Items with no room or floor don't name anything, so they're skipped.
+		const byCount = (names: string[]) => {
+			const count = new Map<string, number>();
+			for (const n of names) if (n) count.set(n, (count.get(n) ?? 0) + 1);
+			return [...count].sort((a, b) => b[1] - a[1]).map(([n]) => n);
+		};
+		const rooms = byCount(items.map((i) => (i.roomId !== null && ix.roomById.has(i.roomId) ? ix.roomName(i.roomId) : '')));
+		const floors = byCount(items.map((i) => ix.floorName(i.floorId)));
+		const out: string[] = [];
+		if (rooms.length) {
+			out.push(rooms.length === 1 ? rooms[0] : rooms.slice(0, 2).join(' & '));
+			const types = new Set(items.map((i) => i.type));
+			if (types.size === 1) out.push(`${rooms[0]} ${ITEM_TYPE_LABELS[items[0].type].many.toLowerCase()}`);
 		}
-		const rooms = [...count].sort((a, b) => b[1] - a[1]).map(([r]) => r);
-		const out = [rooms.length === 1 ? rooms[0] : rooms.slice(0, 2).join(' & ')];
-		const types = new Set(items.map((i) => i.type));
-		if (types.size === 1) out.push(`${rooms[0]} ${ITEM_TYPE_LABELS[items[0].type].many.toLowerCase()}`);
 		const fl = items[0].floorId;
 		if (fl !== null && items.every((i) => i.floorId === fl)) out.push(ix.floorName(fl));
-		return [...new Set(out.filter(Boolean))];
+		else if (!rooms.length && floors.length) out.push(floors[0]);
+		const uniq = [...new Set(out.filter(Boolean))];
+		return uniq.length ? uniq : ['Spare'];
 	});
 
 	function tagOf(i: HouseItem): { text: string; cls: string } {
