@@ -83,8 +83,8 @@ See [`docs/design/DATA-MODEL.md`](docs/design/DATA-MODEL.md). In short:
 - **Select**: pick a circuit on the left to light up what it feeds, click an item to find its
   breaker, or click a room to see every circuit in it (and shut the room off from your phone).
 - **Edit layout**: draw rooms (rectangles or polygons), move and resize them, set the scale, and
-  place items from *Not placed* where they really are. An item's room comes from where it sits.
-  New items come from the Items page or from tracing.
+  add new items with the **Item** tool (pick a type, click where it is, name it and pick its
+  breaker), and place items from *Not placed*. An item's room comes from where it sits.
 - **Floor plan**: upload a PNG, JPG, WebP or PDF (its first page) to trace over, and set how
   strongly it shows.
 

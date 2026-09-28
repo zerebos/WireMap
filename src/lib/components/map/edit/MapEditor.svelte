@@ -7,13 +7,17 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { mutate, type HouseIndex, type HouseItem } from '$lib/house';
 	import {
+		createItem,
 		createRoom,
+		deleteItems,
 		deleteRoom,
 		placeItem,
 		removeFloorPlan,
 		restoreLayout,
+		setItemBreakers,
 		setRoomShape,
 		unplaceItem,
+		updateItem,
 		updateFloor,
 		updateRoom,
 		type LayoutSnapshot
@@ -36,6 +40,7 @@
 		type Shape
 	} from '$lib/shape';
 	import { PLAN_ACCEPT, planBox, slotsText, uploadPlan } from '../model';
+	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
 
 	let {
 		ix,
@@ -66,7 +71,7 @@
 
 	// ---- Selection and tools
 	type ESel = { k: 'room'; id: number } | { k: 'item'; id: number } | { k: 'plan' } | null;
-	type ETool = 'select' | 'rect' | 'poly' | 'scale';
+	type ETool = 'select' | 'rect' | 'poly' | 'item' | 'scale';
 	let sel = $state<ESel>(untrack(() => (initialRoom !== null ? { k: 'room', id: initialRoom } : null)));
 	// A floor with no rooms yet opens straight into drawing when asked to, or when there's a plan to trace.
 	let tool = $state<ETool>(untrack(() => ((drawFirst || !!floor.planImage) && !rooms.length ? 'rect' : 'select')));
@@ -108,7 +113,9 @@
 		});
 
 	// ---- Undo: a snapshot of the floor's layout before each saved change
-	let history = $state<LayoutSnapshot[]>([]);
+	/** A snapshot to go back to, and the item the change created, which undo deletes. */
+	type Step = LayoutSnapshot & { created?: number };
+	let history = $state<Step[]>([]);
 	function snapshot(): LayoutSnapshot {
 		return {
 			floorId,
@@ -143,7 +150,11 @@
 		history = history.slice(0, -1);
 		const rid = selId('room');
 		if (rid !== null && !s.rooms.some((r) => r.id === rid)) sel = null;
-		await mutate(() => restoreLayout(s));
+		if (s.created !== undefined && selId('item') === s.created) sel = null;
+		await mutate(async () => {
+			if (s.created !== undefined) await deleteItems([s.created]);
+			await restoreLayout(s);
+		});
 	}
 
 	// ---- View: zoom and pan. Map units → screen px: x * z + px.
@@ -260,7 +271,7 @@
 		}
 		// The drawing tools draw over existing rooms too (a closet inside a bedroom); rooms and
 		// items don't take the pointer from them.
-		const drawing = tool === 'rect' || tool === 'poly';
+		const drawing = tool === 'rect' || tool === 'poly' || tool === 'item';
 		if (!drawing && (e.target as Element).closest('.room, .poly, .it, .hd, .mh, .pframe')) return;
 		if (tool === 'rect') {
 			drag = { k: 'new', a: p, b: p };
@@ -271,6 +282,12 @@
 		if (tool === 'poly') {
 			addPolyPoint(p, e.shiftKey);
 			e.preventDefault();
+			return;
+		}
+		if (tool === 'item') {
+			const at: Point = e.shiftKey ? [clampX(p[0]), clampY(p[1])] : [clampX(toGrid(p[0])), clampY(toGrid(p[1]))];
+			e.preventDefault();
+			addItem(at);
 			return;
 		}
 		drag = { k: 'pan', x0: e.clientX, y0: e.clientY, px0: px, py0: py, moved: false };
@@ -512,6 +529,34 @@
 		nameInput?.select();
 	}
 
+	// ---- Item tool: click to drop a new item of the picked type; it takes the room under it
+	let newType = $state<ItemType>('outlet');
+	let itemName: HTMLInputElement | undefined = $state();
+	async function addItem(at: Point) {
+		const type = newType;
+		const before: Step = snapshot();
+		const roomId = roomAt(at, shapedRooms)?.id ?? null;
+		const id = await mutate(() =>
+			createItem({ type, name: `New ${ITEM_TYPE_LABELS[type].one.toLowerCase()}`, floorId, roomId, x: Math.round(at[0]), y: Math.round(at[1]) })
+		);
+		history = [...history, { ...before, created: id }].slice(-50);
+		tool = 'select';
+		sel = { k: 'item', id };
+		await tick();
+		itemName?.focus();
+		itemName?.select();
+	}
+	async function renameItem(i: HouseItem, e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const name = input.value.trim();
+		if (!name) return void (input.value = i.name);
+		if (name !== i.name) await mutate(() => updateItem(i.id, { name }));
+	}
+	async function pickBreaker(i: HouseItem, e: Event) {
+		const v = (e.currentTarget as HTMLSelectElement).value;
+		await mutate(() => setItemBreakers(i.id, v ? [Number(v)] : []));
+	}
+
 	// ---- Polygon tool: click to add corners, click the first corner to close
 	let polyPts = $state<Point[]>([]);
 	function addPolyPoint(p: Point, free: boolean) {
@@ -610,6 +655,7 @@
 		if (k === 'v') setTool('select');
 		else if (k === 'r') setTool('rect');
 		else if (k === 'p') setTool('poly');
+		else if (k === 'i') setTool('item');
 	}
 
 	// ---- Plan image
@@ -756,7 +802,7 @@
 	const selItemPos = $derived(selItem ? posOf(selItem) : null);
 	const selItemRoom = $derived(selItemPos ? roomNameAt(selItemPos) : '');
 	const selItemWas = $derived.by(() => {
-		if (!selItem) return null;
+		if (!selItem || !wasRoom.has(selItem.id)) return null;
 		const was = wasRoom.get(selItem.id) ?? null;
 		const wasName = was === null ? 'Not in a room' : (ix.roomById.get(was)?.name ?? 'Not in a room');
 		return wasName !== selItemRoom ? wasName : null;
@@ -768,14 +814,16 @@
 				? `Drag on the grid to draw ${rooms.length ? 'a' : 'your first'} room. Edges snap to other rooms.`
 				: tool === 'poly'
 					? 'Click to add corners. Click the first corner to close the shape.'
-					: ''
+					: tool === 'item'
+						? 'Click where the new item really is.'
+						: ''
 	);
 	const placingItem = $derived(placing !== null ? (floorItems.find((i) => i.id === placing) ?? null) : null);
 	const whereUnplaced = (i: HouseItem) => {
 		const bs = ix.breakersOf(i);
 		return `${ix.roomName(i.roomId)}${bs.length ? ` · on ${slotsText(ix, bs)}` : ''}`;
 	};
-	const cursor = $derived(placing !== null || tool === 'rect' || tool === 'poly' ? 'crosshair' : 'default');
+	const cursor = $derived(placing !== null || tool === 'rect' || tool === 'poly' || tool === 'item' ? 'crosshair' : 'default');
 	const pts = (s: Point[]) => s.map((p) => `${sx(p[0])},${sy(p[1])}`).join(' ');
 	const itemAria = (i: HouseItem) => `${i.name}, ${ix.typeLabel(i)}, in ${roomNameAt(posOf(i)!)}. Drag to move.`;
 	const roomAria = (r: Room, s: Shape) => `${r.name}${upf ? `, ${sizeText(s, upf).replace(' × ', ' by ')}` : ''}. Drag to move; arrow keys nudge.`;
@@ -834,6 +882,9 @@
 			<button type="button" class="sb" class:is-on={tool === 'poly'} aria-pressed={tool === 'poly'} title="Polygon room (P)" onclick={() => setTool('poly')}
 				>Polygon</button
 			>
+			<button type="button" class="sb" class:is-on={tool === 'item'} aria-pressed={tool === 'item'} title="New item (I)" onclick={() => setTool('item')}
+				>Item</button
+			>
 			<button type="button" class="sb" class:is-on={tool === 'scale'} aria-pressed={tool === 'scale'} title="Set scale" onclick={() => setTool('scale')}
 				>Scale</button
 			>
@@ -849,7 +900,7 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
 		class="grid"
-		class:drawing={tool === 'rect' || tool === 'poly'}
+		class:drawing={tool === 'rect' || tool === 'poly' || tool === 'item'}
 		bind:this={grid}
 		bind:clientWidth={cw}
 		bind:clientHeight={ch}
@@ -1040,13 +1091,22 @@
 			>
 		{/if}
 
-		{#if placingItem && hover}
-			<div class="ghost" style:left="{sx(hover[0]) - 16}px" style:top="{sy(hover[1]) - 16}px"><Icon name={placingItem.type} size={16} /></div>
+		{#if (placingItem || tool === 'item') && hover}
+			<div class="ghost" style:left="{sx(hover[0]) - 16}px" style:top="{sy(hover[1]) - 16}px"><Icon name={placingItem?.type ?? newType} size={16} /></div>
 		{/if}
 
 		{#if banner}
 			<div class="banner ovl" role="status">
 				<span>{banner}</span>
+				{#if tool === 'item' && placing === null}
+					<div class="seg types" role="group" aria-label="Item type">
+						{#each ITEM_TYPES as t (t)}
+							<button type="button" class="sb" class:is-on={newType === t} aria-pressed={newType === t} onclick={() => (newType = t)}
+								><Icon name={t} size={14} />{ITEM_TYPE_LABELS[t].one}</button
+							>
+						{/each}
+					</div>
+				{/if}
 				<button
 					type="button"
 					class="btn bb"
@@ -1131,12 +1191,26 @@
 			{@const i = selItem}
 			<div class="stack s14">
 				<span class="ov">{ix.typeLabel(i)} · {floor.name}</span>
-				<h2>{i.name}</h2>
+				<div class="fld">
+					<label for="it-name">Name</label>
+					<input id="it-name" class="inp" type="text" value={i.name} bind:this={itemName} onchange={(e) => renameItem(i, e)} />
+				</div>
 				<div class="roombox">
 					<span class="k">Room (from where it sits)</span>
 					<span class="rb">{selItemRoom}</span>
 					{#if selItemWas}<span class="was">Was {selItemWas}</span>{/if}
 				</div>
+				{#if i.breakerIds.length}
+					<div class="fld"><span class="k">{i.breakerIds.length > 1 ? 'Breakers' : 'Breaker'}</span><span class="mono ro">{slotsText(ix, ix.breakersOf(i))}</span></div>
+				{:else}
+					<div class="fld">
+						<label for="it-brk">Pick its breaker</label>
+						<select id="it-brk" class="inp" value="" onchange={(e) => pickBreaker(i, e)}>
+							<option value="">— No breaker —</option>
+							{#each ix.house.breakers as o (o.id)}<option value={String(o.id)}>{ix.slotOf(o)} — {ix.labelOf(o)} ({o.amps}A)</option>{/each}
+						</select>
+					</div>
+				{/if}
 				<span class="hint">Drag it, or use the arrow keys. Its room updates from the position; breakers don’t change.</span>
 				<button type="button" class="btn start" onclick={() => unplace(i)}>Remove from map</button>
 			</div>
