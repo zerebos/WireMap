@@ -157,13 +157,13 @@ Three columns: circuits list (300) · canvas (fills) · inspector (320).
 
 **Circuits list**: "Circuits" + "25 of 25", hint line, circuit rows. Header search filters by label, slot, item name/room. Clicking the selected circuit deselects.
 
-**Toolbar (60px)**: floor segmented control (amber dot on floors that contain items of the current selection) · "Floor plan" toggle button · "Edit layout". Drawing rooms and placing items happen only in Edit layout (§5.10); the owner dropped view mode's Select / Draw room / Place item tools (2026-09-28), so the tool banner and draw/place ghosts below apply to Edit layout.
+**Toolbar (60px)**: floor segmented control (amber dot on floors that contain items of the current selection) · "Floor plan" toggle button · "Edit layout". Drawing rooms and placing items happen only in Edit layout (§5.10); the owner dropped view mode's Select / Draw room / Place item tools (2026-09-28), so drawing and placing are described in §5.10. View mode keeps "Move on map" from the item inspector.
 
 **Canvas**: 20px grid (`--grid-bg`/`--grid-line`), optional floor-plan image under the rooms (opacity 0–100, default 35%), rooms, item markers. Overlays:
-- top-right stack: tool banner ("Drag on the grid to draw a room…" + Done; or "Place an item…" + type chips) and/or floor-plan popover (file name, "Rooms traced over it: 7", opacity slider, Replace, Remove; or a dropzone "Drop a PNG, JPG or PDF of the Upstairs plan…").
+- top-right stack: "Move on map" banner ("Click the map where … really is" + Cancel) and/or floor-plan popover (file name, "Rooms traced over it: 7", opacity slider, Replace, Remove; or a dropzone "Drop a PNG, JPG or PDF of the Upstairs plan…").
 - bottom-left inverted status chip: "Breaker 16 · Bathrooms — 3 of 9 on this floor [6 on Upstairs →] [Clear]" or "Kitchen · Main floor — 13 items on 7 circuits [Clear]"; when nothing is selected a quiet hint chip.
 - bottom-right zoom control (−, 100%, +, fit).
-- Draw-room tool shows a dashed ghost rectangle while dragging; Place tool shows a dashed ghost marker + "Click to place".
+- While moving an item, a dashed ghost marker + "Click to place" follows the pointer.
 
 **Selection model (one at a time, priority item > circuit > room):**
 
@@ -171,7 +171,7 @@ Three columns: circuits list (300) · canvas (fills) · inspector (320).
 |---|---|
 | Click circuit in list | circuit mode: its items lit, rooms containing them tinted, everything else dimmed |
 | Click item marker | item mode: item picked, its circuit lit |
-| Click empty area of a room (Select tool only) | room mode: room outlined, its items full-strength with breaker badges, other rooms muted, other items dimmed |
+| Click empty area of a room | room mode: room outlined, its items full-strength with breaker badges, other rooms muted, other items dimmed |
 | Hover/focus a circuit card in room mode | that circuit's items light up **everywhere on the floor**, not only in the room |
 | Change floor tab | clears room selection; circuit/item selection persists (with cross-floor indicators) |
 | Clear | back to none |
@@ -249,7 +249,7 @@ Viewing and editing are separate modes so a stray drag never moves a wall. The M
 - **Rooms**: click to select (amber outline + 8 square handles: corners and edge midpoints); drag the body to move, drag a handle to resize (min 60 map units). Exterior areas draw with a dashed wall. Selected room shows amber size labels on the top and right edges when a scale is set; a live "17′ × 15′" tooltip follows the pointer while dragging.
 - **Snapping**: to a 10-unit grid by default; room edges snap to other rooms' edges within 8 units and show an amber dashed guide line across the canvas. Holding **Shift** disables snapping.
 - **Moving a room carries its items** (checkbox in the inspector, on by default).
-- **Draw room (rectangle)**: drag on empty canvas; dashed amber draft rectangle with the same snapping; on release it becomes "New room", selected, name field focused. **Polygon**: click to add corners, click the first corner to close; rectangles can be converted to polygons ("Convert to polygon (add corners)"), after which each corner is a handle and double-clicking an edge adds a corner.
+- **Draw room (rectangle)**: drag on the canvas, over existing rooms too (a closet inside a bedroom); dashed amber draft rectangle with the same snapping; on release it becomes "New room", selected, name field focused. **Polygon**: click to add corners, click the first corner to close; rectangles can be converted to polygons ("Convert to polygon (add corners)"), after which each corner is a handle and double-clicking an edge adds a corner.
 - **Items**: drag to reposition (grid snap, Shift = free). While dragging into a different room a dark tooltip "→ Dining room" follows. The item's room is **derived from its position**; its breakers never change from a move. Inspector shows "Room (from where it sits)" + "Was Half bath" when changed, and "Remove from map" (returns it to Not placed).
 - **Keyboard**: rooms and items are focusable buttons; arrow keys nudge one grid step (Shift = 1 unit), Esc deselects. Clicking empty canvas deselects.
 - **Room inspector**: name, Kind (Interior / Exterior area), Size (read-only, feet), Shape, "Set a scale to see sizes in feet" (when no scale), Convert to polygon, "Move the N items inside with the room", Delete room (warn; items stay and become "Not in a room").

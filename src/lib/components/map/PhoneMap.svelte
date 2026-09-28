@@ -261,6 +261,7 @@
 							aria-label={d.room.name}
 							aria-current={selRoom?.id === d.room.id ? 'true' : undefined}
 							onclick={(e) => {
+								if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
 								e.preventDefault();
 								pickRoom(d.room);
 							}}

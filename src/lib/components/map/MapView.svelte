@@ -166,6 +166,8 @@
 	);
 	const roomAria = (r: Room) => `${r.name}, ${plural(ix.itemsInRoom(r.id).length, 'item')}`;
 	/** Polygon rooms are links, so a room can be opened or shared by its URL. */
+	/** Ctrl/Cmd/Shift/Alt-click on a room link keeps the browser's own behavior (new tab or window). */
+	const newTab = (e: MouseEvent) => e.ctrlKey || e.metaKey || e.shiftKey || e.altKey;
 	const roomHref = (r: Room) => `${resolve('/map')}?floor=${r.floorId}&room=${r.id}`;
 
 	function pickRoom(r: Room) {
@@ -216,7 +218,8 @@
 			suppressClick = false;
 			return;
 		}
-		if (!movingItem) return;
+		// Enter on a focused room or item clicks it with no pointer position; only a real click places.
+		if (!movingItem || e.detail === 0) return;
 		const p = clamp(toPlan(e));
 		const it = movingItem;
 		const f = floor.id;
@@ -249,6 +252,8 @@
 		cardError = await uploadPlan(floor.id, file);
 		cardBusy = false;
 		if (cardInput) cardInput.value = '';
+		// With a plan to trace, go straight on to drawing rooms over it.
+		if (!cardError) onedit?.(true);
 	}
 	function cardDrop(e: DragEvent) {
 		e.preventDefault();
@@ -361,6 +366,7 @@
 							aria-label={roomAria(d.room)}
 							aria-current={selRoom?.id === d.room.id ? 'true' : undefined}
 							onclick={(e) => {
+								if (newTab(e)) return;
 								e.preventDefault();
 								pickRoom(d.room);
 							}}

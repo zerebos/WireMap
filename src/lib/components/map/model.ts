@@ -118,8 +118,8 @@ async function pdfToPng(file: File): Promise<File> {
 	const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]);
 	pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
 	const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-	const doc = await task.promise;
 	try {
+		const doc = await task.promise;
 		const page = await doc.getPage(1);
 		const base = page.getViewport({ scale: 1 });
 		const viewport = page.getViewport({ scale: PDF_EDGE / Math.max(base.width, base.height) });

@@ -81,6 +81,7 @@
 	const shutoff = $derived(params.get('shutoff') === '1' && sel.kind !== 'none' ? sel : null);
 
 	function doneEditing() {
+		drawFirst = false;
 		go(NONE);
 	}
 </script>
