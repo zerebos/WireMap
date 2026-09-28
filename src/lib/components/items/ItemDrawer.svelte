@@ -48,7 +48,8 @@
 	function changeFloor(e: Event) {
 		const v = (e.currentTarget as HTMLSelectElement).value;
 		floorId = v === '' ? null : Number(v);
-		roomId = null;
+		// Back on its own floor, a placed item is where it was, so it keeps its room.
+		roomId = floorId === item.floorId ? item.roomId : null;
 	}
 
 	let nameInput: HTMLInputElement | undefined = $state();
@@ -335,6 +336,10 @@
 		gap: 12px;
 	}
 	.roomv {
+		height: auto;
+		min-height: var(--control-h);
+		padding: 10px 12px;
+		white-space: normal;
 		font-family: var(--font-ui);
 		font-size: 14px;
 		font-weight: 600;
