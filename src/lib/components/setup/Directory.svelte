@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { plural, mutate, type House } from '$lib/house';
-	import { createBreaker, createQuad } from '$lib/db/ops';
+	import { FitError, createBreaker, createQuad } from '$lib/db/ops';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import {
 		compareBreakers,
@@ -199,7 +199,7 @@
 			await goto(resolve('/panel'));
 		} catch (e) {
 			console.error(e);
-			error = "Couldn't save the breakers. Try again.";
+			error = e instanceof FitError ? e.message : "Couldn't save the breakers. Try again.";
 			saving = false;
 		}
 	}

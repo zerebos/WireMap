@@ -6,7 +6,7 @@
 	import { mutate, plural, type HouseIndex } from '$lib/house';
 	import { deletePanel, renamePanel, updatePanel } from '$lib/db/ops';
 	import type { Panel } from '$lib/db/schema';
-	import { checkFit, occupiedSlots, panelShort, quadPair, slotLabel, spacesUsed } from '$lib/panel';
+	import { checkFit, occupiedSlots, panelShort, quadPair, reshapeProblem, slotLabel, spacesUsed } from '$lib/panel';
 	import { MAIN_AMPS, SPACES, SUB_MAIN_AMPS, SUB_SPACES, type Numbering } from '$lib/constants';
 
 	let { ix, panel, depth = 0 }: { ix: HouseIndex; panel: Panel; depth?: number } = $props();
@@ -45,7 +45,8 @@
 			return `With this numbering, the 2-pole breaker at slot ${bad.slot} would span both columns. Move it first.`;
 		}
 		const clash = inside.find((b) => checkFit(b, s, inside));
-		if (!clash) return null;
+		// Anything else the save would refuse (DATA-MODEL.md "Occupancy"), so it never fails silently.
+		if (!clash) return reshapeProblem(panel, { ...panel, ...s }, placed);
 		return `With this numbering, the 2-pole breaker at slot ${clash.slot} would overlap another breaker. Move one of them first.`;
 	}
 	const problem = $derived(fitProblem(shape));
