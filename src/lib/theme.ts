@@ -15,6 +15,16 @@ export function readGuestTheme(): Theme | null {
 		return null;
 	}
 }
+/** Before a lock reloads the page: have app.html paint the guest's theme, not the owner's. */
+export function preferGuestTheme() {
+	const t = readGuestTheme();
+	if (!t) return;
+	try {
+		localStorage.setItem(KEY, t);
+	} catch {
+		// Storage can be off; nothing to prefer then.
+	}
+}
 export function saveGuestTheme(theme: Theme) {
 	try {
 		localStorage.setItem(GUEST_KEY, theme);

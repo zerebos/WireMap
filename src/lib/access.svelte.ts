@@ -5,6 +5,7 @@
 // turning guest view on locks the device, and Sign in unlocks it without checking a password.
 import { mutate } from './house';
 import { updateSettings } from './db/ops';
+import { preferGuestTheme } from './theme';
 
 const KEY = 'breakerbook:signed-in';
 
@@ -50,6 +51,7 @@ export function lockDevice() {
 	setSignedIn(false);
 	// Reload so no edit mode that was open (Move…, Place item, Floor plan, a bulk selection) outlives
 	// the lock: every page starts again as the guest sees it.
+	preferGuestTheme();
 	location.reload();
 }
 
