@@ -11,7 +11,7 @@
 	import { viewport } from '$lib/viewport.svelte';
 	import MapEditor from '$lib/components/map/edit/MapEditor.svelte';
 	import { access } from '$lib/access.svelte';
-	import { NONE, defaultFloor, floorOfCircuit, floorSteps, litBreakers, type Sel, type Tool } from '$lib/components/map/model';
+	import { NONE, defaultFloor, floorOfCircuit, floorSteps, litBreakers, type Sel } from '$lib/components/map/model';
 	import type { Breaker, Room } from '$lib/db/schema';
 	import { index, type HouseItem } from '$lib/house';
 	import { query } from '$lib/search.svelte';
@@ -55,26 +55,26 @@
 		goto(`${resolve('/map')}?${q}`, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	let tool = $state<Tool>('select');
 	let hovB = $state<number | null>(null);
 	let moving = $state<number | null>(null);
 
 	const steps = $derived(floorSteps(ix, floorId));
 	const lit = $derived(new Set(litBreakers(ix, sel).map((b) => b.id)));
+	/** Clicking the selected circuit deselects; any other circuit, lit by an item or not, selects it. */
 	function pickCircuit(b: Breaker) {
-		go(lit.has(b.id) ? NONE : { kind: 'circuit', id: b.id });
+		go(sel.kind === 'circuit' && sel.id === b.id ? NONE : { kind: 'circuit', id: b.id });
 	}
 	function startMove(i: HouseItem) {
 		moving = moving === i.id ? null : i.id;
-		if (moving !== null) tool = 'select';
 	}
-	/** Layout editing (DESIGN.md §5.10): ?edit=1, optionally opening on a room. */
+	/** Layout editing (DESIGN.md §5.10): ?edit=1, optionally opening on a room or with the Room tool. */
 	const editing = $derived(!access.guest && params.get('edit') === '1' && floorId !== null);
-	function edit(room: Room | null = null) {
+	let drawFirst = $state(false);
+	function edit(room: Room | null = null, draw = false) {
 		const q = new URLSearchParams({ edit: '1', floor: String(room?.floorId ?? floorId) });
 		if (room) q.set('room', String(room.id));
 		moving = null;
-		tool = 'select';
+		drawFirst = draw;
 		goto(`${resolve('/map')}?${q}`, { replaceState: false, keepFocus: true, noScroll: true });
 	}
 	/** Shut off on desktop (DESIGN.md §5.16): &shutoff=1 opens the drawer for the selection. */
@@ -93,11 +93,11 @@
 	<div class="map">
 		{#if editing && floorId !== null}
 			{#key floorId}
-				<MapEditor {ix} {floorId} initialRoom={sel.kind === 'room' ? sel.id : null} ondone={doneEditing} />
+				<MapEditor {ix} {floorId} initialRoom={sel.kind === 'room' ? sel.id : null} {drawFirst} ondone={doneEditing} />
 			{/key}
 		{:else}
 			<CircuitList {ix} q={query()} {lit} onpick={pickCircuit} empty={floorId !== null && !steps.placed} />
-			<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:tool bind:hovB bind:moving {go} onedit={access.guest ? undefined : () => edit()} />
+			<MapView {ix} {sel} {floorId} fade={data.house.settings.mapFadeOthers} bind:hovB bind:moving {go} onedit={access.guest ? undefined : (draw) => edit(null, draw)} />
 			<Inspector {ix} {sel} {floorId} bind:hovB {moving} {go} onmove={startMove} onshape={(r) => edit(r)} />
 		{/if}
 	</div>

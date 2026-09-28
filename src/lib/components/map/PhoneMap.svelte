@@ -208,6 +208,7 @@
 		{onpointermove}
 		{onpointerup}
 		onpointercancel={onpointerup}
+		ondragstart={(e) => e.preventDefault()}
 		{onclickcapture}
 	>
 		{#if floor}
@@ -250,25 +251,27 @@
 					{#if !d.rect}
 						{@const minX = Math.min(...d.pts.map((p) => p[0]))}
 						{@const minY = Math.min(...d.pts.map((p) => p[1]))}
-						<g
+						<a
 							class="poly"
 							class:is-lit={!roomMode && litRooms.has(d.room.id)}
 							class:is-sel={selRoom?.id === d.room.id}
 							class:is-mute={roomMode && selRoom?.id !== d.room.id}
 							class:is-ext={d.room.kind === 'exterior'}
-							role="button"
-							tabindex="0"
+							href="{resolve('/map')}?floor={d.room.floorId}&room={d.room.id}"
 							aria-label={d.room.name}
-							aria-pressed={selRoom?.id === d.room.id}
-							onclick={() => pickRoom(d.room)}
-							onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), pickRoom(d.room))}
+							aria-current={selRoom?.id === d.room.id ? 'true' : undefined}
+							onclick={(e) => {
+								e.preventDefault();
+								pickRoom(d.room);
+							}}
+							onkeydown={(e) => e.key === ' ' && (e.preventDefault(), pickRoom(d.room))}
 						>
 							<polygon points={d.pts.map((p) => `${sx(p[0])},${sy(p[1])}`).join(' ')} />
 							{#if selRoom?.id === d.room.id}
 								<polygon class="ring" points={d.pts.map((p) => `${sx(p[0])},${sy(p[1])}`).join(' ')} />
 							{/if}
 							<text x={sx(minX) + 4} y={sy(minY) + 11}>{d.room.name}</text>
-						</g>
+						</a>
 					{/if}
 				{/each}
 			</svg>
