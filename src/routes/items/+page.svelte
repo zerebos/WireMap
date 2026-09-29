@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { tick } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import ItemDrawer from '$lib/components/items/ItemDrawer.svelte';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
@@ -115,15 +116,35 @@
 		if (checked.has(id)) checked.delete(id);
 		else checked.add(id);
 	}
+	// Moving replaces every breaker an item is on, so items on more than one are confirmed first.
+	let confirmMove = $state<{ ids: number[]; to: number; multi: number } | null>(null);
+	let cancelMove = $state<HTMLButtonElement>();
 	async function bulkMove(e: Event) {
 		const sel = e.currentTarget as HTMLSelectElement;
 		const v = sel.value;
 		if (!v) return;
 		const ids = selected;
 		sel.value = '';
-		await mutate(() => moveItemsToBreaker(ids, v === 'none' ? null : Number(v)));
+		const to = v === 'none' ? null : Number(v);
+		const multi = house.items.filter((i) => ids.includes(i.id) && i.breakerIds.length > 1).length;
+		if (to !== null && multi) {
+			confirmMove = { ids, to, multi };
+			// The select is gone, so focus moves to the safe choice.
+			await tick();
+			return cancelMove?.focus();
+		}
+		await doMove(ids, to);
+	}
+	async function doMove(ids: number[], to: number | null) {
+		confirmMove = null;
+		await mutate(() => moveItemsToBreaker(ids, to));
 		checked.clear();
 	}
+	// A changed selection makes the question stale.
+	$effect(() => {
+		void selected.length;
+		confirmMove = null;
+	});
 
 	// ---- Drawer, kept in the URL (?item=<id>)
 	const openId = $derived(Number(page.url.searchParams.get('item')) || null);
@@ -368,7 +389,19 @@
 						{/if}
 					</div>
 				</div>
-				{#if selected.length}
+				{#if selected.length && confirmMove}
+					{@const c = confirmMove}
+					{@const to = ix.breakerById.get(c.to)}
+					<div class="bulk inv" role="alert">
+						<Icon name="warning" size={16} />
+						<span class="bw"
+							>{c.multi} of these {c.multi === 1 ? 'is' : 'are'} on more than one breaker. Move replaces all of their breakers with {to ? ix.slotOf(to) : 'it'}.</span
+						>
+						<div class="grow"></div>
+						<button type="button" class="btn bclr" bind:this={cancelMove} onclick={() => (confirmMove = null)}>Cancel</button>
+						<button type="button" class="btn bclr" onclick={() => doMove(c.ids, c.to)}>Replace</button>
+					</div>
+				{:else if selected.length}
 					<div class="bulk inv">
 						<span class="bn">{selected.length} selected</span>
 						<div class="grow"></div>
@@ -705,6 +738,10 @@
 	.bn {
 		font-size: 14px;
 		font-weight: 700;
+	}
+	.bw {
+		font-size: 14px;
+		font-weight: 600;
 	}
 	.bl {
 		font-size: 13px;

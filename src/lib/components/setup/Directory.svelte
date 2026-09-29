@@ -4,17 +4,19 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { plural, mutate, type House } from '$lib/house';
-	import { createBreaker, createQuad } from '$lib/db/ops';
+	import { FitError, createBreaker, createQuad } from '$lib/db/ops';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import {
 		compareBreakers,
 		nextInColumn,
 		occupiedSlots,
 		position,
+		quadTopOf,
 		rowCount,
 		slotAt,
 		slotLabel,
 		spaceLabel,
+		spacesOf,
 		spacesUsed,
 		tandemOk,
 		tandemText,
@@ -52,6 +54,20 @@
 	}
 
 	const existing = $derived(house.breakers.filter((b) => b.panelId === panel.id));
+	/** A tandem slot with one half filled: slot → the open half, which can still be entered. */
+	const openHalf = $derived.by(() => {
+		const m = new Map<number, 'A' | 'B'>();
+		const halves = new Map<number, Set<string>>();
+		for (const b of existing) {
+			for (const s of spacesOf(b, panel)) {
+				const h = halves.get(s.slot) ?? new Set();
+				h.add(s.half ?? 'whole');
+				halves.set(s.slot, h);
+			}
+		}
+		for (const [slot, h] of halves) if (h.size === 1 && !h.has('whole')) m.set(slot, h.has('A') ? 'B' : 'A');
+		return m;
+	});
 	/** Slot → the breaker already there. */
 	const taken = $derived.by(() => {
 		const m = new Map<number, Breaker>();
@@ -88,13 +104,15 @@
 	type View =
 		| { kind: 'open'; s: number; row: Row; cant2: boolean }
 		| { kind: 'cont'; s: number; of: number }
-		| { kind: 'existing'; s: number; bs: Breaker[] };
+		| { kind: 'existing'; s: number; bs: Breaker[]; half: 'A' | 'B' | null; row: Row };
 
 	const view = (s: number): View => {
 		const b = taken.get(s);
 		if (b) {
 			if (b.slot !== s) return { kind: 'cont', s, of: b.slot };
-			return { kind: 'existing', s, bs: existing.filter((o) => o.slot === s).sort(compareBreakers) };
+			// Only a plain tandem slot offers its open half; a quad's halves pair across slots.
+			const half = b.poles === 1 && quadTopOf(b, existing, panel) === null ? (openHalf.get(s) ?? null) : null;
+			return { kind: 'existing', s, bs: existing.filter((o) => o.slot === s).sort(compareBreakers), half, row: get(s) };
 		}
 		const up = coveredBy(s);
 		if (up !== null) return { kind: 'cont', s, of: up };
@@ -113,11 +131,17 @@
 			.filter((v): v is Extract<View, { kind: 'open' }> => v.kind === 'open' && hasContent(v.row))
 			.sort((a, b) => a.s - b.s)
 	);
+	/** Open halves of tandem slots with a label or amps entered. */
+	const halvesEntered = $derived(
+		[...left, ...right].filter(
+			(v): v is Extract<View, { kind: 'existing' }> & { half: 'A' | 'B' } => v.kind === 'existing' && v.half !== null && hasA(v.row)
+		)
+	);
 	const isQuad = (v: { s: number; row: Row; cant2: boolean }) => v.row.quad && !v.cant2;
 	const isTwo = (v: { s: number; row: Row; cant2: boolean }) => v.row.two && !v.row.tandem && !isQuad(v) && !v.cant2;
 	const used = $derived(spacesUsed(existing, panel) + entered.reduce((n, v) => n + (isTwo(v) || isQuad(v) ? 2 : 1), 0));
 	// A tandem or quad is saved whole (every half or pair), even with some left blank.
-	const count = $derived(entered.reduce((n, v) => n + (isQuad(v) ? (v.row.mixed ? 3 : 2) : v.row.tandem ? 2 : 1), 0));
+	const count = $derived(entered.reduce((n, v) => n + (isQuad(v) ? (v.row.mixed ? 3 : 2) : v.row.tandem ? 2 : 1), 0) + halvesEntered.length);
 	const breakersText = (n: number) => (n === 1 ? '1 breaker' : `${n} breakers`);
 
 	// ---- Paste a list: one label per line, in slot order, into the slots that are still open.
@@ -167,15 +191,42 @@
 						...(amps ? { amps } : {})
 					});
 				}
+				for (const v of halvesEntered) {
+					const amps = Number(v.row.amps);
+					await createBreaker({ panelId: panel.id, slot: v.s, half: v.half, poles: 1, kind: 'standard', label: v.row.label.trim(), ...(amps ? { amps } : {}) });
+				}
 			});
 			await goto(resolve('/panel'));
 		} catch (e) {
 			console.error(e);
-			error = "Couldn't save the breakers. Try again.";
+			error = e instanceof FitError ? e.message : "Couldn't save the breakers. Try again.";
 			saving = false;
 		}
 	}
 </script>
+
+{#snippet halfRow(s: number, half: 'A' | 'B', row: Row)}
+	<!-- The open half of a tandem slot whose other half is already on the panel. -->
+	{@const n = num(s, half)}
+	<div class="drow">
+		<span class="dnum">{n}</span>
+		<input
+			class="din"
+			class:is-filled={row.label !== ''}
+			type="text"
+			value={row.label}
+			oninput={(e) => patch(s, { label: e.currentTarget.value })}
+			aria-label="Slot {n} label"
+		/>
+		<select class="dsel" value={row.amps} onchange={(e) => patch(s, { amps: e.currentTarget.value })} aria-label="Slot {n} amps">
+			<option value="">—</option>
+			{#each AMP_CHOICES as a (a)}<option value={String(a)}>{a}</option>{/each}
+		</select>
+		<span></span>
+		<span></span>
+		<span></span>
+	</div>
+{/snippet}
 
 {#snippet columnOf(views: View[])}
 	<div class="col">
@@ -266,6 +317,7 @@
 					</div>
 				{/if}
 			{:else if v.kind === 'existing'}
+				{#if v.half === 'A'}{@render halfRow(v.s, 'A', v.row)}{/if}
 				{#each v.bs as b (b.id)}
 					<div class="drow">
 						<span class="dnum">{slotLabel(b, panel).split('/')[0]}</span>
@@ -276,6 +328,7 @@
 						<span></span>
 					</div>
 				{/each}
+				{#if v.half === 'B'}{@render halfRow(v.s, 'B', v.row)}{/if}
 			{:else if !taken.has(v.s) && get(v.of).quad}
 				<!-- The lower half-rows of a quad entered on the slot above. -->
 				{@const r = get(v.of)}
@@ -365,7 +418,7 @@
 			<button type="button" class="btn wide" onclick={() => (pasting = true)}>Paste a list instead…</button>
 		{/if}
 		{#if error}<p class="err" role="alert">{error}</p>{/if}
-		<button type="button" class="btn btn-pri wide save" onclick={save} disabled={saving || entered.length === 0}>
+		<button type="button" class="btn btn-pri wide save" onclick={save} disabled={saving || count === 0}>
 			Save {breakersText(count)}
 		</button>
 		<a class="btn wide" href={resolve('/panel')}>Cancel</a>

@@ -236,6 +236,49 @@ export function checkFit(
 	return null;
 }
 
+/**
+ * What's wrong with a panel's breakers as placed (DATA-MODEL.md "Occupancy"), or null: a space past
+ * the panel's slots, a 2-pole breaker that doesn't sit on two rows of one column, or two breakers in
+ * one space.
+ */
+export function panelProblem(p: PanelShape, bs: (Placed & { id: number })[]): string | null {
+	for (const b of bs) {
+		const slots = occupiedSlots(b, p);
+		if (slots.some((s) => s < 1 || s > p.slotCount)) return `Breaker ${slotLabel(b, p)} doesn't fit in ${p.slotCount} spaces. Move or remove it first.`;
+		if (slots.length > 2 || (slots.length === 2 && (slots[1] !== nextInColumn(slots[0], p) || position(slots[0], p).side !== position(slots[1], p).side))) {
+			return `Breaker ${slotLabel(b, p)} wouldn't sit in one column. Move it first.`;
+		}
+	}
+	const seen: Space[] = [];
+	for (const b of bs) {
+		for (const s of spacesOf(b, p)) {
+			if (seen.some((o) => clashes(o, s))) return `Slot ${spaceText(s)} would hold two breakers. Move one of them first.`;
+			seen.push(s);
+		}
+	}
+	return null;
+}
+
+/**
+ * The spaces each breaker takes after a panel's numbering changes: a full-size 2-pole breaker's
+ * second space follows the numbering. Quads and tandem halves keep theirs.
+ */
+export function respace<B extends Placed & { spaces: Space[] }>(bs: B[], next: PanelShape): B[] {
+	return bs.map((b) => (b.poles === 2 && !b.half ? { ...b, spaces: deriveSpaces(b, next) } : b));
+}
+
+/**
+ * Why a panel can't take a new slot count or numbering with the breakers it has, or null. A panel
+ * that shrinks with breakers in the slots it loses is refused, not rearranged.
+ */
+export function reshapeProblem(before: PanelShape, next: PanelShape, bs: (Placed & { id: number; spaces: Space[] })[]): string | null {
+	const after = respace(bs, next);
+	if (next.slotCount < before.slotCount && after.some((b) => occupiedSlots(b, next).some((s) => s > next.slotCount))) {
+		return `Slots ${next.slotCount + 1}–${before.slotCount} still have breakers. Move or remove them first.`;
+	}
+	return panelProblem(next, after);
+}
+
 /** Spaces used: slots holding any breaker (a tandem pair shares one). */
 export const spacesUsed = (bs: Placed[], p: PanelShape) => new Set(bs.flatMap((b) => occupiedSlots(b, p))).size;
 
@@ -246,7 +289,8 @@ export const spacesUsed = (bs: Placed[], p: PanelShape) => new Set(bs.flatMap((b
 export function tiedTogether(group: Placed[], p: PanelShape): boolean {
 	const rows = group.flatMap((b) => occupiedSlots(b, p).map((s) => position(s, p)));
 	if (new Set(rows.map((r) => r.side)).size > 1) return false;
-	const ns = rows.map((r) => r.row).sort((a, b) => a - b);
+	// Tandem halves share a row, so count each row once.
+	const ns = [...new Set(rows.map((r) => r.row))].sort((a, b) => a - b);
 	return ns.every((n, i) => i === 0 || n === ns[i - 1] + 1);
 }
 
