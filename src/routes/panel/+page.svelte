@@ -17,6 +17,7 @@
 	import type { Half, Protection } from '$lib/constants';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import {
+		FitError,
 		createBreaker,
 		createItem,
 		createQuad,
@@ -31,7 +32,7 @@
 	} from '$lib/db/ops';
 	import { index, mutate, plural, type HouseBreaker } from '$lib/house';
 	import { checkFit, faceColumns, legOf, legOfRow, tandemOk, tandemText, nextInColumn, occupiedSlots, position, rowCount, slotLabel, slotText, spaceLabel, panelShort, compareBreakers, quadLayout, quadPair, quadTopOf, spacesOf, spacesUsed, tiedBelow, tiedTogether, type Cell as FaceCell } from '$lib/panel';
-	import { query, search } from '$lib/search.svelte';
+	import { matchesSlot, query, search } from '$lib/search.svelte';
 
 	let { data } = $props();
 
@@ -45,6 +46,13 @@
 	/** A panel's amps: its main breaker, or for main lugs the feeder's. */
 	const ampsOf = (p: Panel) => p.mainAmps ?? ix.feederOf(p)?.amps ?? null;
 	const feeder = $derived(panel ? ix.feederOf(panel) : null);
+	/** The title's meta line, in parts that each stay on one line when it wraps. */
+	const metaParts = $derived.by(() => {
+		if (!panel) return [];
+		const used = `${spacesUsed(breakers, panel)} of ${panel.slotCount} spaces`;
+		if (feeder) return [`Fed by ${panelShort(ix.panelOf(feeder))} ${ix.slotOf(feeder)}`, `${ampsOf(panel)}A`, used, panel.location].filter((x) => !!x);
+		return [panel.mainAmps ? `${panel.mainAmps}A main` : '', used, plural(breakers.length, 'breaker'), subsHere.length ? plural(subsHere.length, 'subpanel') : ''].filter((x) => !!x);
+	});
 	const subsHere = $derived(
 		panel ? house.panels.filter((p) => p.fedByBreakerId !== null && ix.breakerById.get(p.fedByBreakerId)?.panelId === panel.id) : []
 	);
@@ -76,6 +84,25 @@
 	// ---- Unsaved edits, per breaker. The breaker face shows them live.
 	type Draft = { label: string; amps: number; kind: Protection; poles: number; notes: string };
 	let drafts = $state<Record<number, Draft>>({});
+
+	// A write the panel refuses (DATA-MODEL.md "Occupancy"), shown in the detail pane. The face shows
+	// unsaved pole changes, so a slot can look open before the change that frees it is saved.
+	let fitWhy = $state('');
+	async function guard<T>(write: () => Promise<T>): Promise<T | undefined> {
+		fitWhy = '';
+		try {
+			return await write();
+		} catch (e) {
+			if (!(e instanceof FitError)) throw e;
+			fitWhy = Object.keys(drafts).length ? `${e.message} Save your unsaved breaker changes first, then try again.` : e.message;
+		}
+	}
+	// It's about what was being tried, so it goes when the selection or the open slot changes.
+	$effect(() => {
+		void sel?.id;
+		void newSlot;
+		fitWhy = '';
+	});
 	let savedJustNow = $state(false);
 
 	const view = (b: Breaker): Breaker => {
@@ -198,7 +225,7 @@
 		const amps = form.amps;
 		const f = form;
 		const quad = newQuad;
-		const id = await mutate(async () => {
+		const id = await guard(() => mutate(async () => {
 			if (quad) {
 				const kind = f.kind;
 				const outer = { label: f.label.trim(), amps, kind };
@@ -210,7 +237,8 @@
 			const a = await createBreaker({ panelId: panel.id, slot, half: 'A', poles: 1, amps, kind: f.kind, label: f.label.trim() });
 			await createBreaker({ panelId: panel.id, slot, half: 'B', poles: 1, amps: f.ampsB, kind: f.kind, label: f.labelB.trim() });
 			return a;
-		});
+		}));
+		if (id === undefined) return;
 		// The next free slot in slot order after this one (then from the top).
 		const taken = new Set([...cover.keys(), ...occupiedSlots({ slot, poles }, panel)]);
 		const order = Array.from({ length: panel.slotCount }, (_, i) => ((slot + i) % panel.slotCount) + 1);
@@ -232,7 +260,7 @@
 		if (!sel) return;
 		const id = sel.id;
 		moving = false;
-		await mutate(() => updateBreaker(id, { slot, half }));
+		await guard(() => mutate(() => updateBreaker(id, { slot, half })));
 		await tick();
 		document.querySelector<HTMLElement>(`[data-breaker="${id}"]`)?.focus();
 	}
@@ -284,7 +312,7 @@
 	const matches = (b: Breaker) => {
 		if (!q) return true;
 		const v = view(b);
-		if ((v.label || 'unlabeled').toLowerCase().includes(q) || String(b.slot) === q || (panel && slotLabel(b, panel).toLowerCase() === q)) return true;
+		if ((v.label || 'unlabeled').toLowerCase().includes(q) || (panel && matchesSlot(b, panel, q))) return true;
 		return ix.itemsOf(b.id).some((i) => `${i.name} ${ix.roomName(i.roomId)}`.toLowerCase().includes(q));
 	};
 	const matchCount = $derived(breakers.filter(matches).length);
@@ -373,8 +401,8 @@
 		const below = nextInColumn(sel.slot, panel);
 		splitting = true;
 		try {
-			const inner = await mutate(() => makeQuad(id, below));
-			await pick(inner);
+			const inner = await guard(() => mutate(() => makeQuad(id, below)));
+			if (inner !== undefined) await pick(inner);
 		} finally {
 			splitting = false;
 		}
@@ -384,7 +412,7 @@
 		if (selQuad === null) return edit(selRaw!, { poles: 2 });
 		if (quadMates.length) return;
 		const id = sel.id;
-		await mutate(() => setSpaces(id, undefined).then(() => updateBreaker(id, { half: null })));
+		await guard(() => mutate(() => setSpaces(id, undefined).then(() => updateBreaker(id, { half: null }))));
 	}
 	async function swapPairs() {
 		if (selQuad === null || quadBelow === null || splitting) return;
@@ -392,7 +420,7 @@
 		const below = quadBelow;
 		splitting = true;
 		try {
-			await mutate(() => swapQuadPairs(ids, below));
+			await guard(() => mutate(() => swapQuadPairs(ids, below)));
 		} finally {
 			splitting = false;
 		}
@@ -403,8 +431,8 @@
 		const id = sel.id;
 		splitting = true;
 		try {
-			const b = await mutate(() => makeTandem(id));
-			await pick(b);
+			const b = await guard(() => mutate(() => makeTandem(id)));
+			if (b !== undefined) await pick(b);
 		} finally {
 			splitting = false;
 		}
@@ -414,7 +442,7 @@
 		if (sel.poles === 2) return edit(selRaw!, { poles: 1 });
 		if (!sel.half || selMate) return;
 		const id = sel.id;
-		await mutate(() => updateBreaker(id, { half: null }));
+		await guard(() => mutate(() => updateBreaker(id, { half: null })));
 	}
 	const summary = $derived.by(() => {
 		if (!selItems.length) return 'No items yet';
@@ -439,8 +467,12 @@
 {#if !panel}
 	<main class="empty-app">
 		<h1>No panel yet</h1>
-		<p>Setting up a panel from scratch isn't designed yet. Load the example house from Settings to look around.</p>
-		{#if !access.guest}<a class="btn" href={resolve('/settings') + '#data'}>Open Settings</a>{/if}
+		{#if access.guest}
+			<p>Nothing has been set up on this device yet.</p>
+		{:else}
+			<p>Set up your panel first: its size, how it's numbered, then what each breaker is labeled.</p>
+			<a class="btn btn-pri" href={resolve('/setup')}>Set up a panel</a>
+		{/if}
 	</main>
 {:else if viewport.phone}
 	<PhoneShell title={panel.name} sub="{ampsOf(panel) ? `${ampsOf(panel)}A · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces">
@@ -490,15 +522,7 @@
 				<div class="title">
 					<h1>{panel.name}</h1>
 					<span class="mono meta">
-						{#if feeder}
-							Fed by {panelShort(ix.panelOf(feeder))} {ix.slotOf(feeder)} · {ampsOf(panel)}A · {spacesUsed(breakers, panel)} of {panel.slotCount}
-							spaces{panel.location ? ` · ${panel.location}` : ''}
-						{:else}
-							{panel.mainAmps ? `${panel.mainAmps}A main · ` : ''}{spacesUsed(breakers, panel)} of {panel.slotCount} spaces · {plural(
-								breakers.length,
-								'breaker'
-							)}{subsHere.length ? ` · ${plural(subsHere.length, 'subpanel')}` : ''}
-						{/if}
+						{#each metaParts as m, i (i)}{i ? ' · ' : ''}<span class="nw">{m}</span>{/each}
 					</span>
 				</div>
 				{#if feeder}
@@ -546,9 +570,9 @@
 
 				<!-- One CSS grid row per panel row: left · leg strip · right. A 2-pole breaker spans two
 				     rows; a row holding a tandem grows, and its neighbour and leg label grow with it. -->
-				<div class="face">
+				<div class="face" class:nolegs={!house.settings.showLegs}>
 					{#each { length: rows }, r (r)}
-						<div class="leg mono" style:grid-row={r + 1} aria-hidden="true">{house.settings.showLegs ? legOfRow(r + 1) : ''}</div>
+						{#if house.settings.showLegs}<div class="leg mono" style:grid-row={r + 1} aria-hidden="true">{legOfRow(r + 1)}</div>{/if}
 					{/each}
 					{#snippet col(cells: Cell[], side: 'l' | 'r')}
 						{#each cells as cell (cell.slot)}
@@ -767,6 +791,7 @@
 
 {#snippet detail(panel: Panel)}
 	<section class="detail" aria-label={adding ? 'Add subpanel' : newSlot !== null ? 'New breaker' : sel ? 'Breaker details' : 'Getting started'}>
+		{#if fitWhy}<div class="badt fitwhy" role="alert"><strong>{fitWhy}</strong></div>{/if}
 		{#if adding}
 			<div class="addpane"><SubpanelForm bind:this={subForm} {ix} oncancel={cancelAdd} onadd={addSub} /></div>
 		{:else if newSlot !== null}
@@ -1153,6 +1178,9 @@
 		gap: 12px 16px;
 	}
 	.title {
+		/* Shrinks first (its meta line wraps) so the legend, Trace and Print stay on the title's row. */
+		flex: 1 1 180px;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
@@ -1167,9 +1195,14 @@
 		font-size: 12px;
 		color: var(--muted);
 	}
+	.nw {
+		white-space: nowrap;
+	}
 	.legend {
 		display: flex;
-		gap: 14px;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 8px 14px;
 		align-items: center;
 		font-size: 12px;
 		color: var(--soft);
@@ -1269,6 +1302,10 @@
 		grid-auto-rows: minmax(var(--breaker-h), auto);
 		column-gap: 8px;
 		row-gap: var(--breaker-gap);
+	}
+	/* Leg markers off (Settings): the strip goes, leaving a plain gutter. */
+	.face.nolegs {
+		grid-template-columns: minmax(0, 1fr) 0 minmax(0, 1fr);
 	}
 	.leg {
 		grid-column: 2;
@@ -1765,6 +1802,9 @@
 		border: 1.5px solid var(--warn);
 		font-size: 13px;
 		line-height: 1.45;
+	}
+	.fitwhy {
+		margin: 16px 20px 0;
 	}
 	.badt strong {
 		color: var(--warn);

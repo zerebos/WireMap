@@ -17,6 +17,8 @@
 	import type { HouseBreaker, HouseIndex } from '$lib/house';
 	import { faceColumns, nextInColumn, panelShort, position, rowCount, slotLabel, spaceLabel, type Cell, type Space } from '$lib/panel';
 	import { PROTECTION_TAGS } from '$lib/constants';
+	import { resolve } from '$app/paths';
+	import qrcode from 'qrcode-generator';
 
 	let { ix, panel, paper, o }: { ix: HouseIndex; panel: Panel; paper: Paper; o: PrintOptions } = $props();
 
@@ -70,6 +72,18 @@
 		return [...f.left.map((c) => rowOf(c, 'left')), ...f.right.map((c) => rowOf(c, 'right'))];
 	});
 	const n = $derived(rowCount(panel));
+
+	// The QR opens the live map wherever this copy of the app is served from (GitHub Pages, say).
+	const QUIET = 2;
+	const qr = (() => {
+		const code = qrcode(0, 'M');
+		code.addData(new URL(resolve('/map'), location.origin).href);
+		code.make();
+		const count = code.getModuleCount();
+		let d = '';
+		for (let r = 0; r < count; r++) for (let c = 0; c < count; c++) if (code.isDark(r, c)) d += `M${c + QUIET} ${r + QUIET}h1v1h-1z`;
+		return { d, size: count + QUIET * 2 };
+	})();
 	const legend = $derived(`${o.tags ? 'GF GFCI · AF AFCI · DF Dual function · ' : ''}Thick edge = 2-pole`);
 </script>
 
@@ -90,7 +104,15 @@
 		<div class="hr">
 			{#if o.date}<span class="date">Printed<br />{date}</span>{/if}
 			{#if o.qr}
-				<span class="qr"><span class="qb" style:width="{size.qr}px" style:height="{size.qr}px">QR</span><span>Live map</span></span>
+				<span class="qr"><svg
+					class="qb"
+					width={size.qr}
+					height={size.qr}
+					viewBox="0 0 {qr.size} {qr.size}"
+					shape-rendering="crispEdges"
+					role="img"
+					aria-label="QR code to the live map"><path d={qr.d} /></svg
+				><span>Live map</span></span>
 			{/if}
 		</div>
 	</div>
@@ -191,11 +213,8 @@
 		color: var(--print-soft);
 	}
 	.qb {
-		box-sizing: border-box;
-		border: 1.5px dashed var(--print-soft);
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		display: block;
+		fill: var(--print-ink);
 	}
 	.grid {
 		flex-grow: 1;

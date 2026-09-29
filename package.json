@@ -9,6 +9,7 @@
 		"preview": "bun --bun vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"test": "bun test",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"db:generate": "drizzle-kit generate",
 		"db:studio": "drizzle-kit studio"
@@ -29,6 +30,7 @@
 	"dependencies": {
 		"@sqlite.org/sqlite-wasm": "^3.53.4-build1",
 		"drizzle-orm": "^0.45.3",
-		"pdfjs-dist": "4.10.38"
+		"pdfjs-dist": "4.10.38",
+		"qrcode-generator": "^2.0.4"
 	}
 }

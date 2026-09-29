@@ -37,6 +37,7 @@ Confirm with the owner before changing any of these.
 ## How the code fits together
 - `src/routes/+layout.ts` loads the whole house once (`loadHouse()` in `src/lib/house.ts`). Every page reads `data.house` and derives what it needs with `index(house)`.
 - All writes are in `src/lib/db/ops.ts`. Call them through `mutate(() => op(...))`, which reloads the house afterwards.
+- Ops that place breakers check occupancy themselves (`checkFit`, `panelProblem`, `reshapeProblem` in `panel.ts`) and throw a `FitError` with a message people can read. Each op writes in one `db.batch`, so it lands whole or not at all. Don't call `db.batch` inside `db.transaction`: the worker opens its own transaction per batch.
 - Panel geometry lives in `src/lib/panel.ts`: slot numbering (both schemes), legs, "Left, row 5", tandem and quad layout, and fit checks.
 - `breaker_spaces` is the source of truth for which spaces a breaker takes (whole slots, or A/B halves for tandems and quads). `loadHouse()` puts them on each breaker as `spaces`; `spacesOf()` reads them. Writes that move or resize a breaker go through `setSpaces`/`updateBreaker` in `ops.ts` so the rows stay in sync.
 - Every breaker number on screen or paper comes from `slotLabel()` / `spaceLabel()` (short-code prefix + spaces, e.g. "G6", "17A", "21A/23B"). Don't build numbers by hand.
@@ -50,6 +51,7 @@ Confirm with the owner before changing any of these.
 ## Commands
 - `bun install`, then `bun run dev`.
 - Typecheck with `bun run check` (svelte-check), not plain `tsc`. It must report 0 errors and 0 warnings.
+- Unit tests: `bun test`. `src/lib/db/ops.test.ts` runs the write layer against bun:sqlite through the same sqlite-proxy driver the worker uses.
 - Schema changes: edit `src/lib/db/schema.ts`, then run `bun run db:generate`. The migrations in `drizzle/` are bundled and applied in the browser. drizzle-kit prompts interactively on renames, which fails without a TTY. For those, write the SQL by hand with `drizzle-kit generate --custom` and regenerate that migration's snapshot from the schema.
 - Production build as on Pages: `BASE_PATH=/WireMap bun run build`, then serve `build/` under `/WireMap/` with an SPA fallback to `404.html`.
 

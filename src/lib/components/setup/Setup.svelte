@@ -5,7 +5,8 @@
 	import { importDatabase } from '$lib/db';
 	import Icon from '$lib/components/Icon.svelte';
 	import { mutate, type House } from '$lib/house';
-	import { createFloor, createPanel, deleteFloor, setFloorPlan, updateFloor, updatePanel, updateSettings } from '$lib/db/ops';
+	import { FitError, createFloor, createPanel, deleteFloor, setFloorPlan, updateFloor, updatePanel, updateSettings } from '$lib/db/ops';
+	import { reshapeProblem } from '$lib/panel';
 	import { STEPS, floorDraft, type SetupDraft, type StepKey } from './draft';
 	import StepHome from './StepHome.svelte';
 	import StepPanel from './StepPanel.svelte';
@@ -108,6 +109,13 @@
 	}
 
 	async function next() {
+		// A panel that already has breakers can't lose the slots they sit in (or renumber onto them).
+		const saved = house.panels.find((p) => p.id === panelId);
+		if (step === 'panel' && saved) {
+			const inside = house.breakers.filter((b) => b.panelId === saved.id);
+			const why = reshapeProblem(saved, { slotCount: draft.spaces, numbering: draft.numbering }, inside);
+			if (why) return void (error = why);
+		}
 		if (step === 'floors') {
 			busy = true;
 			error = '';
@@ -115,7 +123,7 @@
 				await save();
 			} catch (e) {
 				console.error(e);
-				error = "Couldn't save. Try again.";
+				error = e instanceof FitError ? e.message : "Couldn't save. Try again.";
 				return;
 			} finally {
 				busy = false;

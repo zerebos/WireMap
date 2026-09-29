@@ -11,8 +11,11 @@ import { parseShape, type Shape } from '$lib/shape';
 export type Sel = { kind: 'none' } | { kind: 'circuit' | 'item' | 'room'; id: number };
 export const NONE: Sel = { kind: 'none' };
 
-/** "20A · GFCI", or "50A · 2-pole". */
-export const specOf = (b: Breaker) => `${b.amps}A · ${b.poles === 2 ? '2-pole' : PROTECTION_LABELS[b.kind]}`;
+/** "20A · GFCI", "50A · 2-pole", or "50A · 2-pole · GFCI". */
+export const specOf = (b: Breaker) =>
+	b.poles === 2
+		? `${b.amps}A · 2-pole${b.kind === 'standard' ? '' : ` · ${PROTECTION_LABELS[b.kind]}`}`
+		: `${b.amps}A · ${PROTECTION_LABELS[b.kind]}`;
 
 /** Where a floor's plan image sits, in map units, before its rotation about its centre. */
 export function planBox(f: Floor) {

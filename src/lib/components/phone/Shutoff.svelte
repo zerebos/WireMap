@@ -6,7 +6,7 @@
 <script lang="ts">
 	// Shut off a room, a circuit or one item, standing at the panel (docs/design/DESIGN.md §5.5).
 	// Full-screen on a phone (/shutoff); in a 420px drawer on desktop (§5.16). Which breakers are
-	// off is only on-screen state: nothing here is saved.
+	// off is kept in localStorage per target, never in the database.
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
 	import { access } from '$lib/access.svelte';
@@ -108,15 +108,39 @@
 		return [...groups].map(([room, list]) => ({ room, list: list.join(', ') }));
 	});
 
-	// On-screen state only.
+	// Progress is kept on this device (§5.13), so a locked phone or a reload mid-shutoff
+	// doesn't reset the checklist. It never touches the database, so guests keep it too.
+	type Progress = { restoring: boolean; off: Record<number, boolean>; on: Record<number, boolean> };
+	const storeKey = $derived(
+		want.room !== null ? `room:${want.room}` : want.breaker !== null ? `breaker:${want.breaker}` : want.item !== null ? `item:${want.item}` : null
+	);
+	const keyFor = (k: string) => `breakerbook-shutoff-${k}`;
+	function loadProgress(k: string | null): Progress | null {
+		if (!k) return null;
+		try {
+			const p = JSON.parse(localStorage.getItem(keyFor(k)) ?? 'null');
+			return p && typeof p === 'object' ? { restoring: !!p.restoring, off: p.off ?? {}, on: p.on ?? {} } : null;
+		} catch {
+			return null;
+		}
+	}
+	function saveProgress(k: string, p: Progress | null) {
+		try {
+			if (p) localStorage.setItem(keyFor(k), JSON.stringify(p));
+			else localStorage.removeItem(keyFor(k));
+		} catch {
+			// Storage blocked: progress stays on-screen only.
+		}
+	}
+
 	let restoring = $state(false);
 	let off = $state<Record<number, boolean>>({});
 	let on = $state<Record<number, boolean>>({});
 	$effect(() => {
-		void targetKey;
-		restoring = false;
-		off = {};
-		on = {};
+		const p = loadProgress(storeKey);
+		restoring = p?.restoring ?? false;
+		off = p?.off ?? {};
+		on = p?.on ?? {};
 	});
 	const isDone = (id: number) => (restoring ? !!on[id] : !!off[id]);
 	function toggle(ids: number[]) {
@@ -189,6 +213,22 @@
 	const nDone = $derived(breakers.filter((b) => isDone(b.id)).length);
 	const allDone = $derived(total > 0 && nDone === total);
 
+	// Save on every change. Forget it once power is restored, while nothing on the list is off,
+	// or when the target no longer exists.
+	$effect(() => {
+		const k = storeKey;
+		if (!k) return;
+		const listed = [...breakers.map((b) => b.id), ...(feeder ? [feeder.b.id] : [])];
+		const anyOff = listed.some((id) => off[id]);
+		const finished = restoring && nDone === total;
+		saveProgress(k, !target || finished || (!restoring && !anyOff) ? null : { restoring, off: { ...off }, on: { ...on } });
+	});
+	// Leaving with Back or Close ends the flow, so its progress goes too. A reload or a locked
+	// phone doesn't fire these, which is what the saved progress is for.
+	function forget() {
+		if (storeKey) saveProgress(storeKey, null);
+	}
+
 	const name = $derived(
 		!target
 			? ''
@@ -241,9 +281,21 @@
 <div class="so">
 	<header class="top">
 		{#if onclose}
-			<button type="button" class="ibtn" onclick={onclose} aria-label="Close"><Icon name="close" size={16} /></button>
+			<button
+				type="button"
+				class="ibtn"
+				onclick={() => {
+					forget();
+					onclose?.();
+				}}
+				aria-label="Close"><Icon name="close" size={16} /></button>
 		{:else}
-			<a class="ibtn" href={resolve('/map')} onclick={onbackclick} aria-label="Back"><Icon name="prev" /></a>
+			<a class="ibtn" href={resolve('/map')}
+				onclick={(e) => {
+					forget();
+					onbackclick?.(e);
+				}}
+				aria-label="Back"><Icon name="prev" /></a>
 		{/if}
 		<div class="ttl">
 			<h1>{title}</h1>

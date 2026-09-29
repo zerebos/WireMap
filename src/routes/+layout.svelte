@@ -10,7 +10,7 @@
 	import { search } from '$lib/search.svelte';
 	import { viewport } from '$lib/viewport.svelte';
 	import { traceFlow } from '$lib/trace.svelte';
-	import { applyTheme, effectiveTheme } from '$lib/theme';
+	import { applyTheme, effectiveTheme, readGuestTheme, saveGuestTheme } from '$lib/theme';
 	import { access, EDIT_ONLY, lockDevice, syncAccess } from '$lib/access.svelte';
 
 	let { data, children } = $props();
@@ -78,8 +78,11 @@
 	});
 
 	const settings = $derived(data.house?.settings);
+	// Guests can switch the theme too, but only on this device: it never writes the database.
+	let guestTheme = $state(readGuestTheme());
+	const theme = $derived(access.guest && guestTheme ? guestTheme : settings?.theme);
 	$effect(() => {
-		if (settings) applyTheme(settings.theme);
+		if (theme) applyTheme(theme);
 	});
 	// Follow OS changes while on System.
 	let osDark = $state(typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -91,10 +94,16 @@
 	});
 	const shown = $derived.by(() => {
 		void osDark;
-		return settings ? effectiveTheme(settings.theme) : 'dark';
+		return theme ? effectiveTheme(theme) : 'dark';
 	});
 	const themeLabel = $derived(shown === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
-	const toggleTheme = () => mutate(() => updateSettings({ theme: shown === 'dark' ? 'light' : 'dark' }));
+	function toggleTheme() {
+		const next = shown === 'dark' ? 'light' : 'dark';
+		if (access.guest) {
+			guestTheme = next;
+			saveGuestTheme(next);
+		} else mutate(() => updateSettings({ theme: next }));
+	}
 
 	const panel = $derived(data.house?.panel);
 	const hix = $derived(data.house ? index(data.house) : null);
@@ -146,10 +155,10 @@
 					<Icon name="search" size={16} />
 					<input id="q" class="search" type="search" placeholder={placeholders[tabOf(route)] ?? 'Search'} bind:value={search.q} />
 				</div>
+				<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
+					<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
+				</button>
 				{#if !access.guest}
-					<button type="button" class="tgl" onclick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
-						<Icon name={shown === 'dark' ? 'sun' : 'moon'} />
-					</button>
 					{#if access.guestEnabled && access.signedIn}
 						<button type="button" class="btn signin" onclick={lockDevice}>Lock this device</button>
 					{/if}
