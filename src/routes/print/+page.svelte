@@ -30,7 +30,7 @@
 		{ key: 'amps', label: 'Amps' },
 		{ key: 'tags', label: 'GFCI / AFCI tags' },
 		{ key: 'blanks', label: 'Write-in lines', hint: 'Open and unlabeled slots print as blank lines to fill in by hand.' },
-		{ key: 'qr', label: 'QR code to the live map', hint: 'Only useful on your home network.' },
+		{ key: 'qr', label: 'QR code to the live map', hint: 'Scan to open this map on your phone.' },
 		{ key: 'date', label: 'Printed date' },
 		{ key: 'large', label: 'Large text', hint: 'Easier to read with a flashlight.' }
 	];

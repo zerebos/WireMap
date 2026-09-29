@@ -48,7 +48,8 @@
 	function changeFloor(e: Event) {
 		const v = (e.currentTarget as HTMLSelectElement).value;
 		floorId = v === '' ? null : Number(v);
-		roomId = null;
+		// Back on its own floor, a placed item is where it was, so it keeps its room.
+		roomId = floorId === item.floorId ? item.roomId : null;
 	}
 
 	let nameInput: HTMLInputElement | undefined = $state();
@@ -165,13 +166,22 @@
 				</select>
 			</div>
 		</div>
-		<div class="fld">
-			<label for="d-room">Room</label>
-			<select id="d-room" class="inp" bind:value={roomId}>
-				{#each rooms as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
-				<option value={null}>Not in a room</option>
-			</select>
-		</div>
+		{#if placed}
+			<!-- A placed item's room comes from where it sits (DESIGN.md §5.10). -->
+			<div class="fld">
+				<span class="k">Room (from where it sits)</span>
+				<span class="v roomv">{ix.roomName(roomId)}</span>
+				<span class="also">Move it on the map to change</span>
+			</div>
+		{:else}
+			<div class="fld">
+				<label for="d-room">Room</label>
+				<select id="d-room" class="inp" bind:value={roomId}>
+					{#each rooms as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
+					<option value={null}>Not in a room</option>
+				</select>
+			</div>
+		{/if}
 		<div class="fld">
 			<label for="d-brk">Breaker</label>
 			<select id="d-brk" class="inp" bind:value={breakerId}>
@@ -324,6 +334,15 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 12px;
+	}
+	.roomv {
+		height: auto;
+		min-height: var(--control-h);
+		padding: 10px 12px;
+		white-space: normal;
+		font-family: var(--font-ui);
+		font-size: 14px;
+		font-weight: 600;
 	}
 	.also {
 		font-size: 12px;
