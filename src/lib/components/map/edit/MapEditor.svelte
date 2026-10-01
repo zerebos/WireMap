@@ -293,25 +293,49 @@
 		drag = { k: 'pan', x0: e.clientX, y0: e.clientY, px0: px, py0: py, moved: false };
 	}
 
-	// Double-clicks are spotted by hand: the drag below captures the pointer to the grid, so the
-	// browser's own dblclick never reaches the room.
-	let lastDown: { id: number; t: number; x: number; y: number } | null = null;
+	// Polygon edges are hit-tested here, before the room under the pointer gets the event: an edge
+	// shared with a rectangle room sits under that room's button. A press near the selected polygon's
+	// edge goes to it, and a double press near any polygon's edge adds a corner there. Double presses
+	// are spotted by hand: drags capture the pointer to the grid, so the browser's own dblclick never
+	// reaches a room.
+	const EDGE_PX = 12;
+	let lastPress: { t: number; x: number; y: number } | null = null;
+	function edgeDist(s: Shape, p: Point): number {
+		if (s.type !== 'polygon') return Infinity;
+		let best = Infinity;
+		s.points.forEach((a, i) => (best = Math.min(best, dist(p, nearestOnSegment(p, a, s.points[(i + 1) % s.points.length])))));
+		return best * z;
+	}
+	function ongridDownCapture(e: PointerEvent) {
+		if (e.button !== 0 || tool !== 'select' || placing !== null || inOverlay(e)) return;
+		if ((e.target as Element).closest('.hd, .it, .pframe')) return;
+		const prev = lastPress;
+		lastPress = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+		const dbl = !!prev && e.timeStamp - prev.t < 400 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 5;
+		const p = toMap(e);
+		const near = (r: Room) => {
+			const sh = shapeOf(r);
+			return !!sh && edgeDist(sh, p) <= EDGE_PX;
+		};
+		const hit = (selRoom && near(selRoom) ? selRoom : null) ?? (dbl ? (rooms.find(near) ?? null) : null);
+		if (!hit) return;
+		e.stopPropagation();
+		if (dbl) {
+			e.preventDefault();
+			lastPress = null;
+			sel = { k: 'room', id: hit.id };
+			polyDblClick(e, hit);
+			return;
+		}
+		roomDown(e, hit);
+	}
+
 	function roomDown(e: PointerEvent, r: Room) {
 		if (e.button !== 0 || tool !== 'select' || placing !== null) return;
 		e.stopPropagation();
 		const s = shapeOf(r);
 		sel = { k: 'room', id: r.id };
 		if (!s) return;
-		const prev = lastDown;
-		lastDown = { id: r.id, t: e.timeStamp, x: e.clientX, y: e.clientY };
-		if (prev?.id === r.id && e.timeStamp - prev.t < 400 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 5) {
-			lastDown = null;
-			if (s.type === 'polygon') {
-				e.preventDefault();
-				polyDblClick(e, r);
-				return;
-			}
-		}
 		const inside = carry ? itemsInside(s).map((i) => ({ id: i.id, p: posOf(i)! })) : [];
 		drag = { k: 'room', id: r.id, h: 'move', s: toMap(e), o: s, inside, moved: false };
 		capture(e);
@@ -588,7 +612,7 @@
 				at = q;
 			}
 		});
-		if (bestD * z > 12) return;
+		if (bestD * z > EDGE_PX) return;
 		const points = [...s.points];
 		points.splice(best + 1, 0, [Math.round(at[0]), Math.round(at[1])]);
 		commit(() => setRoomShape(r.id, { type: 'polygon', points }));
@@ -695,7 +719,7 @@
 	async function planFile(file: File | undefined) {
 		if (!file) return;
 		const before = snapshot();
-		const run = uploadPlan(floorId, file, true);
+		const run = uploadPlan(floor, file, true);
 		planBusy = run;
 		planError = await run;
 		if (!planError) history = [...history, before].slice(-50);
@@ -907,6 +931,7 @@
 		style:cursor
 		style:background-size="{20 * z}px {20 * z}px"
 		style:background-position="{px}px {py}px"
+		onpointerdowncapture={ongridDownCapture}
 		onpointerdown={ongridDown}
 		onpointermove={ongridMove}
 		onpointerup={ongridUp}

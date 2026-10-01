@@ -171,12 +171,12 @@
 	async function uploadPlan(e: Event & { currentTarget: HTMLInputElement }) {
 		const file = e.currentTarget.files?.[0];
 		e.currentTarget.value = '';
-		const id = planFor;
-		if (!file || id === null) return;
+		const floor = house.floors.find((f) => f.id === planFor);
+		if (!file || !floor) return;
 		// A PDF takes a moment to turn into an image; the plan buttons wait so a second pick can't race it.
 		planBusy = true;
 		try {
-			floorError = await uploadFloorPlan(id, file);
+			floorError = await uploadFloorPlan(floor, file);
 		} finally {
 			planBusy = false;
 		}

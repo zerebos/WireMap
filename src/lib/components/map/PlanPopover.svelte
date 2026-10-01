@@ -41,7 +41,7 @@
 	async function useFile(file: File | undefined) {
 		if (!file) return;
 		busy = true;
-		error = await uploadPlan(floor.id, file);
+		error = await uploadPlan(floor, file);
 		busy = false;
 		if (input) input.value = '';
 	}

@@ -249,7 +249,7 @@
 	async function cardFile(file: File | undefined) {
 		if (!file || !floor) return;
 		cardBusy = true;
-		cardError = await uploadPlan(floor.id, file);
+		cardError = await uploadPlan(floor, file);
 		cardBusy = false;
 		if (cardInput) cardInput.value = '';
 		// With a plan to trace, go straight on to drawing rooms over it.
