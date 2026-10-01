@@ -140,12 +140,20 @@ async function pdfToPng(file: File): Promise<File> {
 	}
 }
 
+export const PLAN_TYPE_ERROR = "That file isn't a PNG, JPG, WebP or PDF.";
+
+/** Whether a file can be a floor plan. */
+export const planTypeOk = (file: File) => isPdf(file) || PLAN_ACCEPT.includes(file.type);
+
+/** The image to store for a plan file: the file itself, or a PDF's first page as a PNG. */
+export const planImage = (file: File) => (isPdf(file) ? pdfToPng(file) : Promise.resolve(file));
+
 /** Saves an image (or a PDF's first page) as the floor's plan. Resolves to an error message, or '' when it worked. */
 export async function uploadPlan(floorId: number, file: File, keepOld = false): Promise<string> {
 	const pdf = isPdf(file);
-	if (!pdf && !PLAN_ACCEPT.includes(file.type)) return "That file isn't a PNG, JPG, WebP or PDF.";
+	if (!planTypeOk(file)) return PLAN_TYPE_ERROR;
 	try {
-		const img = pdf ? await pdfToPng(file) : file;
+		const img = await planImage(file);
 		const bmp = await createImageBitmap(img);
 		const size = { width: bmp.width, height: bmp.height };
 		bmp.close();

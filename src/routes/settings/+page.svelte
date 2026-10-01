@@ -10,7 +10,6 @@
 		createFloor,
 		deleteFloor,
 		moveFloor,
-		setFloorPlan,
 		updateFloor,
 		createSubpanel,
 		updateSettings,
@@ -21,6 +20,7 @@
 	import { query } from '$lib/search.svelte';
 	import { itemsCsv } from '$lib/csv';
 	import { setGuestView } from '$lib/access.svelte';
+	import { PLAN_ACCEPT, uploadPlan as uploadFloorPlan } from '$lib/components/map/model';
 
 	let { data } = $props();
 
@@ -154,7 +154,6 @@
 	let floorError = $state('');
 	let planInput = $state<HTMLInputElement>();
 	let planFor: number | null = null;
-	const PLAN_OK = ['image/png', 'image/jpeg', 'image/webp'];
 
 	function renameFloor(e: Event & { currentTarget: HTMLInputElement }, id: number, name: string) {
 		const next = e.currentTarget.value.trim();
@@ -173,21 +172,7 @@
 		e.currentTarget.value = '';
 		const id = planFor;
 		if (!file || id === null) return;
-		if (!PLAN_OK.includes(file.type)) {
-			floorError = 'Floor plans can be PNG, JPG or WebP images.';
-			return;
-		}
-		const url = URL.createObjectURL(file);
-		try {
-			const img = new Image();
-			img.src = url;
-			await img.decode();
-			await mutate(() => setFloorPlan(id, file, { width: img.naturalWidth, height: img.naturalHeight }));
-		} catch {
-			floorError = "Couldn't read that image.";
-		} finally {
-			URL.revokeObjectURL(url);
-		}
+		floorError = await uploadFloorPlan(id, file);
 	}
 
 	async function removeFloor(id: number, name: string) {
@@ -543,7 +528,7 @@
 						bind:this={planInput}
 						class="sr"
 						type="file"
-						accept="image/png,image/jpeg,image/webp"
+						accept={PLAN_ACCEPT.join(',')}
 						tabindex="-1"
 						aria-hidden="true"
 						onchange={uploadPlan}

@@ -3,11 +3,11 @@
 	import { tick } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { floorDraft, type SetupDraft } from './draft';
+	import { PLAN_ACCEPT, PLAN_TYPE_ERROR, planImage, planTypeOk } from '$lib/components/map/model';
 
 	let { draft = $bindable(), removed = $bindable() }: { draft: SetupDraft; removed: number[] } = $props();
 
 	const QUICK = ['Basement', 'Upstairs', 'Attic', 'Detached garage'];
-	const PLAN_OK = ['image/png', 'image/jpeg', 'image/webp'];
 	const quick = $derived(QUICK.filter((q) => !draft.floors.some((f) => f.name.trim() === q)));
 	let error = $state('');
 
@@ -45,13 +45,18 @@
 		error = '';
 		planInput?.click();
 	}
-	function choosePlan(e: Event & { currentTarget: HTMLInputElement }) {
+	async function choosePlan(e: Event & { currentTarget: HTMLInputElement }) {
 		const file = e.currentTarget.files?.[0];
 		e.currentTarget.value = '';
 		const f = draft.floors.find((x) => x.key === planFor);
 		if (!file || !f) return;
-		if (!PLAN_OK.includes(file.type)) return void (error = 'Floor plans can be PNG, JPG or WebP images.');
-		f.plan = file;
+		if (!planTypeOk(file)) return void (error = PLAN_TYPE_ERROR);
+		// A PDF becomes a PNG of its first page now, so saving the step stores an image as before.
+		try {
+			f.plan = await planImage(file);
+		} catch {
+			error = "Couldn't read that PDF.";
+		}
 	}
 </script>
 
@@ -102,7 +107,7 @@
 		type="file"
 		tabindex="-1"
 		aria-hidden="true"
-		accept="image/png,image/jpeg,image/webp"
+		accept={PLAN_ACCEPT.join(',')}
 		onchange={choosePlan}
 	/>
 	<div class="add">
