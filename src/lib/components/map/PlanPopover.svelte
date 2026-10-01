@@ -117,7 +117,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+		box-shadow: var(--shadow-pop);
 	}
 	.ph {
 		display: flex;

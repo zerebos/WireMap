@@ -112,7 +112,7 @@
 		border-radius: 18px 18px 0 0;
 		display: flex;
 		flex-direction: column;
-		box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3);
+		box-shadow: var(--shadow-sheet);
 	}
 	.top {
 		padding: 10px 16px 14px;

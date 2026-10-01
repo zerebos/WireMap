@@ -10,7 +10,6 @@
 		createFloor,
 		deleteFloor,
 		moveFloor,
-		setFloorPlan,
 		updateFloor,
 		createSubpanel,
 		updateSettings,
@@ -21,6 +20,7 @@
 	import { query } from '$lib/search.svelte';
 	import { itemsCsv } from '$lib/csv';
 	import { setGuestView } from '$lib/access.svelte';
+	import { PLAN_ACCEPT, uploadPlan as uploadFloorPlan } from '$lib/components/map/model';
 
 	let { data } = $props();
 
@@ -152,9 +152,9 @@
 	const roomCount = (floorId: number) => house.rooms.filter((r) => r.floorId === floorId).length;
 	const itemCount = (floorId: number) => house.items.filter((i) => i.floorId === floorId).length;
 	let floorError = $state('');
+	let planBusy = $state(false);
 	let planInput = $state<HTMLInputElement>();
 	let planFor: number | null = null;
-	const PLAN_OK = ['image/png', 'image/jpeg', 'image/webp'];
 
 	function renameFloor(e: Event & { currentTarget: HTMLInputElement }, id: number, name: string) {
 		const next = e.currentTarget.value.trim();
@@ -173,20 +173,12 @@
 		e.currentTarget.value = '';
 		const id = planFor;
 		if (!file || id === null) return;
-		if (!PLAN_OK.includes(file.type)) {
-			floorError = 'Floor plans can be PNG, JPG or WebP images.';
-			return;
-		}
-		const url = URL.createObjectURL(file);
+		// A PDF takes a moment to turn into an image; the plan buttons wait so a second pick can't race it.
+		planBusy = true;
 		try {
-			const img = new Image();
-			img.src = url;
-			await img.decode();
-			await mutate(() => setFloorPlan(id, file, { width: img.naturalWidth, height: img.naturalHeight }));
-		} catch {
-			floorError = "Couldn't read that image.";
+			floorError = await uploadFloorPlan(id, file);
 		} finally {
-			URL.revokeObjectURL(url);
+			planBusy = false;
 		}
 	}
 
@@ -526,7 +518,7 @@
 									{:else}
 										<span class="nop">No floor plan image</span>
 									{/if}
-									<button type="button" class="btn sm" onclick={() => pickPlan(f.id)}
+									<button type="button" class="btn sm" onclick={() => pickPlan(f.id)} disabled={planBusy}
 										>{f.planImage ? 'Replace image' : 'Upload image'}</button
 									>
 									<button type="button" class="ibtn del" aria-label="Delete {f.name}" onclick={() => removeFloor(f.id, f.name)}
@@ -543,7 +535,7 @@
 						bind:this={planInput}
 						class="sr"
 						type="file"
-						accept="image/png,image/jpeg,image/webp"
+						accept={PLAN_ACCEPT.join(',')}
 						tabindex="-1"
 						aria-hidden="true"
 						onchange={uploadPlan}
@@ -962,7 +954,7 @@
 		border-radius: var(--r-md);
 		overflow: hidden;
 		display: flex;
-		box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.3);
+		box-shadow: var(--swatch-ring);
 	}
 	.pv {
 		flex: 1 1 0;

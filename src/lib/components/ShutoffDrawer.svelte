@@ -37,6 +37,6 @@
 		display: flex;
 		flex-direction: column;
 		border-left: 1px solid var(--line-2);
-		box-shadow: -10px 0 30px rgba(0, 0, 0, 0.18);
+		box-shadow: var(--shadow-drawer);
 	}
 </style>

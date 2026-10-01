@@ -83,7 +83,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 18px;
-		box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3);
+		box-shadow: var(--shadow-sheet);
 		max-height: 100%;
 		overflow: auto;
 	}

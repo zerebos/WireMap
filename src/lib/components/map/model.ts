@@ -109,7 +109,7 @@ export function floorOfCircuit(ix: HouseIndex, breakerId: number): number | null
 // ---- Floor plan upload (the plan popover and the empty-floor card share it)
 
 /** Plan files we accept. A PDF is turned into a PNG of its first page. */
-export const PLAN_ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+export const PLAN_ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf', '.pdf'];
 
 const isPdf = (file: File) => file.type === 'application/pdf' || (!file.type && /\.pdf$/i.test(file.name));
 
@@ -140,19 +140,28 @@ async function pdfToPng(file: File): Promise<File> {
 	}
 }
 
+export const PLAN_TYPE_ERROR = "That file isn't a PNG, JPG, WebP or PDF.";
+export const PDF_ERROR = "Couldn't read that PDF.";
+
+/** Whether a file can be a floor plan. */
+export const planTypeOk = (file: File) => isPdf(file) || PLAN_ACCEPT.includes(file.type);
+
+/** The image to store for a plan file: the file itself, or a PDF's first page as a PNG. */
+export const planImage = (file: File) => (isPdf(file) ? pdfToPng(file) : Promise.resolve(file));
+
 /** Saves an image (or a PDF's first page) as the floor's plan. Resolves to an error message, or '' when it worked. */
 export async function uploadPlan(floorId: number, file: File, keepOld = false): Promise<string> {
 	const pdf = isPdf(file);
-	if (!pdf && !PLAN_ACCEPT.includes(file.type)) return "That file isn't a PNG, JPG, WebP or PDF.";
+	if (!planTypeOk(file)) return PLAN_TYPE_ERROR;
 	try {
-		const img = pdf ? await pdfToPng(file) : file;
+		const img = await planImage(file);
 		const bmp = await createImageBitmap(img);
 		const size = { width: bmp.width, height: bmp.height };
 		bmp.close();
 		await mutate(() => setFloorPlan(floorId, img, size, keepOld));
 		return '';
 	} catch {
-		return pdf ? "Couldn't read that PDF." : "Couldn't read that image.";
+		return pdf ? PDF_ERROR : "Couldn't read that image.";
 	}
 }
 
