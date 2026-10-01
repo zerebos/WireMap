@@ -223,41 +223,64 @@ export async function setSpaces(id: number, spaces?: Space[]) {
 	await commit(s, [{ id, spaces: spaces ?? deriveSpaces(b, s.p) }]);
 }
 
-export async function updateBreaker(id: number, patch: Partial<Omit<Breaker, 'id' | 'panelId'>>) {
-	if ((patch.poles !== undefined && patch.poles !== 2) || patch.half) await keepFeeder(id);
-	const before = await breakerById(id);
-	if (!before) return;
-	// Only a real move or resize re-derives the spaces, so saving a label keeps a quad pair's halves.
-	const moved = (['slot', 'half', 'poles'] as const).some((k) => k in patch && patch[k] !== before[k]);
-	if (!moved) return void (await db.update(t.breakers).set(patch).where(eq(t.breakers.id, id)));
-	const s = await panelState(before.panelId);
-	await commit(s, [{ id, set: patch, spaces: deriveSpaces({ ...before, ...patch }, s.p) }]);
+export type BreakerPatch = Partial<Omit<Breaker, 'id' | 'panelId'>>;
+
+export async function updateBreaker(id: number, patch: BreakerPatch) {
+	await updateBreakers([{ id, patch }]);
+}
+
+/**
+ * Saves edits to several breakers of one panel in one write. The panel is checked as it would be
+ * with every edit applied, so one breaker can take a space another one gives up in the same save.
+ */
+export async function updateBreakers(edits: { id: number; patch: BreakerPatch }[]) {
+	if (!edits.length) return;
+	for (const { id, patch } of edits) if ((patch.poles !== undefined && patch.poles !== 2) || patch.half) await keepFeeder(id);
+	const first = await breakerById(edits[0].id);
+	if (!first) return;
+	const s = await panelState(first.panelId);
+	const byId = new Map(s.bs.map((b) => [b.id, b]));
+	const changes: Change[] = edits.map(({ id, patch }) => {
+		const before = byId.get(id);
+		if (!before) throw new Error('These breakers aren’t all on one panel.');
+		// Only a real move or resize re-derives the spaces, so saving a label keeps a quad pair's halves.
+		const moved = (['slot', 'half', 'poles'] as const).some((k) => k in patch && patch[k] !== before[k]);
+		return moved ? { id, set: patch, spaces: deriveSpaces({ ...before, ...patch }, s.p) } : { id, set: patch };
+	});
+	await commit(s, changes);
+}
+
+/** A breaker to add: its values, and its spaces when they aren't derived from slot, poles and half (a quad pair). */
+export type NewBreaker = { values: Omit<typeof t.breakers.$inferInsert, 'panelId'>; spaces?: Space[] };
+
+/**
+ * Adds breakers to a panel in one write: all of them, or none when any one doesn't fit (a FitError).
+ * Returns their ids in order.
+ */
+export async function createBreakers(panelId: number, list: NewBreaker[]): Promise<number[]> {
+	if (!list.length) return [];
+	const s = await panelState(panelId);
+	const changes: Change[] = list.map(({ values, spaces }) => ({
+		values: { ...values, panelId },
+		spaces: spaces ?? deriveSpaces({ slot: values.slot, poles: values.poles ?? 1, half: values.half ?? null }, s.p)
+	}));
+	return (await commit(s, changes)).ids;
 }
 
 export async function createBreaker(values: typeof t.breakers.$inferInsert, spaces?: Space[]): Promise<number> {
-	const s = await panelState(values.panelId);
-	const derived = deriveSpaces({ slot: values.slot, poles: values.poles ?? 1, half: values.half ?? null }, s.p);
-	const { ids } = await commit(s, [{ values, spaces: spaces ?? derived }]);
-	return ids[0];
+	return (await createBreakers(values.panelId, [{ values, spaces }]))[0];
 }
 
 type QuadHalf = { label: string; amps: number; kind?: Breaker['kind'] };
 /**
- * Adds a quad at `slot` and the slot below (DESIGN.md §5.18): two 2-pole pairs, or a 2-pole outer
- * pair and two 1-pole halves (sB, belowA). Returns the outer pair's id.
+ * The breakers of a quad at `slot` and the slot below (DESIGN.md §5.18): two 2-pole pairs, or a
+ * 2-pole outer pair and two 1-pole halves (sB, belowA). The outer pair comes first.
  */
-export async function createQuad(
-	panelId: number,
-	slot: number,
-	below: number,
-	outer: QuadHalf,
-	inner: QuadHalf | { b: QuadHalf; c: QuadHalf }
-): Promise<number> {
-	const base = { panelId, kind: 'standard' as const };
-	const s = await panelState(panelId);
-	const changes: Change[] = [
+export function quadBreakers(slot: number, below: number, outer: QuadHalf, inner: QuadHalf | { b: QuadHalf; c: QuadHalf }): NewBreaker[] {
+	const kind = 'standard' as const;
+	const out: NewBreaker[] = [
 		{
-			values: { ...base, ...outer, slot, half: 'A', poles: 2 },
+			values: { kind, ...outer, slot, half: 'A', poles: 2 },
 			spaces: [
 				{ slot, half: 'A' },
 				{ slot: below, half: 'B' }
@@ -265,18 +288,29 @@ export async function createQuad(
 		}
 	];
 	if ('b' in inner) {
-		changes.push({ values: { ...base, ...inner.b, slot, half: 'B', poles: 1 }, spaces: [{ slot, half: 'B' }] });
-		changes.push({ values: { ...base, ...inner.c, slot: below, half: 'A', poles: 1 }, spaces: [{ slot: below, half: 'A' }] });
+		out.push({ values: { kind, ...inner.b, slot, half: 'B', poles: 1 } });
+		out.push({ values: { kind, ...inner.c, slot: below, half: 'A', poles: 1 } });
 	} else {
-		changes.push({
-			values: { ...base, ...inner, slot, half: 'B', poles: 2 },
+		out.push({
+			values: { kind, ...inner, slot, half: 'B', poles: 2 },
 			spaces: [
 				{ slot, half: 'B' },
 				{ slot: below, half: 'A' }
 			]
 		});
 	}
-	return (await commit(s, changes)).ids[0];
+	return out;
+}
+
+/** Adds a quad (see `quadBreakers`). Returns the outer pair's id. */
+export async function createQuad(
+	panelId: number,
+	slot: number,
+	below: number,
+	outer: QuadHalf,
+	inner: QuadHalf | { b: QuadHalf; c: QuadHalf }
+): Promise<number> {
+	return (await createBreakers(panelId, quadBreakers(slot, below, outer, inner)))[0];
 }
 
 /**
@@ -392,11 +426,12 @@ export type ItemValues = Partial<Omit<Item, 'id'>>;
 
 /** Creates an item and returns its id. */
 export async function createItem(values: ItemValues & { name: string }, breakerIds: number[] = []): Promise<number> {
-	const [row] = await db.insert(t.items).values(values).returning({ id: t.items.id }).all();
-	if (breakerIds.length) {
-		await db.insert(t.itemBreakers).values(breakerIds.map((breakerId) => ({ itemId: row.id, breakerId })));
-	}
-	return row.id;
+	// One write: the item rows point at the item inserted just before them.
+	const item = sql`(select max(${t.items.id}) from ${t.items})`;
+	const qs: Query[] = [db.insert(t.items).values(values).returning({ id: t.items.id })];
+	if (breakerIds.length) qs.push(db.insert(t.itemBreakers).values(breakerIds.map((breakerId) => ({ itemId: item, breakerId }))));
+	const [rows] = (await batch(qs)) as [{ id: number }[]];
+	return rows[0].id;
 }
 
 export async function updateItem(id: number, patch: ItemValues) {

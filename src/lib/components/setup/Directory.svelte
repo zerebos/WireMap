@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { plural, mutate, type House } from '$lib/house';
-	import { FitError, createBreaker, createQuad } from '$lib/db/ops';
+	import { FitError, createBreakers, quadBreakers, type NewBreaker } from '$lib/db/ops';
 	import type { Breaker, Panel } from '$lib/db/schema';
 	import {
 		compareBreakers,
@@ -164,38 +164,32 @@
 		saving = true;
 		error = '';
 		try {
-			await mutate(async () => {
-				for (const v of entered) {
-					const amps = Number(v.row.amps);
-					if (isQuad(v)) {
-						// Every breaker in it is saved, even one left blank, so the slots read as a quad.
-						const b = { label: v.row.labelB.trim(), amps: Number(v.row.ampsB) || 20 };
-						const c = { label: v.row.labelC.trim(), amps: Number(v.row.ampsC) || 20 };
-						await createQuad(panel.id, v.s, nextInColumn(v.s, panel), { label: v.row.label.trim(), amps: amps || 20 }, v.row.mixed ? { b, c } : b);
-						continue;
-					}
-					if (v.row.tandem) {
-						// Both halves are saved, even one left blank, so the slot reads as a tandem.
-						const ampsB = Number(v.row.ampsB);
-						const base = { panelId: panel.id, slot: v.s, poles: 1, kind: 'standard' as const };
-						await createBreaker({ ...base, half: 'A', label: v.row.label.trim(), ...(amps ? { amps } : {}) });
-						await createBreaker({ ...base, half: 'B', label: v.row.labelB.trim(), ...(ampsB ? { amps: ampsB } : {}) });
-						continue;
-					}
-					await createBreaker({
-						panelId: panel.id,
-						slot: v.s,
-						poles: isTwo(v) ? 2 : 1,
-						kind: 'standard',
-						label: v.row.label.trim(),
-						...(amps ? { amps } : {})
-					});
+			// Every row goes in one write: all of them are saved, or none are when one doesn't fit.
+			const list: NewBreaker[] = [];
+			for (const v of entered) {
+				const amps = Number(v.row.amps);
+				if (isQuad(v)) {
+					// Every breaker in it is saved, even one left blank, so the slots read as a quad.
+					const b = { label: v.row.labelB.trim(), amps: Number(v.row.ampsB) || 20 };
+					const c = { label: v.row.labelC.trim(), amps: Number(v.row.ampsC) || 20 };
+					list.push(...quadBreakers(v.s, nextInColumn(v.s, panel), { label: v.row.label.trim(), amps: amps || 20 }, v.row.mixed ? { b, c } : b));
+					continue;
 				}
-				for (const v of halvesEntered) {
-					const amps = Number(v.row.amps);
-					await createBreaker({ panelId: panel.id, slot: v.s, half: v.half, poles: 1, kind: 'standard', label: v.row.label.trim(), ...(amps ? { amps } : {}) });
+				if (v.row.tandem) {
+					// Both halves are saved, even one left blank, so the slot reads as a tandem.
+					const ampsB = Number(v.row.ampsB);
+					const base = { slot: v.s, poles: 1, kind: 'standard' as const };
+					list.push({ values: { ...base, half: 'A', label: v.row.label.trim(), ...(amps ? { amps } : {}) } });
+					list.push({ values: { ...base, half: 'B', label: v.row.labelB.trim(), ...(ampsB ? { amps: ampsB } : {}) } });
+					continue;
 				}
-			});
+				list.push({ values: { slot: v.s, poles: isTwo(v) ? 2 : 1, kind: 'standard', label: v.row.label.trim(), ...(amps ? { amps } : {}) } });
+			}
+			for (const v of halvesEntered) {
+				const amps = Number(v.row.amps);
+				list.push({ values: { slot: v.s, half: v.half, poles: 1, kind: 'standard', label: v.row.label.trim(), ...(amps ? { amps } : {}) } });
+			}
+			await mutate(() => createBreakers(panel.id, list));
 			await goto(resolve('/panel'));
 		} catch (e) {
 			console.error(e);
