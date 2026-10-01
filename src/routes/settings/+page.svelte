@@ -152,6 +152,7 @@
 	const roomCount = (floorId: number) => house.rooms.filter((r) => r.floorId === floorId).length;
 	const itemCount = (floorId: number) => house.items.filter((i) => i.floorId === floorId).length;
 	let floorError = $state('');
+	let planBusy = $state(false);
 	let planInput = $state<HTMLInputElement>();
 	let planFor: number | null = null;
 
@@ -172,7 +173,13 @@
 		e.currentTarget.value = '';
 		const id = planFor;
 		if (!file || id === null) return;
-		floorError = await uploadFloorPlan(id, file);
+		// A PDF takes a moment to turn into an image; the plan buttons wait so a second pick can't race it.
+		planBusy = true;
+		try {
+			floorError = await uploadFloorPlan(id, file);
+		} finally {
+			planBusy = false;
+		}
 	}
 
 	async function removeFloor(id: number, name: string) {
@@ -511,7 +518,7 @@
 									{:else}
 										<span class="nop">No floor plan image</span>
 									{/if}
-									<button type="button" class="btn sm" onclick={() => pickPlan(f.id)}
+									<button type="button" class="btn sm" onclick={() => pickPlan(f.id)} disabled={planBusy}
 										>{f.planImage ? 'Replace image' : 'Upload image'}</button
 									>
 									<button type="button" class="ibtn del" aria-label="Delete {f.name}" onclick={() => removeFloor(f.id, f.name)}

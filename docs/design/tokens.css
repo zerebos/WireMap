@@ -44,9 +44,9 @@
   /* ---- Shadows (the same in both themes) ---- */
   --shadow-seg: 0 1px 2px rgba(0, 0, 0, .14);       /* active segment in a segmented control */
   --shadow-knob: 0 1px 2px rgba(0, 0, 0, .3);       /* switch knob */
-  --shadow-pop: 0 6px 20px rgba(0, 0, 0, .12);      /* popovers and banners over the map */
+  --shadow-pop: 0 6px 20px rgba(0, 0, 0, .12);      /* popovers and the view-mode banner over the map */
   --shadow-pop-strong: 0 6px 20px rgba(0, 0, 0, .2);/* chips and toasts that must stand off busy content */
-  --shadow-banner: 0 6px 20px rgba(0, 0, 0, .14);   /* map edit-mode banner */
+  --shadow-banner: 0 6px 20px rgba(0, 0, 0, .14);   /* the Edit layout banner */
   --shadow-card: 0 10px 30px rgba(0, 0, 0, .12);    /* floating card on the map */
   --shadow-menu: 0 10px 30px rgba(0, 0, 0, .35);    /* dropdown menus */
   --shadow-drag: 0 8px 20px rgba(0, 0, 0, .35);     /* an item marker being dragged */

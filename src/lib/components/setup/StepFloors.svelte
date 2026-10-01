@@ -3,9 +3,13 @@
 	import { tick } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { floorDraft, type SetupDraft } from './draft';
-	import { PLAN_ACCEPT, PLAN_TYPE_ERROR, planImage, planTypeOk } from '$lib/components/map/model';
+	import { PDF_ERROR, PLAN_ACCEPT, PLAN_TYPE_ERROR, planImage, planTypeOk } from '$lib/components/map/model';
 
-	let { draft = $bindable(), removed = $bindable() }: { draft: SetupDraft; removed: number[] } = $props();
+	let {
+		draft = $bindable(),
+		removed = $bindable(),
+		converting = $bindable(0)
+	}: { draft: SetupDraft; removed: number[]; /** PDFs still being turned into images. */ converting?: number } = $props();
 
 	const QUICK = ['Basement', 'Upstairs', 'Attic', 'Detached garage'];
 	const quick = $derived(QUICK.filter((q) => !draft.floors.some((f) => f.name.trim() === q)));
@@ -52,12 +56,19 @@
 		if (!file || !f) return;
 		if (!planTypeOk(file)) return void (error = PLAN_TYPE_ERROR);
 		// A PDF becomes a PNG of its first page now, so saving the step stores an image as before.
+		// Until it's ready, that floor's button and Continue wait.
+		pending = [...pending, f.key];
+		converting++;
 		try {
 			f.plan = await planImage(file);
 		} catch {
-			error = "Couldn't read that PDF.";
+			error = PDF_ERROR;
+		} finally {
+			pending = pending.filter((k) => k !== f.key);
+			converting--;
 		}
 	}
+	let pending = $state<number[]>([]);
 </script>
 
 <div class="wrap">
@@ -89,6 +100,8 @@
 					type="button"
 					class="btn plan"
 					onclick={() => pickPlan(f.key)}
+					disabled={pending.includes(f.key)}
+					aria-busy={pending.includes(f.key)}
 					title={f.plan ? f.plan.name : undefined}
 					aria-label={f.plan || f.hasPlan ? `Plan image for ${label}: added. Replace` : undefined}
 				>

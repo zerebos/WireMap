@@ -33,6 +33,8 @@
 	let removed = $state<number[]>([]);
 	let step = $state<StepKey>(start.panel ? 'start' : 'home');
 	let busy = $state(false);
+	/** PDF plans on the floors step still being turned into images. */
+	let converting = $state(0);
 	let error = $state('');
 
 	// Step 4: how to fill it in.
@@ -161,7 +163,7 @@
 			{:else if step === 'panel'}
 				<StepPanel bind:draft />
 			{:else if step === 'floors'}
-				<StepFloors bind:draft bind:removed />
+				<StepFloors bind:draft bind:removed bind:converting />
 			{:else}
 				<StepStart spaces={draft.spaces} bind:choice />
 			{/if}
@@ -175,7 +177,7 @@
 			{#if error}<span class="err" role="alert">{error}</span>{/if}
 			<div class="grow"></div>
 			{#if step !== 'start'}
-				<button type="button" class="btn btn-pri cont" onclick={next} disabled={busy}>Continue</button>
+				<button type="button" class="btn btn-pri cont" onclick={next} disabled={busy || converting > 0}>Continue</button>
 			{:else if choice === 'dir'}
 				<a class="btn btn-pri start" href={resolve('/directory')}>Open the directory</a>
 			{:else if choice === 'trace'}
