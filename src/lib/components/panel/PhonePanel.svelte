@@ -51,7 +51,7 @@
 	<div class="scroll">
 		<div class="enc">
 			<div class="main mono"><span class="mh"></span>{feeder && panel.mainAmps === null ? 'MAIN LUGS' : 'MAIN'} {amps ? `${amps}A` : '—'}</div>
-			<div class="cols">
+			<div class="cols" class:nolegs={!showLegs}>
 				{#snippet col(cells: Cell<Breaker>[], r: boolean)}
 					<div class="col">
 						{#each cells as c (c.slot)}
@@ -142,11 +142,13 @@
 					</div>
 				{/snippet}
 				{@render col(face.left, false)}
-				<div class="legs" aria-hidden="true">
-					{#each { length: rows }, i (i)}
-						<div class="mono">{showLegs ? legOfRow(i + 1) : ''}</div>
-					{/each}
-				</div>
+				{#if showLegs}
+					<div class="legs" aria-hidden="true">
+						{#each { length: rows }, i (i)}
+							<div class="mono">{legOfRow(i + 1)}</div>
+						{/each}
+					</div>
+				{/if}
 				{@render col(face.right, true)}
 			</div>
 		</div>
@@ -209,6 +211,10 @@
 	.cols {
 		display: flex;
 		gap: 6px;
+	}
+	/* Leg markers off (Settings): the strip goes, leaving a plain gutter (the two gaps it had). */
+	.cols.nolegs {
+		gap: 12px;
 	}
 	.col {
 		flex: 1 1 0;

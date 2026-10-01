@@ -115,18 +115,25 @@
 		want.room !== null ? `room:${want.room}` : want.breaker !== null ? `breaker:${want.breaker}` : want.item !== null ? `item:${want.item}` : null
 	);
 	const keyFor = (k: string) => `breakerbook-shutoff-${k}`;
+	/** Progress older than this is from another day's job, so it's dropped rather than restored. */
+	const STALE_MS = 12 * 60 * 60 * 1000;
 	function loadProgress(k: string | null): Progress | null {
 		if (!k) return null;
 		try {
 			const p = JSON.parse(localStorage.getItem(keyFor(k)) ?? 'null');
-			return p && typeof p === 'object' ? { restoring: !!p.restoring, off: p.off ?? {}, on: p.on ?? {} } : null;
+			if (!p || typeof p !== 'object') return null;
+			if (typeof p.at !== 'number' || Date.now() - p.at > STALE_MS) {
+				localStorage.removeItem(keyFor(k));
+				return null;
+			}
+			return { restoring: !!p.restoring, off: p.off ?? {}, on: p.on ?? {} };
 		} catch {
 			return null;
 		}
 	}
 	function saveProgress(k: string, p: Progress | null) {
 		try {
-			if (p) localStorage.setItem(keyFor(k), JSON.stringify(p));
+			if (p) localStorage.setItem(keyFor(k), JSON.stringify({ ...p, at: Date.now() }));
 			else localStorage.removeItem(keyFor(k));
 		} catch {
 			// Storage blocked: progress stays on-screen only.
