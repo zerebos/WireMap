@@ -182,7 +182,7 @@
 		border-radius: 10px;
 		background: var(--enclosure);
 		border: 1px solid var(--enclosure-bd);
-		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+		box-shadow: var(--shadow-dialog);
 		display: grid;
 		grid-template-columns: 1fr 12px 1fr;
 		gap: 4px 6px;

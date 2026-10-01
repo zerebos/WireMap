@@ -739,7 +739,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+		box-shadow: var(--shadow-card);
 		user-select: text;
 	}
 	.mh {
@@ -952,7 +952,7 @@
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+		box-shadow: var(--shadow-pop);
 	}
 	.bt {
 		flex-grow: 1;
@@ -989,7 +989,7 @@
 		gap: 12px;
 		border-radius: var(--r-xl);
 		padding: 7px 7px 7px 14px;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+		box-shadow: var(--shadow-pop-strong);
 		min-width: 0;
 	}
 	.dot {

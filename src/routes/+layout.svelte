@@ -380,7 +380,7 @@
 		background: var(--hdr);
 		border: 1px solid var(--hdr-bd);
 		border-radius: var(--r-lg);
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+		box-shadow: var(--shadow-menu);
 	}
 	.plist a {
 		display: flex;

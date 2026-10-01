@@ -577,7 +577,7 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+		box-shadow: var(--shadow-pop-strong);
 	}
 	.tbl {
 		flex: 1 1 0;

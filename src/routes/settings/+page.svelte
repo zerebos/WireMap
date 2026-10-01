@@ -962,7 +962,7 @@
 		border-radius: var(--r-md);
 		overflow: hidden;
 		display: flex;
-		box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.3);
+		box-shadow: var(--swatch-ring);
 	}
 	.pv {
 		flex: 1 1 0;

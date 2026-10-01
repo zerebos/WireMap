@@ -1645,7 +1645,7 @@
 	.it.is-drag {
 		cursor: grabbing;
 		transform: scale(1.15);
-		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+		box-shadow: var(--shadow-drag);
 	}
 	.it:focus-visible {
 		outline: 3px solid var(--focus);
@@ -1719,7 +1719,7 @@
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+		box-shadow: var(--shadow-banner);
 		z-index: 8;
 		white-space: nowrap;
 		font-size: 14px;
