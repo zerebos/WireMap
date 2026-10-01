@@ -3,7 +3,7 @@
 	import { tick } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { floorDraft, type SetupDraft } from './draft';
-	import { PDF_ERROR, PLAN_ACCEPT, PLAN_TYPE_ERROR, planImage, planTypeOk } from '$lib/components/map/model';
+	import { PDF_ERROR, PLAN_ACCEPT, planCheck, planImage } from '$lib/components/map/model';
 
 	let {
 		draft = $bindable(),
@@ -54,7 +54,8 @@
 		e.currentTarget.value = '';
 		const f = draft.floors.find((x) => x.key === planFor);
 		if (!file || !f) return;
-		if (!planTypeOk(file)) return void (error = PLAN_TYPE_ERROR);
+		const bad = planCheck(file);
+		if (bad) return void (error = bad);
 		// A PDF becomes a PNG of its first page now, so saving the step stores an image as before.
 		// Until it's ready, that floor's button and Continue wait.
 		pending = [...pending, f.key];

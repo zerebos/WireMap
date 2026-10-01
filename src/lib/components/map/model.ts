@@ -113,19 +113,46 @@ export const PLAN_ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'applicatio
 
 const isPdf = (file: File) => file.type === 'application/pdf' || (!file.type && /\.pdf$/i.test(file.name));
 
-/** The longest edge, in px, a PDF page is drawn at: about 2× the map's own size. */
+/** A PDF page is drawn at about 2× the width the floor shows at 100%, never past this on its long edge. */
 const PDF_EDGE = 4000;
+/** Bigger PDFs are refused: pdf.js would hold the whole file in memory to draw one page. */
+const PDF_MAX_MB = 25;
+
+// pdf.js's standard fonts, for PDFs that don't embed theirs. Bundled (and so cached for offline use)
+// and only fetched when a PDF needs one.
+const STANDARD_FONTS = import.meta.glob('/node_modules/pdfjs-dist/standard_fonts/*.{pfb,ttf}', {
+	query: '?url',
+	import: 'default'
+}) as Record<string, () => Promise<string>>;
+const fontByName = new Map(Object.entries(STANDARD_FONTS).map(([path, load]) => [path.split('/').pop()!, load]));
 
 /** Draws page 1 of a PDF as a PNG. pdf.js loads only now, the first time a PDF is dropped. */
-async function pdfToPng(file: File): Promise<File> {
+async function pdfToPng(file: File, planWidth: number): Promise<File> {
 	const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]);
 	pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-	const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+	class BundledFonts {
+		async fetch({ filename }: { filename: string }) {
+			const load = fontByName.get(filename);
+			if (!load) throw new Error(`No standard font ${filename}`);
+			const res = await fetch(await load());
+			return new Uint8Array(await res.arrayBuffer());
+		}
+	}
+	const task = pdfjs.getDocument({
+		data: new Uint8Array(await file.arrayBuffer()),
+		// The worker can't see the bundled fonts' hashed names, so the page fetches them for it.
+		useWorkerFetch: false,
+		// Use the bundled fonts rather than whatever the device has, so a plan reads the same everywhere.
+		useSystemFonts: false,
+		standardFontDataUrl: 'bundled/',
+		StandardFontDataFactory: BundledFonts
+	});
 	try {
 		const doc = await task.promise;
 		const page = await doc.getPage(1);
 		const base = page.getViewport({ scale: 1 });
-		const viewport = page.getViewport({ scale: PDF_EDGE / Math.max(base.width, base.height) });
+		const scale = Math.min((2 * planWidth) / base.width, PDF_EDGE / Math.max(base.width, base.height));
+		const viewport = page.getViewport({ scale });
 		const canvas = document.createElement('canvas');
 		canvas.width = Math.round(viewport.width);
 		canvas.height = Math.round(viewport.height);
@@ -142,23 +169,35 @@ async function pdfToPng(file: File): Promise<File> {
 
 export const PLAN_TYPE_ERROR = "That file isn't a PNG, JPG, WebP or PDF.";
 export const PDF_ERROR = "Couldn't read that PDF.";
+export const PDF_TOO_BIG = `That PDF is over ${PDF_MAX_MB} MB. Export just the floor plan page, or save it as a PNG or JPG.`;
 
 /** Whether a file can be a floor plan. */
 export const planTypeOk = (file: File) => isPdf(file) || PLAN_ACCEPT.includes(file.type);
 
-/** The image to store for a plan file: the file itself, or a PDF's first page as a PNG. */
-export const planImage = (file: File) => (isPdf(file) ? pdfToPng(file) : Promise.resolve(file));
+/** Why a file can't be a floor plan, or '' when it can. */
+export function planCheck(file: File): string {
+	if (!planTypeOk(file)) return PLAN_TYPE_ERROR;
+	if (isPdf(file) && file.size > PDF_MAX_MB * 1024 * 1024) return PDF_TOO_BIG;
+	return '';
+}
+
+/**
+ * The image to store for a plan file: the file itself, or a PDF's first page as a PNG, drawn
+ * for a floor `planWidth` map units wide (new floors are 820).
+ */
+export const planImage = (file: File, planWidth = 820) => (isPdf(file) ? pdfToPng(file, planWidth) : Promise.resolve(file));
 
 /** Saves an image (or a PDF's first page) as the floor's plan. Resolves to an error message, or '' when it worked. */
-export async function uploadPlan(floorId: number, file: File, keepOld = false): Promise<string> {
+export async function uploadPlan(floor: Pick<Floor, 'id' | 'planWidth'>, file: File, keepOld = false): Promise<string> {
 	const pdf = isPdf(file);
-	if (!planTypeOk(file)) return PLAN_TYPE_ERROR;
+	const bad = planCheck(file);
+	if (bad) return bad;
 	try {
-		const img = await planImage(file);
+		const img = await planImage(file, floor.planWidth);
 		const bmp = await createImageBitmap(img);
 		const size = { width: bmp.width, height: bmp.height };
 		bmp.close();
-		await mutate(() => setFloorPlan(floorId, img, size, keepOld));
+		await mutate(() => setFloorPlan(floor.id, img, size, keepOld));
 		return '';
 	} catch {
 		return pdf ? PDF_ERROR : "Couldn't read that image.";
