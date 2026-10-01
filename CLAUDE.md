@@ -42,7 +42,7 @@ Confirm with the owner before changing any of these.
 - `breaker_spaces` is the source of truth for which spaces a breaker takes (whole slots, or A/B halves for tandems and quads). `loadHouse()` puts them on each breaker as `spaces`; `spacesOf()` reads them. Writes that move or resize a breaker go through `setSpaces`/`updateBreaker` in `ops.ts` so the rows stay in sync.
 - Every breaker number on screen or paper comes from `slotLabel()` / `spaceLabel()` (short-code prefix + spaces, e.g. "G6", "17A", "21A/23B"). Don't build numbers by hand.
 - Subpanels are panels with `fed_by_breaker_id`. `index(house)` has `feederOf`, `fedPanelOf`, `feedersAbove`, `downstream` and `panelTree`.
-- The printed directory (`/print`) is always light. Its colors are the `--print-*` tokens, which, like the `--pv-*` preview tokens, exist only in `src/lib/tokens.css`.
+- The printed directory (`/print`) is always light. Its colors are the `--print-*` tokens. They and the `--pv-*` Settings preview tokens are fixed, whatever the theme.
 - Read-only guest view is `access.guest` (`src/lib/access.svelte.ts`). Every edit control is wrapped in `{#if !access.guest}` (removed, not disabled), and the layout sends guests away from Settings, Trace, Directory and Setup. Without a server it's a lock on this device: Sign in unlocks it with no password check. New edit controls need the same guard.
 - The header search writes `search.q` (`src/lib/search.svelte.ts`). Each page filters itself with it.
 - The theme is `settings.theme`, applied as `data-theme` on `<html>` (`src/lib/theme.ts`) and mirrored to localStorage so `app.html` can set it before paint.
