@@ -19,6 +19,7 @@
 	import {
 		FitError,
 		createBreaker,
+		createBreakers,
 		createItem,
 		createQuad,
 		createSubpanel,
@@ -28,6 +29,7 @@
 		setSpaces,
 		swapQuadPairs,
 		updateBreaker,
+		updateBreakers,
 		type SubpanelValues
 	} from '$lib/db/ops';
 	import { index, mutate, plural, type HouseBreaker } from '$lib/house';
@@ -88,13 +90,14 @@
 	// A write the panel refuses (DATA-MODEL.md "Occupancy"), shown in the detail pane. The face shows
 	// unsaved pole changes, so a slot can look open before the change that frees it is saved.
 	let fitWhy = $state('');
-	async function guard<T>(write: () => Promise<T>): Promise<T | undefined> {
+	// `saving` is the Save of the drafts themselves, which can't suggest saving them first.
+	async function guard<T>(write: () => Promise<T>, saving = false): Promise<T | undefined> {
 		fitWhy = '';
 		try {
 			return await write();
 		} catch (e) {
 			if (!(e instanceof FitError)) throw e;
-			fitWhy = Object.keys(drafts).length ? `${e.message} Save your unsaved breaker changes first, then try again.` : e.message;
+			fitWhy = !saving && Object.keys(drafts).length ? `${e.message} Save your unsaved breaker changes first, then try again.` : e.message;
 		}
 	}
 	// It's about what was being tried, so it goes when the selection or the open slot changes.
@@ -127,19 +130,15 @@
 	}
 
 	async function save() {
-		const changed = breakers.filter((b) => drafts[b.id] && isChanged(b, drafts[b.id]));
-		await mutate(async () => {
-			for (const b of changed) {
+		const edits = breakers
+			.filter((b) => drafts[b.id] && isChanged(b, drafts[b.id]))
+			.map((b) => {
 				const d = drafts[b.id];
-				await updateBreaker(b.id, {
-					label: d.label.trim(),
-					amps: d.amps,
-					kind: d.kind,
-					poles: d.poles,
-					notes: d.notes.trim() || null
-				});
-			}
-		});
+				return { id: b.id, patch: { label: d.label.trim(), amps: d.amps, kind: d.kind, poles: d.poles, notes: d.notes.trim() || null } };
+			});
+		// All of the drafts are checked together and saved in one write, or none are and they stay.
+		const saved = await guard(() => mutate(() => updateBreakers(edits)).then(() => true), true);
+		if (!saved) return;
 		drafts = {};
 		savedJustNow = true;
 	}
@@ -234,8 +233,10 @@
 				return createQuad(panel.id, slot, below, outer, f.mixed ? { b, c: { label: f.labelC.trim(), amps: f.ampsC, kind } } : b);
 			}
 			if (!newTandem) return createBreaker({ panelId: panel.id, slot, poles, amps, kind: f.kind, label: f.label.trim() });
-			const a = await createBreaker({ panelId: panel.id, slot, half: 'A', poles: 1, amps, kind: f.kind, label: f.label.trim() });
-			await createBreaker({ panelId: panel.id, slot, half: 'B', poles: 1, amps: f.ampsB, kind: f.kind, label: f.labelB.trim() });
+			const [a] = await createBreakers(panel.id, [
+				{ values: { slot, half: 'A', poles: 1, amps, kind: f.kind, label: f.label.trim() } },
+				{ values: { slot, half: 'B', poles: 1, amps: f.ampsB, kind: f.kind, label: f.labelB.trim() } }
+			]);
 			return a;
 		}));
 		if (id === undefined) return;

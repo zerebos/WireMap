@@ -166,7 +166,70 @@ describe('changing a panel’s shape', () => {
 	});
 });
 
+test('updatePanel refuses a new numbering while the panel has a quad', async () => {
+	await ops.createQuad(panel, 1, 3, { label: 'Out', amps: 20 }, { label: 'In', amps: 20 });
+	await expect(ops.updatePanel(panel, { numbering: 'down_left_then_right' })).rejects.toThrow('Quad breaker 1A/3B is placed for the current numbering.');
+});
+
 describe('multi-step writes are all or nothing', () => {
+	test('updateBreakers saves drafts together, so one breaker can take a space another gives up', async () => {
+		const range = await add(1, 2); // 1 + 3
+		const b = await add(5);
+		// Range goes to 1-pole and 5 moves up to 3, in one save.
+		await ops.updateBreakers([
+			{ id: range, patch: { poles: 1 } },
+			{ id: b, patch: { slot: 3 } }
+		]);
+		expect(await spaces()).toEqual([`${range}:1`, `${b}:3`]);
+	});
+
+	test('updateBreakers refuses the whole save when one draft doesn’t fit', async () => {
+		const a = await add(1);
+		const b = await add(5);
+		await add(7);
+		await expect(
+			ops.updateBreakers([
+				{ id: a, patch: { label: 'Renamed' } },
+				{ id: b, patch: { poles: 2 } }
+			])
+		).rejects.toThrow('Slot 7 is already taken.');
+		const row = await db.select().from(t.breakers).where(eq(t.breakers.id, a)).get();
+		expect(row!.label).toBe('at 1');
+	});
+
+	test('createBreakers adds every breaker or none', async () => {
+		await add(9);
+		await expect(
+			ops.createBreakers(panel, [{ values: { slot: 1, label: 'a' } }, { values: { slot: 3, label: 'b' } }, { values: { slot: 9, half: 'A', label: 'c' } }])
+		).rejects.toThrow(ops.FitError);
+		expect(await count()).toBe(1);
+		// Two halves of one slot, and a quad, in one go.
+		const ids = await ops.createBreakers(panel, [
+			{ values: { slot: 1, half: 'A', label: 'a' } },
+			{ values: { slot: 1, half: 'B', label: 'b' } },
+			...ops.quadBreakers(5, 7, { label: 'Out', amps: 20 }, { label: 'In', amps: 20 })
+		]);
+		expect(ids.length).toBe(4);
+		expect((await spaces()).filter((s) => !s.startsWith(`1:`))).toEqual(
+			[`${ids[0]}:1A`, `${ids[1]}:1B`, `${ids[2]}:5A`, `${ids[2]}:7B`, `${ids[3]}:5B`, `${ids[3]}:7A`].sort()
+		);
+	});
+
+	test('two breakers on one panel can’t overlap each other in the same write', async () => {
+		await expect(ops.createBreakers(panel, [{ values: { slot: 1, poles: 2 } }, { values: { slot: 3 } }])).rejects.toThrow(ops.FitError);
+		expect(await count()).toBe(0);
+	});
+
+	test('createItem writes the item and its breakers together', async () => {
+		const a = await add(1);
+		const b = await add(3);
+		const id = await ops.createItem({ name: 'Switch box' }, [a, b]);
+		const rows = await db.select().from(t.itemBreakers).where(eq(t.itemBreakers.itemId, id)).all();
+		expect(rows.map((r) => r.breakerId).sort()).toEqual([a, b].sort());
+		await expect(ops.createItem({ name: 'Bad' }, [9999])).rejects.toThrow();
+		expect((await db.select().from(t.items).all()).length).toBe(1);
+	});
+
 	test('renamePanel renames the feeder with the subpanel', async () => {
 		const id = await ops.createSubpanel({ name: 'Garage', shortCode: 'G', slotCount: 12, mainAmps: 60, location: null, fedBy: { panelId: panel, slot: 2, amps: 60 } });
 		await ops.renamePanel(id, 'Shop');

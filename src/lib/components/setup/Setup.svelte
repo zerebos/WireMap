@@ -115,7 +115,7 @@
 		const saved = house.panels.find((p) => p.id === panelId);
 		if (step === 'panel' && saved) {
 			const inside = house.breakers.filter((b) => b.panelId === saved.id);
-			const why = reshapeProblem(saved, { slotCount: draft.spaces, numbering: draft.numbering }, inside);
+			const why = reshapeProblem(saved, { ...saved, slotCount: draft.spaces, numbering: draft.numbering }, inside);
 			if (why) return void (error = why);
 		}
 		if (step === 'floors') {

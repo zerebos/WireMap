@@ -225,13 +225,13 @@ export function checkFit(
 	const start = position(candidate.slot, p);
 	const end = position(wanted[wanted.length - 1], p);
 	if (wanted.some((s) => s < 1 || s > p.slotCount) || start.side !== end.side) {
-		return `A ${candidate.poles}-pole breaker doesn't fit at slot ${candidate.slot}.`;
+		return `A ${candidate.poles}-pole breaker doesn't fit at slot ${spaceLabel({ slot: candidate.slot, half: candidate.half ?? null }, p)}.`;
 	}
 	const want = spacesOf(candidate, p);
 	for (const b of existing) {
 		if (b.id === candidate.id) continue;
 		const clash = spacesOf(b, p).find((s) => want.some((w) => clashes(s, w)));
-		if (clash) return `Slot ${spaceText(clash)} is already taken.`;
+		if (clash) return `Slot ${spaceLabel(clash, p)} is already taken.`;
 	}
 	return null;
 }
@@ -252,7 +252,7 @@ export function panelProblem(p: PanelShape, bs: (Placed & { id: number })[]): st
 	const seen: Space[] = [];
 	for (const b of bs) {
 		for (const s of spacesOf(b, p)) {
-			if (seen.some((o) => clashes(o, s))) return `Slot ${spaceText(s)} would hold two breakers. Move one of them first.`;
+			if (seen.some((o) => clashes(o, s))) return `Slot ${spaceLabel(s, p)} would hold two breakers. Move one of them first.`;
 			seen.push(s);
 		}
 	}
@@ -269,12 +269,17 @@ export function respace<B extends Placed & { spaces: Space[] }>(bs: B[], next: P
 
 /**
  * Why a panel can't take a new slot count or numbering with the breakers it has, or null. A panel
- * that shrinks with breakers in the slots it loses is refused, not rearranged.
+ * that shrinks with breakers in the slots it loses is refused, not rearranged, and so is a new
+ * numbering while the panel has a quad. Settings, Setup and `updatePanel` all use this one rule.
  */
 export function reshapeProblem(before: PanelShape, next: PanelShape, bs: (Placed & { id: number; spaces: Space[] })[]): string | null {
+	// Quads keep their stored spaces, which are only right for the numbering they were placed with.
+	const quad = next.numbering !== before.numbering ? bs.find((b) => quadPair(b, before)) : undefined;
+	if (quad) return `Quad breaker ${slotLabel(quad, before)} is placed for the current numbering. Remove it first.`;
 	const after = respace(bs, next);
 	if (next.slotCount < before.slotCount && after.some((b) => occupiedSlots(b, next).some((s) => s > next.slotCount))) {
-		return `Slots ${next.slotCount + 1}–${before.slotCount} still have breakers. Move or remove them first.`;
+		const lost = (slot: number) => spaceLabel({ slot, half: null }, next);
+		return `Slots ${lost(next.slotCount + 1)}–${lost(before.slotCount)} still have breakers. Move or remove them first.`;
 	}
 	return panelProblem(next, after);
 }
