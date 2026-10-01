@@ -308,10 +308,12 @@
 	}
 	function ongridDownCapture(e: PointerEvent) {
 		if (e.button !== 0 || tool !== 'select' || placing !== null || inOverlay(e)) return;
-		if ((e.target as Element).closest('.hd, .it, .pframe')) return;
+		// Only presses on a room: empty grid near an edge still pans and deselects.
+		const target = (e.target as Element).closest('.room, .poly');
+		if (!target) return;
 		const prev = lastPress;
-		lastPress = { t: e.timeStamp, x: e.clientX, y: e.clientY };
 		const dbl = !!prev && e.timeStamp - prev.t < 400 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 5;
+		lastPress = dbl ? null : { t: e.timeStamp, x: e.clientX, y: e.clientY };
 		const p = toMap(e);
 		const near = (r: Room) => {
 			const sh = shapeOf(r);
@@ -320,9 +322,11 @@
 		const hit = (selRoom && near(selRoom) ? selRoom : null) ?? (dbl ? (rooms.find(near) ?? null) : null);
 		if (!hit) return;
 		e.stopPropagation();
+		// The room under the pointer would take focus and select itself; focus the polygon instead.
+		e.preventDefault();
+		const a = grid?.querySelector<HTMLElement>(`a.poly[data-room="${hit.id}"]`);
+		a?.focus({ preventScroll: true });
 		if (dbl) {
-			e.preventDefault();
-			lastPress = null;
 			sel = { k: 'room', id: hit.id };
 			polyDblClick(e, hit);
 			return;
@@ -1001,6 +1005,7 @@
 					{@const b = bboxOf(s)}
 					<a
 						class="poly"
+						data-room={r.id}
 						class:is-sel={selRoom?.id === r.id}
 						class:is-ext={r.kind === 'exterior'}
 						href="{resolve('/map')}?edit=1&floor={floorId}&room={r.id}"

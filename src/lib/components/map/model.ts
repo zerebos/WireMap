@@ -183,9 +183,9 @@ export function planCheck(file: File): string {
 
 /**
  * The image to store for a plan file: the file itself, or a PDF's first page as a PNG, drawn
- * for a floor `planWidth` map units wide (new floors are 2000).
+ * for a floor `planWidth` map units wide (new floors are 820).
  */
-export const planImage = (file: File, planWidth = 2000) => (isPdf(file) ? pdfToPng(file, planWidth) : Promise.resolve(file));
+export const planImage = (file: File, planWidth = 820) => (isPdf(file) ? pdfToPng(file, planWidth) : Promise.resolve(file));
 
 /** Saves an image (or a PDF's first page) as the floor's plan. Resolves to an error message, or '' when it worked. */
 export async function uploadPlan(floor: Pick<Floor, 'id' | 'planWidth'>, file: File, keepOld = false): Promise<string> {
