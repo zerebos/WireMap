@@ -3,16 +3,21 @@
 	// Viewing and editing are separate modes, so a stray drag never moves a wall. Drags edit a
 	// local draft and save on release; every saved change can be undone for this session.
 	import { tick, untrack } from 'svelte';
+	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
 	import { mutate, type HouseIndex, type HouseItem } from '$lib/house';
 	import {
+		createItem,
 		createRoom,
+		deleteItems,
 		deleteRoom,
 		placeItem,
 		removeFloorPlan,
 		restoreLayout,
+		setItemBreakers,
 		setRoomShape,
 		unplaceItem,
+		updateItem,
 		updateFloor,
 		updateRoom,
 		type LayoutSnapshot
@@ -35,13 +40,22 @@
 		type Shape
 	} from '$lib/shape';
 	import { PLAN_ACCEPT, planBox, slotsText, uploadPlan } from '../model';
+	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
 
 	let {
 		ix,
 		floorId,
 		initialRoom = null,
+		drawFirst = false,
 		ondone
-	}: { ix: HouseIndex; floorId: number; initialRoom?: number | null; ondone: () => void } = $props();
+	}: {
+		ix: HouseIndex;
+		floorId: number;
+		initialRoom?: number | null;
+		/** Open with the Room tool picked ("Draw rooms" on the empty-floor card). */
+		drawFirst?: boolean;
+		ondone: () => void;
+	} = $props();
 
 	const GRID = 10;
 	const SNAP = 8;
@@ -57,9 +71,10 @@
 
 	// ---- Selection and tools
 	type ESel = { k: 'room'; id: number } | { k: 'item'; id: number } | { k: 'plan' } | null;
-	type ETool = 'select' | 'rect' | 'poly' | 'scale';
+	type ETool = 'select' | 'rect' | 'poly' | 'item' | 'scale';
 	let sel = $state<ESel>(untrack(() => (initialRoom !== null ? { k: 'room', id: initialRoom } : null)));
-	let tool = $state<ETool>('select');
+	// A floor with no rooms yet opens straight into drawing when asked to, or when there's a plan to trace.
+	let tool = $state<ETool>(untrack(() => ((drawFirst || !!floor.planImage) && !rooms.length ? 'rect' : 'select')));
 	let placing = $state<number | null>(null);
 	let carry = $state(true);
 
@@ -98,7 +113,9 @@
 		});
 
 	// ---- Undo: a snapshot of the floor's layout before each saved change
-	let history = $state<LayoutSnapshot[]>([]);
+	/** A snapshot to go back to, and the item the change created, which undo deletes. */
+	type Step = LayoutSnapshot & { created?: number };
+	let history = $state<Step[]>([]);
 	function snapshot(): LayoutSnapshot {
 		return {
 			floorId,
@@ -133,7 +150,11 @@
 		history = history.slice(0, -1);
 		const rid = selId('room');
 		if (rid !== null && !s.rooms.some((r) => r.id === rid)) sel = null;
-		await mutate(() => restoreLayout(s));
+		if (s.created !== undefined && selId('item') === s.created) sel = null;
+		await mutate(async () => {
+			if (s.created !== undefined) await deleteItems([s.created]);
+			await restoreLayout(s);
+		});
 	}
 
 	// ---- View: zoom and pan. Map units → screen px: x * z + px.
@@ -248,7 +269,10 @@
 			commit(() => placeItem(id, floorId, at[0], at[1]));
 			return;
 		}
-		if ((e.target as Element).closest('.room, .poly, .it, .hd, .mh, .pframe')) return;
+		// The drawing tools draw over existing rooms too (a closet inside a bedroom); rooms and
+		// items don't take the pointer from them.
+		const drawing = tool === 'rect' || tool === 'poly' || tool === 'item';
+		if (!drawing && (e.target as Element).closest('.room, .poly, .it, .hd, .mh, .pframe')) return;
 		if (tool === 'rect') {
 			drag = { k: 'new', a: p, b: p };
 			capture(e);
@@ -260,15 +284,34 @@
 			e.preventDefault();
 			return;
 		}
+		if (tool === 'item') {
+			const at: Point = e.shiftKey ? [clampX(p[0]), clampY(p[1])] : [clampX(toGrid(p[0])), clampY(toGrid(p[1]))];
+			e.preventDefault();
+			addItem(at);
+			return;
+		}
 		drag = { k: 'pan', x0: e.clientX, y0: e.clientY, px0: px, py0: py, moved: false };
 	}
 
+	// Double-clicks are spotted by hand: the drag below captures the pointer to the grid, so the
+	// browser's own dblclick never reaches the room.
+	let lastDown: { id: number; t: number; x: number; y: number } | null = null;
 	function roomDown(e: PointerEvent, r: Room) {
 		if (e.button !== 0 || tool !== 'select' || placing !== null) return;
 		e.stopPropagation();
 		const s = shapeOf(r);
 		sel = { k: 'room', id: r.id };
 		if (!s) return;
+		const prev = lastDown;
+		lastDown = { id: r.id, t: e.timeStamp, x: e.clientX, y: e.clientY };
+		if (prev?.id === r.id && e.timeStamp - prev.t < 400 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 5) {
+			lastDown = null;
+			if (s.type === 'polygon') {
+				e.preventDefault();
+				polyDblClick(e, r);
+				return;
+			}
+		}
 		const inside = carry ? itemsInside(s).map((i) => ({ id: i.id, p: posOf(i)! })) : [];
 		drag = { k: 'room', id: r.id, h: 'move', s: toMap(e), o: s, inside, moved: false };
 		capture(e);
@@ -390,9 +433,8 @@
 				guide = res.g;
 			}
 			roomDraft = { id: d.id, shape };
-			const b = bboxOf(shape);
-			const t = sizeTip(b);
-			tip = t ? { x: b.x + b.w, y: b.y + b.h, t } : null;
+			const t = sizeTip(bboxOf(shape));
+			tip = t ? { x: p[0], y: p[1], t } : null;
 		} else if (d.k === 'vertex') {
 			d.moved = true;
 			const pts = d.o.map((q) => [q[0], q[1]] as Point);
@@ -420,7 +462,7 @@
 			guide = { v: bx.g ?? undefined, h: by.g ?? undefined };
 			draft = { x: Math.min(ax, bx.v), y: Math.min(ay, by.v), w: Math.abs(bx.v - ax), h: Math.abs(by.v - ay) };
 			const t = sizeTip(draft);
-			tip = t ? { x: draft.x + draft.w, y: draft.y + draft.h, t } : null;
+			tip = t ? { x: p[0], y: p[1], t } : null;
 		} else if (d.k === 'plan') {
 			d.moved = true;
 			planDraft = { x: d.o[0] + p[0] - d.s[0], y: d.o[1] + p[1] - d.s[1] };
@@ -487,6 +529,34 @@
 		nameInput?.select();
 	}
 
+	// ---- Item tool: click to drop a new item of the picked type; it takes the room under it
+	let newType = $state<ItemType>('outlet');
+	let itemName: HTMLInputElement | undefined = $state();
+	async function addItem(at: Point) {
+		const type = newType;
+		const before: Step = snapshot();
+		const roomId = roomAt(at, shapedRooms)?.id ?? null;
+		const id = await mutate(() =>
+			createItem({ type, name: `New ${ITEM_TYPE_LABELS[type].one.toLowerCase()}`, floorId, roomId, x: Math.round(at[0]), y: Math.round(at[1]) })
+		);
+		history = [...history, { ...before, created: id }].slice(-50);
+		tool = 'select';
+		sel = { k: 'item', id };
+		await tick();
+		itemName?.focus();
+		itemName?.select();
+	}
+	async function renameItem(i: HouseItem, e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const name = input.value.trim();
+		if (!name) return void (input.value = i.name);
+		if (name !== i.name) await mutate(() => updateItem(i.id, { name }));
+	}
+	async function pickBreaker(i: HouseItem, e: Event) {
+		const v = (e.currentTarget as HTMLSelectElement).value;
+		await mutate(() => setItemBreakers(i.id, v ? [Number(v)] : []));
+	}
+
 	// ---- Polygon tool: click to add corners, click the first corner to close
 	let polyPts = $state<Point[]>([]);
 	function addPolyPoint(p: Point, free: boolean) {
@@ -501,7 +571,7 @@
 	}
 
 	/** Double-clicking a polygon's edge adds a corner there. */
-	function polyDblClick(e: MouseEvent, r: Room) {
+	function polyDblClick(e: PointerEvent, r: Room) {
 		const s = shapeOf(r);
 		if (!s || s.type !== 'polygon' || tool !== 'select') return;
 		const p = toMap(e);
@@ -585,6 +655,7 @@
 		if (k === 'v') setTool('select');
 		else if (k === 'r') setTool('rect');
 		else if (k === 'p') setTool('poly');
+		else if (k === 'i') setTool('item');
 	}
 
 	// ---- Plan image
@@ -731,7 +802,7 @@
 	const selItemPos = $derived(selItem ? posOf(selItem) : null);
 	const selItemRoom = $derived(selItemPos ? roomNameAt(selItemPos) : '');
 	const selItemWas = $derived.by(() => {
-		if (!selItem) return null;
+		if (!selItem || !wasRoom.has(selItem.id)) return null;
 		const was = wasRoom.get(selItem.id) ?? null;
 		const wasName = was === null ? 'Not in a room' : (ix.roomById.get(was)?.name ?? 'Not in a room');
 		return wasName !== selItemRoom ? wasName : null;
@@ -740,17 +811,19 @@
 		placing !== null
 			? 'Click where it really is. Esc cancels.'
 			: tool === 'rect'
-				? 'Drag on the grid to draw a room. Edges snap to other rooms.'
+				? `Drag on the grid to draw ${rooms.length ? 'a' : 'your first'} room. Edges snap to other rooms.`
 				: tool === 'poly'
 					? 'Click to add corners. Click the first corner to close the shape.'
-					: ''
+					: tool === 'item'
+						? 'Click where the new item really is.'
+						: ''
 	);
 	const placingItem = $derived(placing !== null ? (floorItems.find((i) => i.id === placing) ?? null) : null);
 	const whereUnplaced = (i: HouseItem) => {
 		const bs = ix.breakersOf(i);
 		return `${ix.roomName(i.roomId)}${bs.length ? ` · on ${slotsText(ix, bs)}` : ''}`;
 	};
-	const cursor = $derived(placing !== null || tool === 'rect' || tool === 'poly' ? 'crosshair' : 'default');
+	const cursor = $derived(placing !== null || tool === 'rect' || tool === 'poly' || tool === 'item' ? 'crosshair' : 'default');
 	const pts = (s: Point[]) => s.map((p) => `${sx(p[0])},${sy(p[1])}`).join(' ');
 	const itemAria = (i: HouseItem) => `${i.name}, ${ix.typeLabel(i)}, in ${roomNameAt(posOf(i)!)}. Drag to move.`;
 	const roomAria = (r: Room, s: Shape) => `${r.name}${upf ? `, ${sizeText(s, upf).replace(' × ', ' by ')}` : ''}. Drag to move; arrow keys nudge.`;
@@ -809,6 +882,9 @@
 			<button type="button" class="sb" class:is-on={tool === 'poly'} aria-pressed={tool === 'poly'} title="Polygon room (P)" onclick={() => setTool('poly')}
 				>Polygon</button
 			>
+			<button type="button" class="sb" class:is-on={tool === 'item'} aria-pressed={tool === 'item'} title="New item (I)" onclick={() => setTool('item')}
+				>Item</button
+			>
 			<button type="button" class="sb" class:is-on={tool === 'scale'} aria-pressed={tool === 'scale'} title="Set scale" onclick={() => setTool('scale')}
 				>Scale</button
 			>
@@ -824,6 +900,7 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
 		class="grid"
+		class:drawing={tool === 'rect' || tool === 'poly' || tool === 'item'}
 		bind:this={grid}
 		bind:clientWidth={cw}
 		bind:clientHeight={ch}
@@ -841,6 +918,7 @@
 			draft = null;
 		}}
 		onpointerleave={() => (hover = null)}
+		ondragstart={(e) => e.preventDefault()}
 		onclick={ongridClick}
 	>
 		{#if planSrc}
@@ -896,22 +974,21 @@
 				{@const s = shapeOf(r)}
 				{#if s?.type === 'polygon'}
 					{@const b = bboxOf(s)}
-					<g
+					<a
 						class="poly"
 						class:is-sel={selRoom?.id === r.id}
 						class:is-ext={r.kind === 'exterior'}
-						role="button"
-						tabindex="0"
+						href="{resolve('/map')}?edit=1&floor={floorId}&room={r.id}"
 						aria-label={roomAria(r, s)}
-						aria-pressed={selRoom?.id === r.id}
+						aria-current={selRoom?.id === r.id ? 'true' : undefined}
 						onpointerdown={(e) => roomDown(e, r)}
 						onkeydown={(e) => roomKey(e, r)}
-						ondblclick={(e) => polyDblClick(e, r)}
+						onclick={(e) => e.preventDefault()}
 						onfocus={() => tool === 'select' && placing === null && (sel = { k: 'room', id: r.id })}
 					>
 						<polygon points={pts(s.points)} />
 						<text x={sx(b.x) + 10} y={sy(b.y) + 19}>{r.name}</text>
-					</g>
+					</a>
 				{/if}
 			{/each}
 			{#if drag?.k === 'new' && draft}
@@ -985,7 +1062,7 @@
 		{#if guide.v !== undefined}<div class="guide v" style:left="{sx(guide.v)}px"></div>{/if}
 		{#if guide.h !== undefined}<div class="guide h" style:top="{sy(guide.h)}px"></div>{/if}
 		{#if tip}
-			<span class="tip" style:left="{sx(tip.x) + (drag?.k === 'item' ? 22 : 8)}px" style:top="{sy(tip.y) + (drag?.k === 'item' ? -30 : 6)}px">{tip.t}</span>
+			<span class="tip" style:left="{sx(tip.x) + (drag?.k === 'item' ? 22 : 14)}px" style:top="{sy(tip.y) + (drag?.k === 'item' ? -30 : 14)}px">{tip.t}</span>
 		{/if}
 
 		{#if tool === 'scale'}
@@ -1014,13 +1091,22 @@
 			>
 		{/if}
 
-		{#if placingItem && hover}
-			<div class="ghost" style:left="{sx(hover[0]) - 16}px" style:top="{sy(hover[1]) - 16}px"><Icon name={placingItem.type} size={16} /></div>
+		{#if (placingItem || tool === 'item') && hover}
+			<div class="ghost" style:left="{sx(hover[0]) - 16}px" style:top="{sy(hover[1]) - 16}px"><Icon name={placingItem?.type ?? newType} size={16} /></div>
 		{/if}
 
 		{#if banner}
 			<div class="banner ovl" role="status">
 				<span>{banner}</span>
+				{#if tool === 'item' && placing === null}
+					<div class="seg types" role="group" aria-label="Item type">
+						{#each ITEM_TYPES as t (t)}
+							<button type="button" class="sb" class:is-on={newType === t} aria-pressed={newType === t} onclick={() => (newType = t)}
+								><Icon name={t} size={14} />{ITEM_TYPE_LABELS[t].one}</button
+							>
+						{/each}
+					</div>
+				{/if}
 				<button
 					type="button"
 					class="btn bb"
@@ -1105,12 +1191,26 @@
 			{@const i = selItem}
 			<div class="stack s14">
 				<span class="ov">{ix.typeLabel(i)} · {floor.name}</span>
-				<h2>{i.name}</h2>
+				<div class="fld">
+					<label for="it-name">Name</label>
+					<input id="it-name" class="inp" type="text" value={i.name} bind:this={itemName} onchange={(e) => renameItem(i, e)} />
+				</div>
 				<div class="roombox">
 					<span class="k">Room (from where it sits)</span>
 					<span class="rb">{selItemRoom}</span>
 					{#if selItemWas}<span class="was">Was {selItemWas}</span>{/if}
 				</div>
+				{#if i.breakerIds.length}
+					<div class="fld"><span class="k">{i.breakerIds.length > 1 ? 'Breakers' : 'Breaker'}</span><span class="mono ro">{slotsText(ix, ix.breakersOf(i))}</span></div>
+				{:else}
+					<div class="fld">
+						<label for="it-brk">Pick its breaker</label>
+						<select id="it-brk" class="inp" value="" onchange={(e) => pickBreaker(i, e)}>
+							<option value="">— No breaker —</option>
+							{#each ix.house.breakers as o (o.id)}<option value={String(o.id)}>{ix.slotOf(o)} — {ix.labelOf(o)} ({o.amps}A)</option>{/each}
+						</select>
+					</div>
+				{/if}
 				<span class="hint">Drag it, or use the arrow keys. Its room updates from the position; breakers don’t change.</span>
 				<button type="button" class="btn start" onclick={() => unplace(i)}>Remove from map</button>
 			</div>
@@ -1429,6 +1529,9 @@
 		top: 0;
 		pointer-events: none;
 		overflow: visible;
+	}
+	.grid.drawing :is(.room, .poly, .it) {
+		cursor: crosshair;
 	}
 	.poly {
 		pointer-events: visiblePainted;

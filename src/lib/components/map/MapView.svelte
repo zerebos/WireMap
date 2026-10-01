@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/Icon.svelte';
 	import { access } from '$lib/access.svelte';
 	import PlanPopover from './PlanPopover.svelte';
 	import { mutate, plural, type HouseIndex, type HouseItem } from '$lib/house';
-	import { createItem, createRoom, placeItem } from '$lib/db/ops';
+	import { placeItem } from '$lib/db/ops';
 	import type { Room } from '$lib/db/schema';
 	import { planUrl } from '$lib/plans';
-	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
-	import { pointsOf, roomAt, type Point, type Rect } from '$lib/shape';
+	import { pointsOf, type Point, type Rect } from '$lib/shape';
 	import {
 		NONE,
 		PLAN_ACCEPT,
@@ -21,8 +20,7 @@
 		roomGroups,
 		slotsText,
 		uploadPlan,
-		type Sel,
-		type Tool
+		type Sel
 	} from './model';
 
 	let {
@@ -30,7 +28,6 @@
 		sel,
 		floorId,
 		fade,
-		tool = $bindable('select'),
 		hovB = $bindable(null),
 		moving = $bindable(null),
 		go,
@@ -41,12 +38,14 @@
 		floorId: number | null;
 		/** Settings → "Fade other items on the map". */
 		fade: boolean;
-		tool?: Tool;
 		hovB?: number | null;
 		moving?: number | null;
 		go: (sel: Sel, floor?: number | null) => void;
-		/** Switches to layout editing (DESIGN.md §5.10); absent when the viewer can't edit. */
-		onedit?: () => void;
+		/**
+		 * Switches to layout editing (DESIGN.md §5.10), optionally with the Room tool picked;
+		 * absent when the viewer can't edit. Drawing rooms and placing items happen only there.
+		 */
+		onedit?: (draw?: boolean) => void;
 	} = $props();
 
 	const floor = $derived(floorId === null ? null : (ix.floorById.get(floorId) ?? null));
@@ -155,8 +154,8 @@
 
 	// ---- Rooms
 	const movingItem = $derived(moving !== null && selItem?.id === moving ? selItem : null);
-	/** Clicks on the map place something rather than select. */
-	const placing = $derived(tool !== 'select' || movingItem !== null);
+	/** "Move on map": the next click on the map places the item rather than selects. */
+	const placing = $derived(movingItem !== null);
 
 	type Drawn = { room: Room; pts: Point[]; rect: Rect | null };
 	const drawn: Drawn[] = $derived(
@@ -166,6 +165,10 @@
 		})
 	);
 	const roomAria = (r: Room) => `${r.name}, ${plural(ix.itemsInRoom(r.id).length, 'item')}`;
+	/** Polygon rooms are links, so a room can be opened or shared by its URL. */
+	/** Ctrl/Cmd/Shift/Alt-click on a room link keeps the browser's own behavior (new tab or window). */
+	const newTab = (e: MouseEvent) => e.ctrlKey || e.metaKey || e.shiftKey || e.altKey;
+	const roomHref = (r: Room) => `${resolve('/map')}?floor=${r.floorId}&room=${r.id}`;
 
 	function pickRoom(r: Room) {
 		if (placing) return;
@@ -180,15 +183,11 @@
 		return `${i.name}, ${ix.typeLabel(i)}, ${ix.roomName(i.roomId)}, ${bs.length ? `breaker ${slotsText(ix, bs)}` : 'no breaker'}`;
 	};
 
-	// ---- Pointer: pan on empty grid (or rooms), drag rectangles
-	type Drag = { kind: 'pan'; x0: number; y0: number; px0: number; py0: number; moved: boolean } | { kind: 'draw'; a: Point; b: Point };
+	// ---- Pointer: pan on empty grid (or rooms)
+	type Drag = { x0: number; y0: number; px0: number; py0: number; moved: boolean };
 	let drag = $state<Drag | null>(null);
 	let suppressClick = false;
 	let hover = $state<Point | null>(null);
-	let pendingRect = $state<Rect | null>(null);
-	let newName = $state('');
-	let nameError = $state('');
-	let nameInput: HTMLInputElement | undefined = $state();
 
 	const inOverlay = (e: Event) => !!(e.target as Element).closest('.ovl');
 
@@ -196,47 +195,21 @@
 		if (e.button !== 0 || inOverlay(e) || !floor) return;
 		suppressClick = false;
 		if ((e.target as Element).closest('.it')) return;
-		if (tool === 'room' && !pendingRect && !access.guest) {
-			const a = snap(toPlan(e));
-			drag = { kind: 'draw', a, b: a };
-			grid!.setPointerCapture(e.pointerId);
-			e.preventDefault();
-			return;
-		}
-		drag = { kind: 'pan', x0: e.clientX, y0: e.clientY, px0: px, py0: py, moved: false };
+		drag = { x0: e.clientX, y0: e.clientY, px0: px, py0: py, moved: false };
 	}
 	function onpointermove(e: PointerEvent) {
 		hover = inOverlay(e) ? null : toPlan(e);
 		const d = drag;
 		if (!d) return;
-		if (d.kind === 'draw') {
-			d.b = snap(toPlan(e));
-		} else if (d.kind === 'pan') {
-			if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return;
-			if (!d.moved) grid!.setPointerCapture(e.pointerId);
-			d.moved = true;
-			px = d.px0 + e.clientX - d.x0;
-			py = d.py0 + e.clientY - d.y0;
-		}
+		if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return;
+		if (!d.moved) grid!.setPointerCapture(e.pointerId);
+		d.moved = true;
+		px = d.px0 + e.clientX - d.x0;
+		py = d.py0 + e.clientY - d.y0;
 	}
-	async function onpointerup() {
-		const d = drag;
+	function onpointerup() {
+		if (drag?.moved) suppressClick = true;
 		drag = null;
-		if (!d) return;
-		if (d.kind === 'pan') {
-			if (d.moved) suppressClick = true;
-		} else if (d.kind === 'draw') {
-			const x = Math.min(d.a[0], d.b[0]);
-			const y = Math.min(d.a[1], d.b[1]);
-			const w = Math.abs(d.a[0] - d.b[0]);
-			const h = Math.abs(d.a[1] - d.b[1]);
-			if (w < 20 || h < 20) return;
-			pendingRect = { x, y, w, h };
-			newName = '';
-			nameError = '';
-			await tick();
-			nameInput?.focus();
-		}
 	}
 
 	async function onclick(e: MouseEvent) {
@@ -245,83 +218,30 @@
 			suppressClick = false;
 			return;
 		}
+		// Enter on a focused room or item clicks it with no pointer position; only a real click places.
+		if (!movingItem || e.detail === 0) return;
 		const p = clamp(toPlan(e));
-		const at: Point = [Math.round(p[0]), Math.round(p[1])];
-		const inside = roomAt(at, floorRooms);
-		if (movingItem) {
-			const it = movingItem;
-			const f = floor.id;
-			moving = null;
-			await mutate(() => placeItem(it.id, f, at[0], at[1]));
-		} else if (tool === 'place') {
-			const type = placeType;
-			const f = floor.id;
-			const id = await mutate(() =>
-				createItem({ type, name: `New ${ITEM_TYPE_LABELS[type].one.toLowerCase()}`, floorId: f, roomId: inside?.id ?? null, x: at[0], y: at[1] })
-			);
-			go({ kind: 'item', id }, f);
-		}
-	}
-
-	async function saveRoom() {
-		if (!pendingRect || !floor || access.guest) return;
-		const name = newName.trim();
-		if (!name) return void (nameError = 'Give the room a name.');
-		if (floorRooms.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
-			nameError = `There's already a ${name} on this floor.`;
-			return;
-		}
-		const shape = { type: 'rect' as const, ...pendingRect };
+		const it = movingItem;
 		const f = floor.id;
-		pendingRect = null;
-		await mutate(() => createRoom({ floorId: f, name, kind: 'interior', shape }));
-	}
-	function nameKey(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			saveRoom();
-		} else if (e.key === 'Escape') {
-			e.stopPropagation();
-			pendingRect = null;
-		}
+		moving = null;
+		await mutate(() => placeItem(it.id, f, Math.round(p[0]), Math.round(p[1])));
 	}
 
-	// ---- Tools
-	let placeType = $state<ItemType>('outlet');
-	function setTool(t: Tool) {
-		tool = t;
-		pendingRect = null;
-		moving = null;
-	}
 	function onkeydown(e: KeyboardEvent) {
 		if (e.key !== 'Escape' || e.defaultPrevented) return;
 		if ((e.target as Element).closest?.('input, textarea, select')) return;
-		if (drag?.kind === 'draw') drag = null;
-		else if (pendingRect) pendingRect = null;
-		else if (moving !== null) moving = null;
-		else if (tool !== 'select') setTool('select');
+		if (moving !== null) moving = null;
 		else if (planOpen) planOpen = false;
 	}
 
-	const ghostRect = $derived.by((): Rect | null => {
-		if (drag?.kind !== 'draw') return pendingRect;
-		const x = Math.min(drag.a[0], drag.b[0]);
-		const y = Math.min(drag.a[1], drag.b[1]);
-		return { x, y, w: Math.abs(drag.a[0] - drag.b[0]), h: Math.abs(drag.a[1] - drag.b[1]) };
-	});
-	const ghostType = $derived<ItemType | null>(movingItem ? movingItem.type : tool === 'place' ? placeType : null);
+	const ghostType = $derived(movingItem ? movingItem.type : null);
 	const traced = $derived(floorRooms.filter((r) => shapeOfRoom(r)).length);
 	const zoomText = $derived(`${Math.round(z * 100)}%`);
 
 	// ---- Empty floor (DESIGN.md §5.9): no rooms yet.
 	const noRooms = $derived(!!floor && floorRooms.length === 0);
 	/** The "Map the floor" card: no rooms and no plan, while nothing else is going on. */
-	const showCard = $derived(!access.guest && noRooms && !floor?.planImage && tool === 'select' && !movingItem);
-	// A floor with a plan but no rooms opens straight into drawing, over the plan.
-	const drawFirst = $derived(noRooms && !!floor?.planImage ? floorId : null);
-	$effect(() => {
-		if (drawFirst !== null && !access.guest) setTool('room');
-	});
+	const showCard = $derived(!access.guest && noRooms && !floor?.planImage && !movingItem);
 	let cardInput: HTMLInputElement | undefined = $state();
 	let cardError = $state('');
 	let cardBusy = $state(false);
@@ -332,6 +252,8 @@
 		cardError = await uploadPlan(floor.id, file);
 		cardBusy = false;
 		if (cardInput) cardInput.value = '';
+		// With a plan to trace, go straight on to drawing rooms over it.
+		if (!cardError) onedit?.(true);
 	}
 	function cardDrop(e: DragEvent) {
 		e.preventDefault();
@@ -345,7 +267,6 @@
 
 	function pickFloor(id: number) {
 		hovB = null;
-		pendingRect = null;
 		go(sel.kind === 'room' ? NONE : sel, id);
 	}
 </script>
@@ -363,23 +284,12 @@
 		</div>
 		<div class="grow"></div>
 		{#if !access.guest}
-		<div class="seg" role="group" aria-label="Tool">
-			<button type="button" class="sb" class:is-on={tool === 'select'} aria-pressed={tool === 'select'} onclick={() => setTool('select')}
-				><Icon name="cursor" size={16} /><span class="tl">Select</span></button
+			<button type="button" class="sb planbtn" class:is-on={planOpen} aria-expanded={planOpen} disabled={!floor} onclick={() => (planOpen = !planOpen)}
+				><Icon name="image" size={16} /><span class="tl">Floor plan</span></button
 			>
-			<button type="button" class="sb" class:is-on={tool === 'room'} aria-pressed={tool === 'room'} disabled={!floor} onclick={() => setTool('room')}
-				><Icon name="room" size={16} /><span class="tl">Draw room</span></button
-			>
-			<button type="button" class="sb" class:is-on={tool === 'place'} aria-pressed={tool === 'place'} disabled={!floor} onclick={() => setTool('place')}
-				><Icon name="pin" size={16} /><span class="tl">Place item</span></button
-			>
-		</div>
-		<button type="button" class="sb planbtn" class:is-on={planOpen} aria-expanded={planOpen} disabled={!floor} onclick={() => (planOpen = !planOpen)}
-			><Icon name="image" size={16} /><span class="tl">Floor plan</span></button
-		>
 		{/if}
 		{#if onedit}
-			<button type="button" class="btn editbtn" disabled={!floor} onclick={onedit}><Icon name="pencil" size={14} stroke={2.2} />Edit layout</button>
+			<button type="button" class="btn editbtn" disabled={!floor} onclick={() => onedit()}><Icon name="pencil" size={14} stroke={2.2} />Edit layout</button>
 		{/if}
 	</div>
 
@@ -389,7 +299,7 @@
 	<div
 		class="grid"
 		class:placing
-		class:panning={drag?.kind === 'pan' && drag.moved}
+		class:panning={drag?.moved}
 		bind:this={grid}
 		bind:clientWidth={cw}
 		bind:clientHeight={ch}
@@ -400,6 +310,7 @@
 		{onpointerup}
 		onpointercancel={() => (drag = null)}
 		onpointerleave={() => (hover = null)}
+		ondragstart={(e) => e.preventDefault()}
 		{onclick}
 	>
 		{#if floor}
@@ -444,43 +355,32 @@
 					{#if !d.rect}
 						{@const minX = Math.min(...d.pts.map((p) => p[0]))}
 						{@const minY = Math.min(...d.pts.map((p) => p[1]))}
-						<g
+						<a
 							class="poly"
 							class:is-lit={litRooms.has(d.room.id)}
 							class:is-sel={selRoom?.id === d.room.id}
 							class:is-mute={roomMode && selRoom?.id !== d.room.id}
 							class:is-ext={d.room.kind === 'exterior'}
 							class:no-pick={placing}
-							role="button"
-							tabindex="0"
+							href={roomHref(d.room)}
 							aria-label={roomAria(d.room)}
-							aria-pressed={selRoom?.id === d.room.id}
-							onclick={() => pickRoom(d.room)}
-							onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), pickRoom(d.room))}
+							aria-current={selRoom?.id === d.room.id ? 'true' : undefined}
+							onclick={(e) => {
+								if (newTab(e)) return;
+								e.preventDefault();
+								pickRoom(d.room);
+							}}
+							onkeydown={(e) => e.key === ' ' && (e.preventDefault(), pickRoom(d.room))}
 						>
 							<polygon points={d.pts.map((p) => `${sx(p[0])},${sy(p[1])}`).join(' ')} />
 							{#if selRoom?.id === d.room.id}
 								<polygon class="ring" points={d.pts.map((p) => `${sx(p[0])},${sy(p[1])}`).join(' ')} />
 							{/if}
 							<text x={sx(minX) + 10} y={sy(minY) + 19}>{d.room.name}</text>
-						</g>
+						</a>
 					{/if}
 				{/each}
 			</svg>
-
-			{#if ghostRect}
-				<div
-					class="ghostroom"
-					style:left="{sx(ghostRect.x)}px"
-					style:top="{sy(ghostRect.y)}px"
-					style:width="{ghostRect.w * z}px"
-					style:height="{ghostRect.h * z}px"
-				>
-					<span class="mono">New room</span>
-				</div>
-			{:else if tool === 'room' && noRooms}
-				<div class="ghostroom first" aria-hidden="true"><span class="mono">New room</span></div>
-			{/if}
 
 			{#if showCard}
 				<div class="cardwrap">
@@ -516,9 +416,9 @@
 									><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg
 								>
 								<span class="ot">Upload a floor plan</span>
-								<span class="os">{cardBusy ? 'Uploading…' : 'Drop a PNG, JPG or WebP here'}</span>
+								<span class="os">{cardBusy ? 'Uploading…' : 'Drop a PNG, JPG or PDF here'}</span>
 							</button>
-							<button type="button" class="opt" onclick={() => setTool('room')}>
+							<button type="button" class="opt" onclick={() => onedit?.(true)}>
 								<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"
 									><rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2.5" /></svg
 								>
@@ -564,41 +464,6 @@
 		{/if}
 
 		<div class="stackr ovl">
-			{#if tool === 'room'}
-				<div class="banner">
-					{#if pendingRect}
-						<form
-							class="nameform"
-							onsubmit={(e) => {
-								e.preventDefault();
-								saveRoom();
-							}}
-						>
-							<label for="new-room" class="nl"><strong>Name this room</strong></label>
-							<div class="nrow">
-								<input id="new-room" class="inp" bind:this={nameInput} bind:value={newName} onkeydown={nameKey} placeholder="e.g. Kitchen" />
-								<button type="submit" class="btn btn-pri h36">Save</button>
-								<button type="button" class="btn h36" onclick={() => (pendingRect = null)}>Cancel</button>
-							</div>
-							{#if nameError}<span class="err" role="alert">{nameError}</span>{/if}
-						</form>
-					{:else}
-						<span class="bt"><strong>Drag on the grid</strong> to draw {noRooms ? 'your first' : 'a'} room. Release to name it.</span>
-						<button type="button" class="btn h36" onclick={() => setTool('select')}>Done</button>
-					{/if}
-				</div>
-			{:else if tool === 'place'}
-				<div class="banner col">
-					<span class="bt"><strong>Place an item</strong> where it really is, then pick its breaker.</span>
-					<div class="types" role="group" aria-label="Item type">
-						{#each ITEM_TYPES as t (t)}
-							<button type="button" class="pt" class:is-on={placeType === t} aria-pressed={placeType === t} onclick={() => (placeType = t)}
-								>{ITEM_TYPE_LABELS[t].one}</button
-							>
-						{/each}
-					</div>
-				</div>
-			{/if}
 			{#if movingItem}
 				<div class="banner">
 					<span class="bt"><strong>Click the map</strong> where {movingItem.name} really is.</span>
@@ -664,9 +529,9 @@
 	.grow {
 		flex-grow: 1;
 	}
-	/* The toolbar holds floors, tools, Floor plan and Edit layout; when the canvas is narrow
-	   (the 1440 reference leaves it 820px) the tool labels give way to their icons. */
-	@container (max-width: 960px) {
+	/* The toolbar holds floors, Floor plan and Edit layout, which fit at the 1440 reference
+	   (about 820px of canvas); only a narrower canvas drops the Floor plan label for its icon. */
+	@container (max-width: 640px) {
 		.bar .tl {
 			position: absolute;
 			width: 1px;
@@ -850,25 +715,6 @@
 		fill: var(--ink);
 	}
 
-	.ghostroom {
-		position: absolute;
-		border: 2px dashed var(--ink);
-		background: color-mix(in srgb, var(--amber) 12%, transparent);
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		padding: 0 10px;
-		pointer-events: none;
-	}
-	/* The example rectangle shown before the first room is drawn. */
-	.ghostroom.first {
-		left: 60px;
-		top: 60px;
-		width: 300px;
-		height: 240px;
-		align-items: flex-end;
-		padding: 8px;
-	}
 
 	/* "Map the floor" card, on a floor with no rooms */
 	.cardwrap {
@@ -959,13 +805,6 @@
 		line-height: 1.5;
 	}
 
-	.ghostroom span {
-		font-size: 11px;
-		background: var(--ink);
-		color: var(--surface);
-		padding: 3px 6px;
-		border-radius: var(--r-xs);
-	}
 
 	/* Item markers */
 	.it {
@@ -1115,12 +954,6 @@
 		gap: 12px;
 		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
 	}
-	.banner.col {
-		flex-direction: column;
-		align-items: stretch;
-		gap: 10px;
-		padding: 14px 16px;
-	}
 	.bt {
 		flex-grow: 1;
 		font-size: 14px;
@@ -1129,54 +962,9 @@
 	.h36 {
 		height: 36px;
 	}
-	.nameform {
-		flex-grow: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-	.nl {
-		font-size: 14px;
-	}
-	.nrow {
-		display: flex;
-		gap: 6px;
-	}
-	.nrow .inp {
-		height: 36px;
-		min-width: 0;
-	}
-	.nrow .btn {
-		padding: 0 12px;
-	}
 	.err {
 		font-size: 13px;
 		color: var(--warn);
-	}
-	.types {
-		display: flex;
-		gap: 6px;
-		flex-wrap: wrap;
-	}
-	.pt {
-		height: 34px;
-		padding: 0 10px;
-		border: 1px solid var(--field);
-		border-radius: var(--r-md);
-		background: var(--surface);
-		font: inherit;
-		font-size: 13px;
-		font-weight: 600;
-		color: var(--ink);
-		cursor: pointer;
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-	}
-	.pt.is-on {
-		background: var(--ink);
-		color: var(--surface);
-		border-color: var(--ink);
 	}
 
 	.bottom {

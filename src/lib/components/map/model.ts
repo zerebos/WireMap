@@ -11,8 +11,6 @@ import { parseShape, type Shape } from '$lib/shape';
 export type Sel = { kind: 'none' } | { kind: 'circuit' | 'item' | 'room'; id: number };
 export const NONE: Sel = { kind: 'none' };
 
-export type Tool = 'select' | 'room' | 'place';
-
 /** "20A · GFCI", "50A · 2-pole", or "50A · 2-pole · GFCI". */
 export const specOf = (b: Breaker) =>
 	b.poles === 2
@@ -110,20 +108,51 @@ export function floorOfCircuit(ix: HouseIndex, breakerId: number): number | null
 
 // ---- Floor plan upload (the plan popover and the empty-floor card share it)
 
-/** Plan images we accept. PDF plans aren't supported yet. */
-export const PLAN_ACCEPT = ['image/png', 'image/jpeg', 'image/webp'];
+/** Plan files we accept. A PDF is turned into a PNG of its first page. */
+export const PLAN_ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 
-/** Saves an image as the floor's plan. Resolves to an error message, or '' when it worked. */
-export async function uploadPlan(floorId: number, file: File, keepOld = false): Promise<string> {
-	if (!PLAN_ACCEPT.includes(file.type)) return "That file isn't a PNG, JPG or WebP image.";
+const isPdf = (file: File) => file.type === 'application/pdf' || (!file.type && /\.pdf$/i.test(file.name));
+
+/** The longest edge, in px, a PDF page is drawn at: about 2× the map's own size. */
+const PDF_EDGE = 4000;
+
+/** Draws page 1 of a PDF as a PNG. pdf.js loads only now, the first time a PDF is dropped. */
+async function pdfToPng(file: File): Promise<File> {
+	const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]);
+	pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+	const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
 	try {
-		const bmp = await createImageBitmap(file);
+		const doc = await task.promise;
+		const page = await doc.getPage(1);
+		const base = page.getViewport({ scale: 1 });
+		const viewport = page.getViewport({ scale: PDF_EDGE / Math.max(base.width, base.height) });
+		const canvas = document.createElement('canvas');
+		canvas.width = Math.round(viewport.width);
+		canvas.height = Math.round(viewport.height);
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new Error('No canvas');
+		await page.render({ canvasContext: ctx, viewport, background: 'white' }).promise;
+		const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/png'));
+		if (!blob) throw new Error('No image');
+		return new File([blob], file.name.replace(/\.pdf$/i, '') + '.png', { type: 'image/png' });
+	} finally {
+		void task.destroy();
+	}
+}
+
+/** Saves an image (or a PDF's first page) as the floor's plan. Resolves to an error message, or '' when it worked. */
+export async function uploadPlan(floorId: number, file: File, keepOld = false): Promise<string> {
+	const pdf = isPdf(file);
+	if (!pdf && !PLAN_ACCEPT.includes(file.type)) return "That file isn't a PNG, JPG, WebP or PDF.";
+	try {
+		const img = pdf ? await pdfToPng(file) : file;
+		const bmp = await createImageBitmap(img);
 		const size = { width: bmp.width, height: bmp.height };
 		bmp.close();
-		await mutate(() => setFloorPlan(floorId, file, size, keepOld));
+		await mutate(() => setFloorPlan(floorId, img, size, keepOld));
 		return '';
 	} catch {
-		return "Couldn't read that image.";
+		return pdf ? "Couldn't read that PDF." : "Couldn't read that image.";
 	}
 }
 

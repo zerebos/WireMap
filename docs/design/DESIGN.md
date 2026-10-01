@@ -157,13 +157,13 @@ Three columns: circuits list (300) · canvas (fills) · inspector (320).
 
 **Circuits list**: "Circuits" + "25 of 25", hint line, circuit rows. Header search filters by label, slot, item name/room. Clicking the selected circuit deselects.
 
-**Toolbar (60px)**: floor segmented control (amber dot on floors that contain items of the current selection) · tools segmented (Select / Draw room / Place item) · "Floor plan" toggle button.
+**Toolbar (60px)**: floor segmented control (amber dot on floors that contain items of the current selection) · "Floor plan" toggle button · "Edit layout". Drawing rooms and placing items happen only in Edit layout (§5.10); the owner dropped view mode's Select / Draw room / Place item tools (2026-09-28), so drawing and placing are described in §5.10. View mode keeps "Move on map" from the item inspector.
 
 **Canvas**: 20px grid (`--grid-bg`/`--grid-line`), optional floor-plan image under the rooms (opacity 0–100, default 35%), rooms, item markers. Overlays:
-- top-right stack: tool banner ("Drag on the grid to draw a room…" + Done; or "Place an item…" + type chips) and/or floor-plan popover (file name, "Rooms traced over it: 7", opacity slider, Replace, Remove; or a dropzone "Drop a PNG, JPG or PDF of the Upstairs plan…").
+- top-right stack: "Move on map" banner ("Click the map where … really is" + Cancel) and/or floor-plan popover (file name, "Rooms traced over it: 7", opacity slider, Replace, Remove; or a dropzone "Drop a PNG, JPG or PDF of the Upstairs plan…").
 - bottom-left inverted status chip: "Breaker 16 · Bathrooms — 3 of 9 on this floor [6 on Upstairs →] [Clear]" or "Kitchen · Main floor — 13 items on 7 circuits [Clear]"; when nothing is selected a quiet hint chip.
 - bottom-right zoom control (−, 100%, +, fit).
-- Draw-room tool shows a dashed ghost rectangle while dragging; Place tool shows a dashed ghost marker + "Click to place".
+- While moving an item, a dashed ghost marker + "Click to place" follows the pointer.
 
 **Selection model (one at a time, priority item > circuit > room):**
 
@@ -171,7 +171,7 @@ Three columns: circuits list (300) · canvas (fills) · inspector (320).
 |---|---|
 | Click circuit in list | circuit mode: its items lit, rooms containing them tinted, everything else dimmed |
 | Click item marker | item mode: item picked, its circuit lit |
-| Click empty area of a room (Select tool only) | room mode: room outlined, its items full-strength with breaker badges, other rooms muted, other items dimmed |
+| Click empty area of a room | room mode: room outlined, its items full-strength with breaker badges, other rooms muted, other items dimmed |
 | Hover/focus a circuit card in room mode | that circuit's items light up **everywhere on the floor**, not only in the room |
 | Change floor tab | clears room selection; circuit/item selection persists (with cross-floor indicators) |
 | Clear | back to none |
@@ -237,19 +237,20 @@ Bulk entry of the paper label inside the panel door. App header (Panel active).
 
 ### 5.9 Empty states [`PanelEmpty.dc.html`, `MapEmpty.dc.html`, `ItemsEmpty.dc.html`]
 - **Panel, no breakers**: every slot is an **open-slot button** (dashed; hover/focus reads "+ Add breaker"). Detail pane shows "Your panel is empty", one line of guidance, and three action cards: Copy the panel directory (FASTEST) → §5.8, Trace with your phone → §5.6, Add one at a time ("Click any open slot", dashed, informational). Clicking an open slot turns it amber ("New breaker…") and the pane becomes a **new-breaker form**: overline "New breaker · Slot 7 · Leg L2", label input, Amperage, Protection, Poles segmented (2-pole disabled with a reason when the slot below is taken or doesn't exist), "Add breaker", "Add & next slot" (jumps to the next free slot, keeps the amps), footer link to the directory. The open-slot button and form also apply on the normal Panel page whenever an open slot is clicked.
-- **Map, floor with no rooms**: circuits list still shows breakers ("20A · 0 items", hint "Nothing placed yet…"). Canvas shows a centered card "Map the {floor}" with two big options: **Upload a floor plan** (dashed dropzone, PNG/JPG/PDF) and **Draw rooms** (switches to the draw tool: banner "Drag on the grid to draw your first room" + ghost rectangle). Inspector shows a 3-step checklist (Add rooms · Place items · Connect them to breakers) and "Trace with your phone instead".
+- **Map, floor with no rooms**: circuits list still shows breakers ("20A · 0 items", hint "Nothing placed yet…"). Canvas shows a centered card "Map the {floor}" with two big options: **Upload a floor plan** (dashed dropzone, PNG/JPG/PDF) and **Draw rooms** (opens Edit layout with the Room tool: banner "Drag on the grid to draw your first room"). Inspector shows a 3-step checklist (Add rooms · Place items · Connect them to breakers) and "Trace with your phone instead".
 - **Items, none yet**: no filters or table header. Centered: the four type icons as tiles, "No items yet", explanation that tracing is the quickest way, buttons Trace a breaker (primary) · Add item · Import CSV…, mono hint "CSV columns: name, type, floor, room, breaker". Export CSV disabled.
 - Existing smaller empty states (breaker with no items, search with no results, floor with no plan image, "Nothing on this floor") are described with their screens above.
 
 ### 5.10 Editing the map layout [`MapEditRoom.dc.html`, `MapEditScale.dc.html`]
 Viewing and editing are separate modes so a stray drag never moves a wall. The Map toolbar gets an **"Edit layout"** button; edit mode replaces the circuits list and inspector and hides all circuit highlighting.
 
-- **Toolbar**: amber pill "Editing Main floor" · tools segmented: Select · Room (rectangle) · Polygon · Scale · "Floor plan" toggle · Undo (icon) · primary "Done editing" (back to view mode).
+- **Toolbar**: amber pill "Editing Main floor" · tools segmented: Select · Room (rectangle) · Polygon · Item · Scale · "Floor plan" toggle · Undo (icon) · primary "Done editing" (back to view mode).
 - **Left panel "Layout"**: *Rooms* list (click selects; shows size once a scale is set) and *Not placed*: items on this floor with no position (from tracing, Items page, or "Remove from map"), each with a **Place** button. Place → ghost marker follows the pointer, banner "Click where it really is. Esc cancels.", click drops it snapped to the grid.
 - **Rooms**: click to select (amber outline + 8 square handles: corners and edge midpoints); drag the body to move, drag a handle to resize (min 60 map units). Exterior areas draw with a dashed wall. Selected room shows amber size labels on the top and right edges when a scale is set; a live "17′ × 15′" tooltip follows the pointer while dragging.
 - **Snapping**: to a 10-unit grid by default; room edges snap to other rooms' edges within 8 units and show an amber dashed guide line across the canvas. Holding **Shift** disables snapping.
 - **Moving a room carries its items** (checkbox in the inspector, on by default).
-- **Draw room (rectangle)**: drag on empty canvas; dashed amber draft rectangle with the same snapping; on release it becomes "New room", selected, name field focused. **Polygon**: click to add corners, click the first corner to close; rectangles can be converted to polygons ("Convert to polygon (add corners)"), after which each corner is a handle and double-clicking an edge adds a corner.
+- **Draw room (rectangle)**: drag on the canvas, over existing rooms too (a closet inside a bedroom); dashed amber draft rectangle with the same snapping; on release it becomes "New room", selected, name field focused. **Polygon**: click to add corners, click the first corner to close; rectangles can be converted to polygons ("Convert to polygon (add corners)"), after which each corner is a handle and double-clicking an edge adds a corner.
+- **Item tool** (added by the owner, 2026-09-28; not in the mockups): banner "Click where the new item really is." with type chips (Outlet / Light / Switch / Appliance) and Cancel; a click drops "New light" snapped to the grid, selects it and focuses its Name field. The item inspector adds Name and, when it has no breaker, a "Pick its breaker" select. Undo removes the new item.
 - **Items**: drag to reposition (grid snap, Shift = free). While dragging into a different room a dark tooltip "→ Dining room" follows. The item's room is **derived from its position**; its breakers never change from a move. Inspector shows "Room (from where it sits)" + "Was Half bath" when changed, and "Remove from map" (returns it to Not placed).
 - **Keyboard**: rooms and items are focusable buttons; arrow keys nudge one grid step (Shift = 1 unit), Esc deselects. Clicking empty canvas deselects.
 - **Room inspector**: name, Kind (Interior / Exterior area), Size (read-only, feet), Shape, "Set a scale to see sizes in feet" (when no scale), Convert to polygon, "Move the N items inside with the room", Delete room (warn; items stay and become "Not in a room").

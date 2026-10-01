@@ -101,7 +101,7 @@
 			<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
 				><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg
 			>
-			<span>Drop a PNG or JPG of the {floor.name} plan to trace rooms over it.</span>
+			<span>Drop a PNG, JPG or PDF of the {floor.name} plan to trace rooms over it.</span>
 			<button type="button" class="btn" disabled={busy} onclick={() => input?.click()}>Choose file</button>
 		</div>
 	{/if}
