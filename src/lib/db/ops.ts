@@ -107,9 +107,9 @@ export async function updateSettings(patch: Partial<Omit<Settings, 'id'>>) {
 }
 
 /**
- * Updates a panel. A new slot count or numbering is refused with a FitError when a breaker would be
- * left outside the panel or overlapping; a new numbering moves the second space of 2-pole breakers
- * (quads keep their stored spaces).
+ * Updates a panel. A new slot count or numbering is refused with a FitError (`reshapeProblem`) when
+ * a breaker would be left outside the panel or overlapping, or when a new numbering meets a quad. A
+ * new numbering moves the second space of full-size 2-pole breakers.
  */
 export async function updatePanel(id: number, patch: Partial<Omit<Panel, 'id'>>) {
 	const update = db.update(t.panels).set(patch).where(eq(t.panels.id, id));
@@ -360,7 +360,7 @@ export async function swapQuadPairs(ids: number[], below: number) {
 /** A subpanel feeder stays a full-size 2-pole breaker (DESIGN.md §5.17). */
 async function keepFeeder(id: number) {
 	const fed = await db.select({ id: t.panels.id }).from(t.panels).where(eq(t.panels.fedByBreakerId, id)).get();
-	if (fed) throw new Error('A subpanel feeder has to stay 2-pole.');
+	if (fed) throw new FitError('A subpanel feeder has to stay a full-size 2-pole breaker.');
 }
 
 /**

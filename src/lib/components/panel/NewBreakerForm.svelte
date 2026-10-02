@@ -37,7 +37,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { AMPS, PROTECTIONS, PROTECTION_LABELS } from '$lib/constants';
-	import { nextInColumn, slotText, tandemOk, tandemText } from '$lib/panel';
+	import { nextInColumn, slotText, spaceLabel, tandemOk, tandemText } from '$lib/panel';
 
 	let {
 		form = $bindable(),
@@ -58,11 +58,11 @@
 		onadd: (next: boolean) => void;
 	} = $props();
 
-	const noTandemWhy = $derived(tandemOk(slot, panel) ? null : `Slot ${slot} isn’t rated for tandems (${tandemText(panel)}).`);
+	const noTandemWhy = $derived(tandemOk(slot, panel) ? null : `Slot ${spaceLabel({ slot, half: null }, panel)} isn’t rated for tandems (${tandemText(panel)}).`);
 	const below = $derived(nextInColumn(slot, panel));
 	// A quad needs this slot and the one below free, both rated for half-width breakers (§5.18).
 	const noQuadWhy = $derived(
-		no2Why ? null : tandemOk(slot, panel) && tandemOk(below, panel) ? null : `Slots ${slot}–${below} aren’t rated for quads (${tandemText(panel)}).`
+		no2Why ? null : tandemOk(slot, panel) && tandemOk(below, panel) ? null : `Slots ${spaceLabel({ slot, half: null }, panel)}–${spaceLabel({ slot: below, half: null }, panel)} aren’t rated for quads (${tandemText(panel)}).`
 	);
 	const quad = $derived(form.quad && !no2Why && !noQuadWhy);
 	const tandem = $derived(form.tandem && !noTandemWhy && !quad);

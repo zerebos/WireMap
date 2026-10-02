@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { checkFit, panelProblem, reshapeProblem, tiedTogether } from './panel';
+import { checkFit, panelProblem, reshapeProblem, slotText, tiedTogether } from './panel';
 
 const p = { slotCount: 40, numbering: 'odd_left_even_right' as const };
 
@@ -41,5 +41,15 @@ describe('reshapeProblem', () => {
 		expect(reshapeProblem(g, { ...g, slotCount: 8 }, [at(1, 9)])).toBe('Slots G9–G12 still have breakers. Move or remove them first.');
 		expect(checkFit({ slot: 5, poles: 1, half: 'B' }, g, [{ id: 1, slot: 5, poles: 1, half: null }])).toBe('Slot G5 is already taken.');
 		expect(checkFit({ slot: 11, poles: 2 }, g, [])).toBe("A 2-pole breaker doesn't fit at slot G11.");
+	});
+});
+
+describe('slotText', () => {
+	test('a subpanel’s slots carry its short code', () => {
+		const g = { slotCount: 12, numbering: 'odd_left_even_right' as const, shortCode: 'G' };
+		expect(slotText({ slot: 6, poles: 1 }, g)).toBe('Slot G6 · Leg L1');
+		expect(slotText({ slot: 3, poles: 2 }, g)).toBe('Slots G3 + G5 · Legs L2 + L1');
+		expect(slotText({ slot: 7, poles: 1, half: 'B' }, g)).toBe('Slot G7 · Tandem half B · Leg L2');
+		expect(slotText({ slot: 16, poles: 1 }, p)).toBe('Slot 16 · Leg L2');
 	});
 });
