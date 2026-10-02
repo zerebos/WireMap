@@ -694,7 +694,7 @@
 												class:r={side === 'r'}
 												class:is-target={ok}
 												disabled={moving ? !ok : true}
-												aria-label={ok ? `Move here: slot ${cell.slot}${half}` : `Slot ${cell.slot}${half}, open`}
+												aria-label={ok ? `Move here: slot ${spaceLabel({ slot: cell.slot, half }, panel)}` : `Slot ${spaceLabel({ slot: cell.slot, half }, panel)}, open`}
 												onclick={() => moveTo(cell.slot, half)}
 											>
 												<span class="num">{spaceLabel({ slot: cell.slot, half }, panel)}</span>
