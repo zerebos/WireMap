@@ -293,11 +293,10 @@
 		drag = { k: 'pan', x0: e.clientX, y0: e.clientY, px0: px, py0: py, moved: false };
 	}
 
-	// Polygon edges are hit-tested here, before the room under the pointer gets the event: an edge
-	// shared with a rectangle room sits under that room's button. A press near the selected polygon's
-	// edge goes to it, and a double press near any polygon's edge adds a corner there. Double presses
-	// are spotted by hand: drags capture the pointer to the grid, so the browser's own dblclick never
-	// reaches a room.
+	// A double press near a polygon's edge adds a corner there, even where the edge sits under a
+	// rectangle room's button: the edge is hit-tested here, before the room under the pointer gets the
+	// event. Single presses go to whatever is under the pointer. Double presses are spotted by hand:
+	// drags capture the pointer to the grid, so the browser's own dblclick never reaches a room.
 	const EDGE_PX = 12;
 	let lastPress: { t: number; x: number; y: number } | null = null;
 	function edgeDist(s: Shape, p: Point): number {
@@ -309,29 +308,27 @@
 	function ongridDownCapture(e: PointerEvent) {
 		if (e.button !== 0 || tool !== 'select' || placing !== null || inOverlay(e)) return;
 		// Only presses on a room: empty grid near an edge still pans and deselects.
-		const target = (e.target as Element).closest('.room, .poly');
-		if (!target) return;
+		if (!(e.target as Element).closest('.room, .poly')) return;
 		const prev = lastPress;
 		const dbl = !!prev && e.timeStamp - prev.t < 400 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 5;
 		lastPress = dbl ? null : { t: e.timeStamp, x: e.clientX, y: e.clientY };
+		if (!dbl) return;
+		// The polygon whose edge is closest, the selected one on a tie.
 		const p = toMap(e);
-		const near = (r: Room) => {
+		let hit: Room | null = null;
+		let best = EDGE_PX;
+		for (const r of selRoom ? [selRoom, ...rooms] : rooms) {
 			const sh = shapeOf(r);
-			return !!sh && edgeDist(sh, p) <= EDGE_PX;
-		};
-		const hit = (selRoom && near(selRoom) ? selRoom : null) ?? (dbl ? (rooms.find(near) ?? null) : null);
+			const d = sh ? edgeDist(sh, p) : Infinity;
+			if (d < best || (d === best && !hit)) [hit, best] = [r, d];
+		}
 		if (!hit) return;
 		e.stopPropagation();
 		// The room under the pointer would take focus and select itself; focus the polygon instead.
 		e.preventDefault();
-		const a = grid?.querySelector<HTMLElement>(`a.poly[data-room="${hit.id}"]`);
-		a?.focus({ preventScroll: true });
-		if (dbl) {
-			sel = { k: 'room', id: hit.id };
-			polyDblClick(e, hit);
-			return;
-		}
-		roomDown(e, hit);
+		grid?.querySelector<HTMLElement>(`a.poly[data-room="${hit.id}"]`)?.focus({ preventScroll: true });
+		sel = { k: 'room', id: hit.id };
+		polyDblClick(e, hit);
 	}
 
 	function roomDown(e: PointerEvent, r: Room) {
