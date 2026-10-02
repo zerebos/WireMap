@@ -178,18 +178,18 @@ export function physicalPosition(b: Placed, p: PanelShape): string {
 	return `${where}, row ${row}`;
 }
 
-/** "Slot 16 · Leg L2", "Slots 1 + 3 · Legs L1 + L2", or "Slot 17 · Tandem half B · Leg L1". */
+/** "Slot 16 · Leg L2", "Slots 1 + 3 · Legs L1 + L2", or "Slot 17 · Tandem half B · Leg L1"; "Slot G6 · …" on a subpanel. */
 export function slotText(b: Placed, p: PanelShape): string {
 	const slots = occupiedSlots(b, p);
 	const pair = quadPair(b, p);
 	if (pair) {
 		const sp = spacesOf(b, p);
-		return `Slots ${spaceText(sp[0])} + ${spaceText(sp[1])} · Legs ${legOf(slots[0], p)} + ${legOf(slots[1], p)} · Quad, ${pair} pair`;
+		return `Slots ${spaceLabel(sp[0], p)} + ${spaceLabel(sp[1], p)} · Legs ${legOf(slots[0], p)} + ${legOf(slots[1], p)} · Quad, ${pair} pair`;
 	}
 	if (slots.length === 2)
-		return `Slots ${slots[0]} + ${slots[1]} · Legs ${legOf(slots[0], p)} + ${legOf(slots[1], p)}`;
-	if (b.half) return `Slot ${b.slot} · Tandem half ${b.half} · Leg ${legOf(b.slot, p)}`;
-	return `Slot ${b.slot} · Leg ${legOf(b.slot, p)}`;
+		return `Slots ${spaceLabel({ slot: slots[0], half: null }, p)} + ${spaceLabel({ slot: slots[1], half: null }, p)} · Legs ${legOf(slots[0], p)} + ${legOf(slots[1], p)}`;
+	if (b.half) return `Slot ${spaceLabel({ slot: b.slot, half: null }, p)} · Tandem half ${b.half} · Leg ${legOf(b.slot, p)}`;
+	return `Slot ${spaceLabel({ slot: b.slot, half: null }, p)} · Leg ${legOf(b.slot, p)}`;
 }
 
 /**

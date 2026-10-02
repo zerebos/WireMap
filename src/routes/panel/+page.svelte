@@ -191,7 +191,7 @@
 		if (below > panel.slotCount || position(below, panel).side !== position(slot, panel).side) {
 			return 'A 2-pole breaker needs the slot below, and this is the bottom row.';
 		}
-		return `A 2-pole breaker needs slot ${below}, which is taken.`;
+		return `A 2-pole breaker needs slot ${spaceLabel({ slot: below, half: null }, panel)}, which is taken.`;
 	}
 	const no2Why = $derived(newSlot === null ? null : why2(newSlot));
 	const newQuad = $derived(
@@ -1006,7 +1006,7 @@
 					{/if}
 					{#if !tandemOk(sel.slot, panel)}
 						<div class="badt" role="alert">
-							<strong>Slot {sel.slot} isn’t rated for tandems.</strong> Your panel label allows them in slots {tandemText(panel)} only. It
+							<strong>Slot {spaceLabel({ slot: sel.slot, half: null }, panel)} isn’t rated for tandems.</strong> Your panel label allows them in slots {tandemText(panel)} only. It
 							may still be installed this way — worth checking with an electrician.
 						</div>
 					{/if}

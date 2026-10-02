@@ -146,6 +146,13 @@ describe('occupancy is enforced in the write layer', () => {
 	});
 });
 
+test('a subpanel feeder can’t be made 1-pole or split, with a FitError', async () => {
+	const id = await ops.createSubpanel({ name: 'Garage', shortCode: 'G', slotCount: 12, mainAmps: 60, location: null, fedBy: { panelId: panel, slot: 2, amps: 60 } });
+	const sub = await db.select().from(t.panels).where(eq(t.panels.id, id)).get();
+	await expect(ops.updateBreaker(sub!.fedByBreakerId!, { poles: 1 })).rejects.toThrow(ops.FitError);
+	await expect(ops.makeTandem(sub!.fedByBreakerId!)).rejects.toThrow(ops.FitError);
+});
+
 describe('changing a panel’s shape', () => {
 	test('shrinking with breakers in the removed slots is refused', async () => {
 		await add(15);
