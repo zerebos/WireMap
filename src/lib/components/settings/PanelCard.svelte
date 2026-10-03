@@ -8,6 +8,7 @@
 	import type { Panel } from '$lib/db/schema';
 	import { panelShort, reshapeProblem } from '$lib/panel';
 	import { MAIN_AMPS, SPACES, SUB_MAIN_AMPS, SUB_SPACES, type Numbering } from '$lib/constants';
+	import { viewport } from '$lib/viewport.svelte';
 
 	let { ix, panel, depth = 0 }: { ix: HouseIndex; panel: Panel; depth?: number } = $props();
 
@@ -31,9 +32,13 @@
 	const fitProblem = (s: { slotCount: number; numbering: Numbering }) => reshapeProblem(panel, { ...panel, ...s }, placed);
 	const problem = $derived(fitProblem(shape));
 
+	// On a phone the refusal shows under the field that caused it.
+	let cause = $state<'sp' | 'num'>('sp');
+
 	function tryShape(next: { slotCount?: number; numbering?: Numbering }) {
 		if (next.slotCount !== undefined) spacesPick = next.slotCount;
 		if (next.numbering !== undefined) numberingPick = next.numbering;
+		cause = next.slotCount !== undefined ? 'sp' : 'num';
 		const s = { slotCount: spacesPick ?? panel.slotCount, numbering: numberingPick ?? panel.numbering };
 		if (fitProblem(s)) return;
 		spacesPick = null;
@@ -75,6 +80,15 @@
 	}
 	const f = (k: string) => `p${panel.id}-${k}`;
 </script>
+
+{#snippet refusal()}
+	{#if problem}
+		<div class="shrink" role="status">
+			<strong>Some breakers won’t fit.</strong>
+			{problem} This change isn’t saved until they fit.
+		</div>
+	{/if}
+{/snippet}
 
 <div class="card pcard" class:sub style:margin-left="{depth * 34}px">
 	{#if sub && !open}
@@ -142,6 +156,7 @@
 					{#each spaceChoices as n (n)}<option value={n}>{n}</option>{/each}
 				</select>
 			</div>
+			{#if viewport.phone && cause === 'sp'}{@render refusal()}{/if}
 			<div class="fld">
 				<label for={f('num')}>Slot numbering</label>
 				<select
@@ -154,6 +169,7 @@
 					<option value="down_left_then_right">Down the left, then the right</option>
 				</select>
 			</div>
+			{#if viewport.phone && cause === 'num'}{@render refusal()}{/if}
 		</div>
 		<div class="fld">
 			<label for={f('loc')}>Location</label>
@@ -179,12 +195,7 @@
 			/>
 			<span class="sd" id={f('tdm-d')}>Printed on the panel label, e.g. “Class CTL — tandems in spaces 17–28”. Leave blank if you’re not sure.</span>
 		</div>
-		{#if problem}
-			<div class="shrink" role="status">
-				<strong>Some breakers won’t fit.</strong>
-				{problem} This change isn’t saved until they fit.
-			</div>
-		{/if}
+		{#if !viewport.phone}{@render refusal()}{/if}
 		{#if sub}
 			<div class="acts">
 				<button type="button" class="btn btn-warn" onclick={remove}>Delete subpanel</button>
@@ -280,5 +291,25 @@
 		display: flex;
 		justify-content: space-between;
 		gap: 10px;
+	}
+	/* Phone (DESIGN.md §5.12, Phone · Settings): the fields go into one column. */
+	@media (max-width: 699px) {
+		.card {
+			padding: 0 18px;
+		}
+		.pcard {
+			padding-top: 18px;
+			padding-bottom: 18px;
+		}
+		.pcard.sub {
+			padding-top: 12px;
+			padding-bottom: 12px;
+		}
+		.pgrid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.span2 {
+			grid-column: auto;
+		}
 	}
 </style>

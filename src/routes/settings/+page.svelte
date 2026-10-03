@@ -21,6 +21,7 @@
 	import { itemsCsv } from '$lib/csv';
 	import { setGuestView } from '$lib/access.svelte';
 	import { PLAN_ACCEPT, uploadPlan as uploadFloorPlan } from '$lib/components/map/model';
+	import { viewport } from '$lib/viewport.svelte';
 
 	let { data } = $props();
 
@@ -97,8 +98,7 @@
 		active = current as SectionId;
 	}
 
-	function jump(e: MouseEvent, id: SectionId) {
-		e.preventDefault();
+	function jump(id: SectionId) {
 		const el = document.getElementById(id);
 		if (!el) return;
 		ignoreScrollUntil = performance.now() + 250;
@@ -310,6 +310,16 @@
 	</div>
 {/snippet}
 
+{#snippet addSubBtn()}
+	<button type="button" class="btn addsub" aria-pressed={adding} disabled={!panel} onclick={() => (adding = !adding)}>
+		<Icon name="plus" size={16} stroke={2.2} />Add subpanel
+	</button>
+{/snippet}
+
+{#snippet subForm()}
+	<div class="card pcard"><SubpanelForm {ix} oncancel={() => (adding = false)} onadd={addSub} /></div>
+{/snippet}
+
 {#snippet sw(on: boolean, labelledby: string, toggle?: () => void, disabled = false)}
 	<button
 		type="button"
@@ -333,13 +343,26 @@
 					class:is-on={active === s.id}
 					href="#{s.id}"
 					aria-current={active === s.id ? 'true' : undefined}
-					onclick={(e) => jump(e, s.id)}>{s.label}</a
+					onclick={(e) => {
+							e.preventDefault();
+							jump(s.id);
+						}}>{s.label}</a
 				>
 			{/each}
 		</nav>
 		<div class="grow"></div>
 		<span class="saved"><span class="dot"></span>Changes save automatically</span>
 	</aside>
+
+	<!-- On a phone the side nav becomes a section picker above the page (DESIGN.md §5.12). -->
+	{#if viewport.phone}
+		<div class="ctl">
+			<label for="s-section" class="sr">Section</label>
+			<select id="s-section" class="inp" value={active} onchange={(e) => jump(e.currentTarget.value as SectionId)}>
+				{#each visibleSections as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+			</select>
+		</div>
+	{/if}
 
 	<div class="scroll" bind:this={scroller} onscroll={onScroll}>
 		<div class="content">
@@ -417,7 +440,7 @@
 							</div>
 						{/if}
 						{#if shows('appearance', 'legs')}
-							<div class="row">
+							<div class="row swrow">
 								<div class="lab">
 									<span class="sl" id="l-legs">Show leg markers on the panel</span>
 									<span class="sd">Labels each row L1 or L2 so you can balance load across both legs.</span>
@@ -428,7 +451,7 @@
 							</div>
 						{/if}
 						{#if shows('appearance', 'fade')}
-							<div class="row">
+							<div class="row swrow">
 								<div class="lab">
 									<span class="sl" id="l-dim">Fade other items on the map</span>
 									<span class="sd">When a circuit is selected, everything it doesn’t feed fades back.</span>
@@ -446,13 +469,9 @@
 				<section id="panels">
 					<div class="shead">
 						<h2 class="h2">Panels</h2>
-						<button type="button" class="btn" aria-pressed={adding} disabled={!panel} onclick={() => (adding = !adding)}>
-							<Icon name="plus" size={16} stroke={2.2} />Add subpanel
-						</button>
+						{#if !viewport.phone}{@render addSubBtn()}{/if}
 					</div>
-					{#if adding}
-						<div class="card pcard"><SubpanelForm {ix} oncancel={() => (adding = false)} onadd={addSub} /></div>
-					{/if}
+					{#if adding && !viewport.phone}{@render subForm()}{/if}
 					{#if panel}
 						{#each ix.panelTree() as t (t.panel.id)}
 							<PanelCard {ix} panel={t.panel} depth={t.depth} />
@@ -469,6 +488,11 @@
 								</div>
 							</div>
 						</div>
+					{/if}
+					<!-- On a phone, Add subpanel is a full-width button under the list. -->
+					{#if viewport.phone}
+						{@render addSubBtn()}
+						{#if adding}{@render subForm()}{/if}
 					{/if}
 				</section>
 			{/if}
@@ -598,7 +622,7 @@
 							</div>
 						{/if}
 						{#if shows('data', 'auto')}
-							<div class="row">
+							<div class="row swrow">
 								<div class="lab">
 									<span class="sl" id="l-bk">Automatic backups</span>
 									<span class="sd">A nightly snapshot, written to the backups folder in the app’s data volume.</span>
@@ -653,7 +677,7 @@
 					<h2 class="h2">Access</h2>
 					<div class="card">
 						{#if shows('access', 'auth')}
-							<div class="row">
+							<div class="row swrow">
 								<div class="lab">
 									<span class="sl" id="l-auth">Require sign-in</span>
 									<span class="sd">Turn off only if Breakerbook is reachable on your home network alone.</span>
@@ -663,7 +687,7 @@
 							</div>
 						{/if}
 						{#if shows('access', 'guest')}
-							<div class="row">
+							<div class="row swrow">
 								<div class="lab">
 									<span class="sl" id="l-guest">Read-only guest view</span>
 									<span class="sd"
@@ -695,6 +719,10 @@
 						{/if}
 					</div>
 				</section>
+			{/if}
+
+			{#if viewport.phone}
+				<span class="saved"><span class="dot"></span>Changes save automatically</span>
 			{/if}
 		</div>
 	</div>
@@ -1138,18 +1166,118 @@
 		font-size: 12px;
 		color: var(--muted);
 	}
-	/* Phones have no Settings layout of their own yet: one column, sections stacked, no side nav. */
+	/* Phone (DESIGN.md §5.12, Phone · Settings): a section picker in place of the side nav, and
+	   every section in one column. */
 	@media (max-width: 699px) {
+		.page {
+			flex-direction: column;
+		}
 		aside {
 			display: none;
 		}
+		.ctl {
+			flex-shrink: 0;
+			padding: 10px 12px;
+			background: var(--raised);
+			border-bottom: 1px solid var(--line-2);
+		}
+		.ctl .inp {
+			width: 100%;
+			height: 42px;
+		}
 		.content {
-			padding: 20px 16px 48px;
+			padding: 20px 16px 32px;
 			gap: 28px;
 		}
+		section {
+			scroll-margin-top: 20px;
+		}
+		.card {
+			padding: 0 18px;
+		}
+		/* Label, then description, then the control at full width. */
 		.row {
 			grid-template-columns: minmax(0, 1fr);
 			row-gap: 12px;
+		}
+		.row > .btn,
+		.w280,
+		.w200 {
+			width: 100%;
+		}
+		.acts {
+			display: grid;
+			grid-auto-columns: minmax(0, 1fr);
+			grid-auto-flow: column;
+		}
+		/* A switch stays on the right of its label; the description runs under both. */
+		.row.swrow {
+			grid-template-columns: minmax(0, 1fr) auto;
+			column-gap: 16px;
+			row-gap: 4px;
+		}
+		.swrow .lab {
+			display: contents;
+		}
+		.swrow .lab > :not(.sl) {
+			grid-column: 1 / -1;
+		}
+		.swrow .sl {
+			align-self: center;
+		}
+		.swrow > .sw {
+			grid-column: 2;
+			grid-row: 1;
+		}
+
+		/* Theme cards become full-width rows: preview, name, radio. */
+		.tgrid {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 10px;
+		}
+		.tcard {
+			flex-direction: row;
+			align-items: center;
+			gap: 14px;
+			padding: 8px 14px 8px 8px;
+		}
+		.pvs {
+			width: 96px;
+			height: 64px;
+			flex-shrink: 0;
+		}
+		.tlab {
+			flex-grow: 1;
+			min-width: 0;
+			flex-direction: row-reverse;
+			justify-content: space-between;
+		}
+
+		.addsub {
+			width: 100%;
+		}
+
+		/* Floors: the plan file and its buttons go on their own line under the name. */
+		.frow {
+			flex-wrap: wrap;
+			row-gap: 10px;
+		}
+		.fplan {
+			flex-basis: 100%;
+			flex-shrink: 1;
+			min-width: 0;
+		}
+		.pfile,
+		.fplan .nop {
+			flex-grow: 1;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.content > .saved {
+			margin: 0;
 		}
 	}
 </style>
