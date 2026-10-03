@@ -13,12 +13,15 @@
 		item,
 		ix,
 		breakerOptions,
-		onclose
+		onclose,
+		phone = false
 	}: {
 		item: HouseItem;
 		ix: HouseIndex;
 		breakerOptions: { value: number; label: string }[];
 		onclose: () => void;
+		/** On a phone the details fill the screen under a back button, so there's no Close. */
+		phone?: boolean;
 	} = $props();
 
 	const init = untrack(() => item);
@@ -88,15 +91,17 @@
 	}
 </script>
 
-<aside class="drawer" aria-label="Item details">
+<aside class="drawer" class:phone aria-label="Item details">
 	<div class="dhead">
 		<div class="dtitle">
 			<span class="ov">{heading}</span>
 			<h2>{name.trim() || 'Untitled item'}</h2>
 		</div>
-		<button type="button" class="ibtn" aria-label="Close item details" onclick={onclose}>
-			<Icon name="close" size={16} />
-		</button>
+		{#if !phone}
+			<button type="button" class="ibtn" aria-label="Close item details" onclick={onclose}>
+				<Icon name="close" size={16} />
+			</button>
+		{/if}
 	</div>
 
 	{#if access.guest}
@@ -128,10 +133,12 @@
 				</div>
 			{/if}
 		</div>
-		<div class="dfoot">
-			<div class="grow"></div>
-			<button type="button" class="btn" onclick={onclose}>Close</button>
-		</div>
+		{#if !phone}
+			<div class="dfoot">
+				<div class="grow"></div>
+				<button type="button" class="btn" onclick={onclose}>Close</button>
+			</div>
+		{/if}
 	{:else}
 	<div class="dbody">
 		{#if firstBreaker === null && breakerId === null}
@@ -245,7 +252,7 @@
 	<div class="dfoot">
 		<button type="button" class="btn btn-warn" onclick={remove}>Delete</button>
 		<div class="grow"></div>
-		<button type="button" class="btn" onclick={onclose}>Close</button>
+		{#if !phone}<button type="button" class="btn" onclick={onclose}>Close</button>{/if}
 		<button type="button" class="btn btn-pri" onclick={save} disabled={saving}>Save</button>
 	</div>
 	{/if}
@@ -293,6 +300,11 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+	}
+	.drawer.phone {
+		width: auto;
+		flex: 1 1 0;
+		min-height: 0;
 	}
 	.dhead {
 		padding: 18px 20px;
