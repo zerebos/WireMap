@@ -32,13 +32,14 @@
 	const fitProblem = (s: { slotCount: number; numbering: Numbering }) => reshapeProblem(panel, { ...panel, ...s }, placed);
 	const problem = $derived(fitProblem(shape));
 
-	// On a phone the refusal shows under the field that caused it.
-	let cause = $state<'sp' | 'num'>('sp');
+	// On a phone the refusal shows under the field that causes it: Spaces unless that pick fits alone.
+	const cause = $derived(
+		spacesPick !== null && fitProblem({ slotCount: spacesPick, numbering: panel.numbering }) ? 'sp' : numberingPick !== null ? 'num' : 'sp'
+	);
 
 	function tryShape(next: { slotCount?: number; numbering?: Numbering }) {
 		if (next.slotCount !== undefined) spacesPick = next.slotCount;
 		if (next.numbering !== undefined) numberingPick = next.numbering;
-		cause = next.slotCount !== undefined ? 'sp' : 'num';
 		const s = { slotCount: spacesPick ?? panel.slotCount, numbering: numberingPick ?? panel.numbering };
 		if (fitProblem(s)) return;
 		spacesPick = null;

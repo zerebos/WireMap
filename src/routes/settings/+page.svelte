@@ -1195,6 +1195,10 @@
 		.card {
 			padding: 0 18px;
 		}
+		.pcard {
+			padding-top: 18px;
+			padding-bottom: 18px;
+		}
 		/* Label, then description, then the control at full width. */
 		.row {
 			grid-template-columns: minmax(0, 1fr);
