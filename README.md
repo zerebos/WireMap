@@ -66,17 +66,23 @@ so it works as a demo.
 See [`docs/design/DATA-MODEL.md`](docs/design/DATA-MODEL.md). In short:
 
 - **panels**: name, main breaker amps, spaces (`slot_count`), slot numbering ("odd left, even
-  right" or "down the left, then the right"), location. `fed_by_breaker_id` is there for subpanels.
-- **breakers**: slot, poles (1 or 2; a 2-pole breaker also takes the slot below), amps,
-  protection (standard/GFCI/AFCI/dual), label, notes, when it was last traced, spare.
+  right" or "down the left, then the right"), location, and which slots take tandem breakers.
+  A subpanel has a short code that prefixes its breaker numbers ("G6") and `fed_by_breaker_id`,
+  the breaker in another panel that feeds it.
+- **breakers**: first slot (and A/B half for a tandem), poles, amps, protection
+  (standard/GFCI/AFCI/dual), label, notes, when it was last traced, spare, and a tie group for
+  handle-tied breakers.
+- **breaker_spaces**: the spaces each breaker takes: whole slots, or A/B halves for tandems and
+  quads ("21A/23B").
 - **floors**: stacking order, an optional plan image (stored in **plan_images**, so a backup is
-  one file) and its opacity, and a drawing area (`plan_width` × `plan_height` map units) with a scale.
-- **rooms**: floor, name, interior/exterior, and an outline polygon in map units.
+  one file) with its opacity, position, size, rotation and lock, and a drawing area
+  (`plan_width` × `plan_height` map units) with a scale.
+- **rooms**: floor, name, interior/exterior, and an outline (rectangle or polygon) in map units.
 - **items**: outlet, light, switch or appliance, with a floor, a room, a position on the map,
   notes, and a "critical" flag with a note (fridge, sump pump…) that the shut-off flow calls out.
 - **item_breakers**: which breakers feed an item. Usually one, sometimes none, occasionally two
   (a switch box on two circuits).
-- **settings**: home name, start page, theme, leg markers, map fading.
+- **settings**: home name, start page, theme, leg markers, map fading, read-only guest view.
 
 ## Using the map
 
@@ -85,8 +91,8 @@ See [`docs/design/DATA-MODEL.md`](docs/design/DATA-MODEL.md). In short:
 - **Edit layout**: draw rooms (rectangles or polygons), move and resize them, set the scale, and
   add new items with the **Item** tool (pick a type, click where it is, name it and pick its
   breaker), and place items from *Not placed*. An item's room comes from where it sits.
-- **Floor plan**: upload a PNG, JPG, WebP or PDF (its first page) to trace over, and set how
-  strongly it shows.
+- **Floor plan**: upload a PNG, JPG, WebP or PDF (its first page) to trace over. Move, size and
+  rotate it to line up with the rooms, set how strongly it shows, and lock it in place.
 
 ## Roadmap
 
@@ -107,22 +113,19 @@ Settings shows them as disabled placeholders, or as the local stand-in described
 - **Owner account** in first-run setup: the fields are shown but disabled.
 - **Download PDF** of the printed panel directory: the design renders it with a headless browser
   on the server. For now, Print and choose "Save as PDF" in the browser's print dialog.
-- **QR code on the printed directory**: it would link to the live map on your home network, which
-  needs a server. It prints as an empty box for now.
+- **QR code on the printed directory**: it prints today and opens the live map where this copy
+  of the app is served (GitHub Pages, say). On the server version the QR will point at your own
+  server instead of GitHub Pages.
 
 The local-first version is meant for prototyping and demoing; a server version is the likely
 long-term direction.
 
-Designed as open questions in `docs/design/DESIGN.md` §8 and not built yet:
+Not designed yet, so ask the owner before building:
 
-- A fuller display of items on more than one breaker.
-- Exterior areas and detached buildings.
-- Phone layouts of Panel and Map.
-- Subpanels.
-
-Keyboard access on the map: drawing rooms and placing items work only with a pointer, as in the design. A keyboard way to do both needs designing.
-
-Also still to come from before: a 3D view and PDF floor plans.
+- Keyboard access on the map: drawing rooms and placing items without a pointer.
+- CSV import column mapping (today the CSV must use the exact column names).
+- Change history.
+- A 3D view (exploratory).
 
 ## Changing the schema
 
