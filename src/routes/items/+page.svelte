@@ -8,12 +8,14 @@
 	import { tick } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import ItemDrawer from '$lib/components/items/ItemDrawer.svelte';
+	import PhoneItem from '$lib/components/items/PhoneItem.svelte';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
 	import { index, mutate, type HouseItem } from '$lib/house';
 	import { createItem, moveItemsToBreaker } from '$lib/db/ops';
 	import { query, search } from '$lib/search.svelte';
 	import { importItemsCsv } from '$lib/csv';
 	import { access } from '$lib/access.svelte';
+	import { viewport } from '$lib/viewport.svelte';
 
 	let { data } = $props();
 	const house = $derived(data.house);
@@ -22,10 +24,15 @@
 	// ---- Filters and sorting
 	type TypeFilter = 'all' | ItemType;
 	type SortKey = 'name' | 'room' | 'floor' | 'breaker';
-	let type = $state<TypeFilter>('all');
-	let floorF = $state<'all' | number>('all');
-	let brkF = $state<'all' | 'none' | number>('all');
-	let attn = $state(false);
+	// On a phone the filters ride along in the item's URL, so its back link returns to the same
+	// list even after a reload.
+	const params = page.url.searchParams;
+	const numParam = (k: string) => (Number(params.get(k)) || null);
+	const typeParam = ITEM_TYPES.find((t) => t === params.get('type'));
+	let type = $state<TypeFilter>(typeParam ?? 'all');
+	let floorF = $state<'all' | number>(numParam('floor') ?? 'all');
+	let brkF = $state<'all' | 'none' | number>(params.get('brk') === 'none' ? 'none' : (numParam('brk') ?? 'all'));
+	let attn = $state(params.get('attn') === '1');
 	let sk = $state<SortKey>('room');
 	let sd = $state<1 | -1>(1);
 	const checked = new SvelteSet<number>();
@@ -150,6 +157,16 @@
 	const openId = $derived(Number(page.url.searchParams.get('item')) || null);
 	const openItem = $derived(openId === null ? null : (house.items.find((i) => i.id === openId) ?? null));
 	const itemsHref = resolve('/items');
+	const listQuery = $derived(
+		new URLSearchParams([
+			...(type !== 'all' ? [['type', type]] : []),
+			...(floorF !== 'all' ? [['floor', String(floorF)]] : []),
+			...(brkF !== 'all' ? [['brk', String(brkF)]] : []),
+			...(attn ? [['attn', '1']] : [])
+		]).toString()
+	);
+	const listHref = $derived(itemsHref + (listQuery ? `?${listQuery}` : ''));
+	const rowHref = (id: number) => `${itemsHref}?${listQuery ? `${listQuery}&` : ''}item=${id}`;
 	const open = (id: number) => goto(`${itemsHref}?item=${id}`, { replaceState: true, keepFocus: true, noScroll: true });
 	const close = () => goto(itemsHref, { replaceState: true, keepFocus: true, noScroll: true });
 
@@ -162,7 +179,11 @@
 		attn = false;
 		search.q = '';
 		if (typeof brkF === 'number') brkF = 'all';
-		await open(id);
+		// On a phone the item is its own screen, so the list (as reset above) stays behind it in history.
+		if (viewport.phone) {
+			await goto(listHref, { replaceState: true, keepFocus: true, noScroll: true });
+			await goto(rowHref(id));
+		} else await open(id);
 	}
 
 	// ---- CSV export of the rows currently shown (filtered and sorted as on screen)
@@ -223,9 +244,176 @@
 	}
 
 	const mapHref = (id: number) => resolve('/map') + '?item=' + id;
+
+	// On a phone the list's own URL carries its filters too, so going back to it keeps them.
+	$effect(() => {
+		if (!viewport.phone || openItem) return;
+		if (page.url.search !== (listQuery ? `?${listQuery}` : '')) goto(listHref, { replaceState: true, keepFocus: true, noScroll: true });
+	});
+
+	// ---- Phone list: the secondary line and where to land after an item closes.
+	const whereLine = (i: HouseItem) => (i.floorId === null ? 'No floor' : `${ix.roomName(i.roomId)} · ${ix.floorName(i.floorId)}`);
+	let plist = $state<HTMLDivElement>();
+	let lastRow = { id: 0, top: 0 };
+	function remember(id: number) {
+		lastRow = { id, top: plist?.scrollTop ?? 0 };
+	}
+	// Back on the list: the same scroll position, and focus on the item that was open.
+	$effect(() => {
+		if (openItem || !plist || !lastRow.id) return;
+		plist.scrollTop = lastRow.top;
+		plist.querySelector<HTMLElement>(`[data-item="${lastRow.id}"]`)?.focus({ preventScroll: true });
+		lastRow.id = 0;
+	});
 	const onSelect = (e: Event) => (e.currentTarget as HTMLSelectElement).value;
 </script>
 
+{#snippet noItems()}
+	<div class="card none">
+		<div class="nwrap">
+			<div class="tiles" aria-hidden="true">
+				{#each ITEM_TYPES as t (t)}<span class="tile"><Icon name={t} size={22} /></span>{/each}
+			</div>
+			<div class="ntxt">
+				<h2>No items yet</h2>
+				<p>
+					Items are what your breakers feed: outlets, lights, switches and appliances.{#if !access.guest}
+						The quickest way to add them is to trace a breaker — flip it off and tap what went dark.{/if}
+				</p>
+			</div>
+			{#if !access.guest}<div class="nacts">
+				<a class="btn btn-pri" href={resolve('/trace')}>Trace a breaker</a>
+				<button type="button" class="btn" onclick={addItem}>Add item</button>
+				<button type="button" class="btn" disabled={importing} onclick={() => csvInput?.click()}>Import CSV…</button>
+				<input
+					bind:this={csvInput}
+					class="sr"
+					type="file"
+					accept=".csv,text/csv"
+					tabindex="-1"
+					aria-hidden="true"
+					onchange={(e) => importCsv(e.currentTarget.files?.[0])}
+				/>
+			</div>
+			<span class="mono hint">CSV columns: name, type, floor, room, breaker</span>{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#if viewport.phone}
+	<!-- Phone · Items (DESIGN.md §5.12): a list, with each item on its own screen. -->
+	{#if openItem}
+		{#key openItem.id}
+			<PhoneItem item={openItem} {ix} breakerOptions={brkOpts} {listHref} />
+		{/key}
+	{:else}
+		<div class="ph">
+			<div class="sbar">
+				<label for="iq" class="sr">Search items</label>
+				<input id="iq" class="inp" type="search" placeholder="Search items, rooms, breakers" bind:value={search.q} />
+			</div>
+			<div class="pscroll" bind:this={plist}>
+				{#if house.items.length === 0}
+					{@render noItems()}
+				{:else}
+					<div class="pfil">
+						<div class="segx">
+							<div class="seg" role="group" aria-label="Item type">
+								{#each types as t (t.key)}
+									<button
+										type="button"
+										class="sb"
+										class:is-on={type === t.key}
+										aria-pressed={type === t.key}
+										onclick={() => (type = t.key)}>{t.label}<span class="ct">{t.count}</span></button>
+								{/each}
+							</div>
+						</div>
+						<div class="psels">
+							<label for="pff" class="sr">Floor</label>
+							<select
+								id="pff"
+								class="inp fsel"
+								value={floorF}
+								onchange={(e) => {
+									const v = onSelect(e);
+									floorF = v === 'all' ? 'all' : Number(v);
+								}}>
+								<option value="all">All floors</option>
+								{#each house.floors as f (f.id)}<option value={f.id}>{f.name}</option>{/each}
+							</select>
+							<label for="pfb" class="sr">Breaker</label>
+							<select
+								id="pfb"
+								class="inp fsel"
+								value={brkF}
+								onchange={(e) => {
+									const v = onSelect(e);
+									brkF = v === 'all' || v === 'none' ? v : Number(v);
+								}}>
+								<option value="all">All breakers</option>
+								<option value="none">No breaker</option>
+								{#each brkFilterOpts as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+							</select>
+						</div>
+						<div class="pattn">
+							<button type="button" class="chip" class:is-on={attn} aria-pressed={attn} onclick={() => (attn = !attn)}
+								><Icon name="warning" size={16} />Needs attention · {attnCount}</button>
+							{#if filtered}
+								<button type="button" class="btn clear" onclick={clearFilters}>Clear filters</button>
+							{/if}
+						</div>
+					</div>
+					{#if rows.length}
+						<ul class="prows" aria-label="Items">
+							{#each rows as i (i.id)}
+								{@const bs = ix.breakersOf(i)}
+								<li>
+									<a class="prow" href={rowHref(i.id)} data-item={i.id} onclick={() => remember(i.id)}>
+										<span class="ico" title={ITEM_TYPE_LABELS[i.type].one}
+											><Icon name={i.type} size={16} /><span class="sr">{ITEM_TYPE_LABELS[i.type].one}:</span></span>
+										<span class="ptxt">
+											<span class="pn" class:untitled={!i.name}>{i.name || 'Untitled item'}</span>
+											<span class="iw">{whereLine(i)}</span>
+										</span>
+										{#if bs.length}
+											<span class="pchips">
+												<span class="bnum">{ix.slotOf(bs[0])}</span>
+												{#if bs.length > 1}<span class="pmore"
+														>+{bs.length - 1}<span class="sr"> more {bs.length === 2 ? 'breaker' : 'breakers'}</span></span
+													>{/if}
+											</span>
+										{:else}
+											<span class="warnc">No breaker</span>
+										{/if}
+									</a>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<div class="empty">
+							<span class="et">No items match these filters</span>
+							<span class="es">Try a different floor or breaker, or clear everything.</span>
+							<button type="button" class="btn" onclick={clearFilters}>Clear filters</button>
+						</div>
+					{/if}
+				{/if}
+			</div>
+			{#if house.items.length}
+				<div class="pfoot">
+					<button type="button" class="btn" onclick={exportCsv} title="Downloads the items shown in the list">Export CSV</button>
+					{#if !access.guest}<button type="button" class="btn btn-pri" onclick={addItem}
+							><Icon name="plus" size={16} stroke={2.2} />Add item</button>{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
+	<div class="toastslot" role="status">
+		{#if toast}
+			<div class="toast inv"><Icon name={toast.warn ? 'warning' : 'check'} size={16} stroke={2.4} />{toast.text}</div>
+		{/if}
+	</div>
+{:else}
 <main class="page">
 	<section aria-label="All items" class="list">
 		<div class="top">
@@ -249,35 +437,7 @@
 		</div>
 
 		{#if house.items.length === 0}
-			<div class="card none">
-				<div class="nwrap">
-					<div class="tiles" aria-hidden="true">
-						{#each ITEM_TYPES as t (t)}<span class="tile"><Icon name={t} size={22} /></span>{/each}
-					</div>
-					<div class="ntxt">
-						<h2>No items yet</h2>
-						<p>
-							Items are what your breakers feed: outlets, lights, switches and appliances.{#if !access.guest}
-								The quickest way to add them is to trace a breaker — flip it off and tap what went dark.{/if}
-						</p>
-					</div>
-					{#if !access.guest}<div class="nacts">
-						<a class="btn btn-pri" href={resolve('/trace')}>Trace a breaker</a>
-						<button type="button" class="btn" onclick={addItem}>Add item</button>
-						<button type="button" class="btn" disabled={importing} onclick={() => csvInput?.click()}>Import CSV…</button>
-						<input
-							bind:this={csvInput}
-							class="sr"
-							type="file"
-							accept=".csv,text/csv"
-							tabindex="-1"
-							aria-hidden="true"
-							onchange={(e) => importCsv(e.currentTarget.files?.[0])}
-						/>
-					</div>
-					<span class="mono hint">CSV columns: name, type, floor, room, breaker</span>{/if}
-				</div>
-			</div>
+			{@render noItems()}
 		{:else}
 			<div class="filters">
 				<div class="seg" role="group" aria-label="Item type">
@@ -430,6 +590,7 @@
 		{/key}
 	{/if}
 </main>
+{/if}
 
 <style>
 	.page {
@@ -757,19 +918,143 @@
 	.grow {
 		flex-grow: 1;
 	}
-	/* Phones have no Items layout of their own yet: the table keeps its columns and scrolls sideways. */
+	/* ---- Phone · Items (DESIGN.md §5.12) */
+	.ph {
+		flex: 1 1 0;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.sbar {
+		flex-shrink: 0;
+		padding: 10px 12px;
+		border-bottom: 1px solid var(--line);
+		background: var(--raised);
+	}
+	.sbar .inp {
+		height: 42px;
+	}
+	.pscroll {
+		flex: 1 1 0;
+		min-height: 0;
+		overflow-x: hidden;
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+	}
+	.pscroll .card.none {
+		flex: 1 0 auto;
+		margin: 12px;
+	}
+	.pscroll .nwrap {
+		padding: 28px 16px;
+	}
+	.pfil {
+		flex-shrink: 0;
+		padding: 12px 12px 10px;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		border-bottom: 1px solid var(--line);
+	}
+	/* The type filter scrolls sideways on its own; the page never does. */
+	.segx {
+		margin: 0 -12px;
+		padding: 0 12px;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.segx::-webkit-scrollbar {
+		display: none;
+	}
+	.segx .seg {
+		width: max-content;
+	}
+	.psels {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 8px;
+	}
+	.psels .fsel {
+		width: 100%;
+		min-width: 0;
+	}
+	.pattn {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.prows {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		background: var(--surface);
+	}
+	.prow {
+		min-height: 56px;
+		padding: 8px 12px;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		border-bottom: 1px solid var(--line);
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.prow:hover {
+		background: var(--hover);
+	}
+	.prow:focus-visible {
+		outline: 3px solid var(--focus);
+		outline-offset: -3px;
+	}
+	.ptxt {
+		flex: 1 1 0;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.pn {
+		font-size: 15px;
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.pn.untitled {
+		font-style: italic;
+		color: var(--muted);
+	}
+	.pchips {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		flex-shrink: 0;
+	}
+	.pmore {
+		font-family: var(--font-mono);
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--muted);
+	}
+	.prow .warnc {
+		flex-shrink: 0;
+	}
+	/* Sticky above the tab bar. */
+	.pfoot {
+		flex-shrink: 0;
+		padding: 10px 12px;
+		display: flex;
+		gap: 8px;
+		border-top: 1px solid var(--line-2);
+		background: var(--raised);
+	}
+	.pfoot .btn {
+		flex: 1 1 0;
+	}
 	@media (max-width: 699px) {
-		.page {
-			padding: 16px 12px;
-		}
-		.tbl {
-			overflow-x: auto;
-		}
-		.trow {
-			min-width: 760px;
-		}
-		.tbody {
-			min-width: 760px;
+		.toastslot {
+			bottom: 148px;
 		}
 	}
 </style>

@@ -24,7 +24,10 @@ function remember(id: string, fromApp: boolean) {
 	}
 }
 
-export function useBack() {
+/** `cameFrom` says whether an in-app navigation counts as coming from the screen the back button
+ *  returns to. By default that's any other page; a screen on the same page (like an item opened
+ *  from the Items list) passes its own test. */
+export function useBack(cameFrom: (from: URL, to: URL) => boolean = (from, to) => from.pathname !== to.pathname) {
 	let first = true;
 	const state = $state({ fromApp: false });
 	afterNavigate(({ from, to, type }) => {
@@ -34,11 +37,15 @@ export function useBack() {
 		if (type === 'enter' || type === 'popstate') {
 			state.fromApp = read()[id] ?? false;
 		} else {
-			state.fromApp = !!from?.url && from.url.pathname !== to?.url?.pathname;
+			state.fromApp = !!from?.url && !!to?.url && cameFrom(from.url, to.url);
 			remember(id, state.fromApp);
 		}
 	});
 	return {
+		/** Whether going back in history returns to the screen the back button links to. */
+		get fromApp() {
+			return state.fromApp;
+		},
 		/** For an <a href={fallback}> back link: goes back in history instead when possible. */
 		onclick(e: MouseEvent) {
 			if (!state.fromApp || e.metaKey || e.ctrlKey || e.shiftKey) return;
