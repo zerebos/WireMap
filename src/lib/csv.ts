@@ -178,8 +178,12 @@ export function guessColumns(header: string[]): Target[] {
 	return out;
 }
 
-/** Row 1 is column names when any of them names something Breakerbook imports. */
-export const looksLikeHeader = (row: string[]) => guessColumns(row).some((t) => t !== 'ignore');
+/**
+ * Row 1 is column names when one of them is a whole column name ("Floor"), or two of them hold
+ * one ("Item name", "Breaker #"). One word in a cell isn't enough: "Living room lamp" is data.
+ */
+export const looksLikeHeader = (row: string[]) =>
+	row.some((h) => columnTarget(h, true) !== 'ignore') || guessColumns(row).filter((t) => t !== 'ignore').length >= 2;
 
 // ---- 3. Plan
 
@@ -411,7 +415,7 @@ export function plan(house: House, rows: string[][], mapping: Mapping, choices: 
 	const find = breakerFinder(house);
 	// Items already in the house, by name + floor + room, for spotting duplicates.
 	const have = new Set(house.items.map((i) => `${norm(i.name)}|${i.floorId}|${i.roomId}`));
-	// Without a floor column, a room is found by its name when only one floor has it.
+	// Without a floor (no column, or a blank cell), a room is found by its name when only one floor has it.
 	const uniqueRoom = (name: string) => {
 		const hits = house.rooms.filter((r) => r.floorId !== null && norm(r.name) === norm(name));
 		return hits.length === 1 ? hits[0] : null;
@@ -443,7 +447,7 @@ export function plan(house: House, rows: string[][], mapping: Mapping, choices: 
 			floor = floorById.get(fc)!.name;
 			floorId = fc;
 		} else if (fc === 'new') floor = floors.get(norm(floorValue))!.value;
-		else if (at.floor < 0 && roomValue) {
+		else if (fc === null && roomValue) {
 			const found = uniqueRoom(roomValue);
 			if (found) [floorId, floor] = [found.floorId, floorById.get(found.floorId!)?.name ?? null];
 		}
@@ -469,7 +473,8 @@ export function plan(house: House, rows: string[][], mapping: Mapping, choices: 
 		let floorRef: ImportRef | null = null;
 		let roomRef: ImportRef | null = null;
 		if (!skip) {
-			if (missing) {
+			// "…come in with no breaker": rows where part of the cell matched keep what matched.
+			if (missing && !ids.length) {
 				missingRows++;
 				if (!missingValues.includes(brk)) missingValues.push(brk);
 			}

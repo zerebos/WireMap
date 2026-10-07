@@ -249,8 +249,15 @@
 		// Most browsers only tell the file's name on drop.
 		dragName = e.dataTransfer?.files[0]?.name ?? '';
 	}
+	// While the dialog is open a dropped file is ignored, rather than opened by the browser.
+	const holdDrop = (e: DragEvent) => {
+		if (access.guest || !importing || !e.dataTransfer?.types.includes('Files')) return false;
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'none';
+		return true;
+	};
 	function ondragover(e: DragEvent) {
-		if (!canDrop(e)) return;
+		if (holdDrop(e) || !canDrop(e)) return;
 		e.preventDefault();
 		if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
 	}
@@ -261,7 +268,7 @@
 		}
 	}
 	function ondrop(e: DragEvent) {
-		if (!canDrop(e)) return;
+		if (holdDrop(e) || !canDrop(e)) return;
 		e.preventDefault();
 		dragDepth = 0;
 		dragging = false;

@@ -2,7 +2,7 @@
 	// Import items from CSV (DESIGN.md §5.20, mockups/ImportCsv.dc.html and ImportCsvStates.dc.html):
 	// match columns, check values, import, done. File problems use the same shell without the stepper.
 	// Nothing is written before the Import button, and then in one all-or-nothing write.
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { mutate, plural, type House } from '$lib/house';
 	import { importItems } from '$lib/db/ops';
@@ -208,6 +208,12 @@
 		if (step === 3) return void runImport();
 		if (step === 4) return onclose();
 		step = (step + 1) as 2 | 3;
+	}
+	/** Back to step 2, with focus on its first choice (the link itself goes away). */
+	async function changeThese() {
+		step = 2;
+		await tick();
+		dlg?.querySelector<HTMLElement>('.s2 select')?.focus();
 	}
 	function oncancel(e: Event) {
 		e.preventDefault();
@@ -478,10 +484,10 @@
 			{#if yourChoices.length}
 				<div class="sum-r">
 					<h3 class="gt">Your choices</h3>
-					{#each yourChoices as c (c.k)}
+					{#each yourChoices as c, i (i)}
 						<div class="ch"><span class="chk-k">{c.k}</span><span class="chk-v">{c.v}</span></div>
 					{/each}
-					<button type="button" class="lnk sm" onclick={() => (step = 2)}>Change these</button>
+					<button type="button" class="lnk sm" onclick={changeThese}>Change these</button>
 				</div>
 			{/if}
 		</div>

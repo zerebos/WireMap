@@ -119,6 +119,10 @@ describe('guessColumns', () => {
 	test('a first row of data is not a header', () => {
 		expect(looksLikeHeader(['Outlet by fridge', 'receptacle', 'Main', 'Kitchen', '12'])).toBe(false);
 		expect(looksLikeHeader(['Item', 'Kind'])).toBe(true);
+		expect(looksLikeHeader(['Item name', 'Breaker #'])).toBe(true);
+		// One header word inside a cell is still data.
+		expect(looksLikeHeader(['Living room lamp', 'light', 'Main', 'Living room', '7'])).toBe(false);
+		expect(parse('Living room lamp,light,Main,Living room,7\n')).toEqual([['Living room lamp', 'light', 'Main', 'Living room', '7']]);
 	});
 });
 
@@ -201,7 +205,7 @@ describe('plan', () => {
 			K: [[idOf('Kitchen & dining lights')], true],
 			L: [[], false]
 		});
-		expect(p.missing).toEqual({ rows: 2, values: ['31', '14 + 99'] });
+		expect(p.missing).toEqual({ rows: 1, values: ['31'] });
 		expect(p.counts.noBreaker).toBe(2);
 	});
 
@@ -223,6 +227,8 @@ describe('plan', () => {
 			['Main floor', 'Kitchen', false],
 			['Upstairs', 'Office', false]
 		]);
+		// The same for a blank floor cell.
+		expect(one('Name,Floor,Room\nA,,Kitchen\n').rows[0].room).toBe('Kitchen');
 	});
 
 	test('no header row: row 1 is imported too', () => {
