@@ -434,6 +434,54 @@ export async function createItem(values: ItemValues & { name: string }, breakerI
 	return rows[0].id;
 }
 
+/** An existing row's id, or the index of a row the same import creates. */
+export type ImportRef = { id: number } | { new: number };
+export type ImportInput = {
+	/** New floors, stacked on top of the existing ones in this order. */
+	floors: string[];
+	/** New rooms, without a shape. */
+	rooms: { name: string; floor: ImportRef }[];
+	/** New items, not placed on the map. */
+	items: (Pick<Item, 'name' | 'type' | 'critical' | 'criticalNote' | 'notes'> & {
+		floor: ImportRef | null;
+		room: ImportRef | null;
+		breakerIds: number[];
+	})[];
+};
+
+/**
+ * Adds a CSV import (DESIGN.md §5.20) in one write: new floors, then new rooms, then the items and
+ * their item_breakers rows. If any statement fails, nothing is saved. New rows get their ids up
+ * front so the rows after them can point at them within the same batch.
+ */
+export async function importItems(input: ImportInput) {
+	const [f, r, i] = await Promise.all([
+		db.select({ id: max(t.floors.id), level: max(t.floors.level) }).from(t.floors).get(),
+		db.select({ id: max(t.rooms.id) }).from(t.rooms).get(),
+		db.select({ id: max(t.items.id) }).from(t.items).get()
+	]);
+	const floorIds = input.floors.map((_, n) => (f?.id ?? 0) + 1 + n);
+	const roomIds = input.rooms.map((_, n) => (r?.id ?? 0) + 1 + n);
+	const itemIds = input.items.map((_, n) => (i?.id ?? 0) + 1 + n);
+	const floorOf = (ref: ImportRef | null) => (ref === null ? null : 'id' in ref ? ref.id : floorIds[ref.new]);
+	const roomOf = (ref: ImportRef | null) => (ref === null ? null : 'id' in ref ? ref.id : roomIds[ref.new]);
+	// Big imports go in slices, to stay under SQLite's limit on parameters per statement.
+	const slices = <T>(rows: T[], size = 500) => Array.from({ length: Math.ceil(rows.length / size) }, (_, n) => rows.slice(n * size, (n + 1) * size));
+
+	const qs: Query[] = [];
+	if (input.floors.length) {
+		qs.push(db.insert(t.floors).values(input.floors.map((name, n) => ({ id: floorIds[n], name, level: (f?.level ?? -1) + 1 + n }))));
+	}
+	for (const s of slices(input.rooms.map((x, n) => ({ id: roomIds[n], name: x.name, floorId: floorOf(x.floor), kind: 'interior' as const, shape: null })))) {
+		qs.push(db.insert(t.rooms).values(s));
+	}
+	const items = input.items.map(({ floor, room, breakerIds, ...values }, n) => ({ ...values, id: itemIds[n], floorId: floorOf(floor), roomId: roomOf(room) }));
+	for (const s of slices(items)) qs.push(db.insert(t.items).values(s));
+	const links = input.items.flatMap((x, n) => [...new Set(x.breakerIds)].map((breakerId) => ({ itemId: itemIds[n], breakerId })));
+	for (const s of slices(links)) qs.push(db.insert(t.itemBreakers).values(s));
+	await batch(qs);
+}
+
 export async function updateItem(id: number, patch: ItemValues) {
 	await db.update(t.items).set(patch).where(eq(t.items.id, id));
 }

@@ -31,6 +31,7 @@ const db = drizzle(
 );
 mock.module('./index', () => ({ db }));
 const ops = await import('./ops');
+type Ref = import('./ops').ImportRef;
 const t = schema;
 
 let panel: number;
@@ -256,5 +257,61 @@ describe('multi-step writes are all or nothing', () => {
 		expect(g[1]).not.toBeNull();
 		await ops.setTied([b], false);
 		expect((await db.select().from(t.breakers).all()).every((r) => r.tieGroup === null)).toBe(true);
+	});
+});
+
+describe('importItems (CSV import, DESIGN.md §5.20)', () => {
+	const all = async () => ({
+		floors: (await db.select().from(t.floors).all()).map((f) => [f.name, f.level]),
+		rooms: (await db.select().from(t.rooms).all()).map((r) => [r.name, r.floorId, r.shape]),
+		items: (await db.select().from(t.items).all()).map((i) => [i.name, i.floorId, i.roomId, i.x]),
+		links: (await db.select().from(t.itemBreakers).all()).map((l) => [l.itemId, l.breakerId])
+	});
+	const item = (name: string, floor: Ref | null, room: Ref | null, breakerIds: number[] = []) => ({
+		name,
+		type: 'outlet' as const,
+		critical: false,
+		criticalNote: null,
+		notes: null,
+		floor,
+		room,
+		breakerIds
+	});
+
+	test('adds new floors on top, shapeless rooms, unplaced items and their breakers in one write', async () => {
+		const main = await ops.createFloor('Main floor');
+		const kitchen = await ops.createRoom({ floorId: main, name: 'Kitchen', shape: null });
+		const a = await add(1);
+		const b = await add(3);
+		await ops.importItems({
+			floors: ['Attic'],
+			rooms: [{ name: 'Loft', floor: { new: 0 } }, { name: 'Pantry', floor: { id: main } }],
+			items: [
+				item('Fan', { new: 0 }, { new: 0 }, [a]),
+				item('Light', { id: main }, { new: 1 }, [a, b]),
+				item('Outlet', { id: main }, { id: kitchen }),
+				item('Loose', null, null)
+			]
+		});
+		const s = await all();
+		expect(s.floors).toEqual([['Main floor', 0], ['Attic', 1]]);
+		const attic = main + 1;
+		expect(s.rooms).toEqual([['Kitchen', main, null], ['Loft', attic, null], ['Pantry', main, null]]);
+		expect(s.items).toEqual([
+			['Fan', attic, kitchen + 1, null],
+			['Light', main, kitchen + 2, null],
+			['Outlet', main, kitchen, null],
+			['Loose', null, null, null]
+		]);
+		expect(s.links.length).toBe(3);
+	});
+
+	test('an import that fails partway writes nothing', async () => {
+		const main = await ops.createFloor('Main floor');
+		const before = await all();
+		const many = Array.from({ length: 1200 }, (_, n) => item(`Outlet ${n}`, { new: 0 }, { new: 0 }));
+		// The last item points at a breaker that doesn't exist, so its row fails after everything else.
+		await expect(ops.importItems({ floors: ['Attic'], rooms: [{ name: 'Loft', floor: { new: 0 } }], items: [...many, item('Bad', { id: main }, null, [9999])] })).rejects.toThrow();
+		expect(await all()).toEqual(before);
 	});
 });

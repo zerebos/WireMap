@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Import items from CSV</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--scrim:rgba(0,0,0,.55);--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;color-scheme:light}
+.th-dark{--scrim:rgba(0,0,0,.55);--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.trow{display:grid;grid-template-columns:32px 36px minmax(0,2.2fr) minmax(0,1.3fr) 100px minmax(0,1.9fr) 112px;align-items:center;column-gap:12px;padding:0 16px;min-height:50px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.trow:hover{background:var(--hover)}
+.trow.is-chk,.trow.is-open{background:var(--sel-row)}
+.thead{min-height:42px;background:var(--raised);border-bottom:1px solid var(--line-2);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.thead:hover{background:var(--raised)}
+.th{height:42px;padding:0;border:0;background:transparent;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-align:left}
+.th:hover{color:var(--ink)}
+.rname{width:100%;padding:8px 0;border:0;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rname:hover{text-decoration:underline}
+.cell{font-size:14px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dim{color:var(--muted)}
+.warnc{color:var(--warn);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:#F2A33A;cursor:pointer}
+.fsel{width:auto;height:38px;min-width:150px}
+
+.lnk{padding:0;border:0;background:transparent;font:inherit;color:var(--ink);text-decoration:underline;cursor:pointer}
+.lnk:hover{color:var(--amber-ink)}
+.lnk:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.steps{list-style:none;margin:6px 0 0;padding:0;display:flex;gap:6px;align-items:center}
+.st{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px 0 6px;border-radius:17px;font-size:13px;font-weight:600;color:var(--muted)}
+.st .sn{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line-2);display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px}
+.st.is-on{background:var(--amber-soft);color:var(--ink)}
+.st.is-on .sn{background:#F2A33A;border-color:#F2A33A;color:#1A1B1D}
+.st.is-done{color:var(--soft)}
+.st.is-done .sn{border-color:var(--ok);color:var(--ok)}
+.chk{display:flex;gap:10px;align-items:center;font-size:14px;cursor:pointer;white-space:nowrap}
+.mrow{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 240px;align-items:center;column-gap:20px;padding:10px 16px;min-height:64px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.mrow:last-child{border-bottom:0}
+.mrow.is-off{background:var(--raised)}
+.mrow.is-off .samp{opacity:.6}
+.mhead{min-height:40px;padding:0 16px;background:var(--raised);border-bottom:1px solid var(--line-2);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.samp{font-size:12px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-size:14px;line-height:1.45}
+.alert span{color:var(--ink)}
+.note{font-size:13px;color:var(--muted);line-height:1.5}
+.grp{display:flex;flex-direction:column;gap:10px}
+.gh{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.gt{font-size:15px;font-weight:800}
+.gc{font-size:11px;color:var(--muted)}
+.vrow{display:grid;grid-template-columns:minmax(0,1fr) 16px 190px;align-items:start;column-gap:10px}
+.vv{display:flex;flex-direction:column;gap:2px;padding-top:9px;font-size:14px;min-width:0}
+.arr{padding-top:10px;color:var(--muted);font-size:14px}
+.vsel{height:40px}
+.vsel.is-warn{border-color:var(--warn);border-width:1.5px}
+.hintl{font-size:11px;color:var(--muted);line-height:1.35}
+.hu{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--soft)}
+.hu strong{color:var(--ink)}
+.hi{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-top:1px}
+.hi.ok{background:var(--tag-bg);color:var(--tag-fg)}
+.hi.warn{background:var(--warn);color:var(--surface)}
+.prow{display:grid;grid-template-columns:40px minmax(0,1.6fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,1.1fr) 84px;align-items:center;column-gap:10px;padding:0 14px;min-height:44px;border-bottom:1px solid var(--line);font-size:13px;box-sizing:border-box}
+.phead{min-height:36px;background:var(--raised);border-bottom:1px solid var(--line-2);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);position:sticky;top:0}
+.pc{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center}
+.pw{color:var(--warn);font-weight:600}
+.pw::before{content:'!';width:14px;height:14px;border-radius:50%;background:var(--warn);color:var(--surface);font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;flex-shrink:0;font-family:'Archivo',sans-serif}
+.prow.is-skip{color:var(--muted)}
+.prow.is-skip .pc{text-decoration:line-through}
+.prow.is-skip .pw{color:var(--muted)}
+.prow.is-skip .pw::before{display:none}
+.sumgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.sum{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid var(--line-2);border-radius:10px;background:var(--raised)}
+.sv{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:26px;font-weight:600}
+.sl{font-size:12px;color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:default}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="position: relative; width: 1440px; height: 960px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); overflow: hidden">
+<header style="height: 60px; flex-shrink: 0; background: var(--hdr); color: #ECEAE4; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--hdr-bd); padding: 0 24px; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2A33A" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><rect x="9" y="6" width="6" height="7" rx="1" fill="#F2A33A"></rect><path d="M9 17h6"></path></svg>
+<span style="font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em">Breakerbook</span>
+</div>
+<nav aria-label="Primary" style="display: flex; gap: 2px; height: 100%">
+<a class="nav" href="Main.dc.html">Panel</a>
+<a class="nav" href="Map.dc.html">Map</a>
+<a class="nav is-on" href="Items.dc.html" aria-current="page">Items</a>
+<a class="nav" href="Settings.dc.html">Settings</a>
+</nav>
+<div style="flex-grow: 1"></div>
+<label for="hq" class="sr">Search items, rooms, breakers</label>
+<div style="position: relative; display: flex; align-items: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B9BBBF" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 12px; pointer-events: none"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input id="hq" class="search" type="search" placeholder="Search items, rooms, breakers" value="{{q}}" onChange="{{onSearch}}">
+</div>
+<button type="button" class="tgl" onClick="{{toggleTheme}}" aria-label="{{themeLabel}}" title="{{themeLabel}}"><sc-if value="{{isDark}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{isLight}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></sc-if></button>
+<span class="mono" style="font-size: 12px; color: #B9BBBF">Main panel · 200A</span>
+</header>
+
+<main style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; padding: 24px 32px; box-sizing: border-box" aria-hidden="true">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="margin: 0; font-size: 28px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em">Items</span>
+<span class="mono" style="font-size: 12px; color: var(--muted)">79 items · 3 need attention</span>
+</div>
+<div style="display: flex; gap: 8px">
+<span class="btn">Import CSV…</span>
+<span class="btn">Export CSV</span>
+<span class="btn btn-pri">Add item</span>
+</div>
+</div>
+<div style="flex-grow: 1; min-height: 0; background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+<div class="trow thead"><span></span><span></span><span>Name</span><span>Room</span><span>Floor</span><span>Breaker</span><span>On map</span></div>
+<sc-for list="{{bgRows}}" as="r" hint-placeholder-count="12">
+<div class="trow"><span></span><span class="ico"></span><span class="cell" style="font-weight: 600">{{r.n}}</span><span class="cell">{{r.room}}</span><span class="cell dim">{{r.fl}}</span><span class="cell"><span class="bnum">{{r.b}}</span></span><span class="cell" style="text-decoration: underline">Locate</span></div>
+</sc-for>
+</div>
+</main>
+
+<div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center">
+<section role="dialog" aria-modal="true" aria-labelledby="imp-t" style="width: 1040px; height: 820px; box-sizing: border-box; background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,.45); display: flex; flex-direction: column; overflow: hidden">
+
+<div style="flex-shrink: 0; padding: 22px 28px 18px; display: flex; align-items: flex-start; gap: 16px; border-bottom: 1px solid var(--line)">
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<span class="ov">Import items</span>
+<h2 id="imp-t" style="margin: 0; font-size: 24px; font-weight: 800; font-stretch: 108%; letter-spacing: -0.01em">house-inventory.csv</h2>
+<span class="mono" style="font-size: 12px; color: var(--muted)">64 rows · 7 columns · <button type="button" class="lnk">Choose a different file</button></span>
+</div>
+<ol class="steps" aria-label="Steps">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+<li class="{{s.cls}}" aria-current="{{s.cur}}"><span class="sn">{{s.n}}</span>{{s.label}}</li>
+</sc-for>
+</ol>
+<button type="button" class="ibtn" aria-label="Close import"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+
+<sc-if value="{{isS1}}" hint-placeholder-val="{{true}}">
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 22px 28px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+<p style="margin: 0; font-size: 15px; color: var(--soft); line-height: 1.5; max-width: 620px">Tell Breakerbook what each column holds. We guessed from the column names; change anything that’s wrong.</p>
+<label class="chk"><input type="checkbox" checked="{{hasHeader}}" onChange="{{tHeader}}"><span>First row is column names</span></label>
+</div>
+<div style="border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden">
+<div class="mrow mhead"><span>Column in your file</span><span>Sample values</span><span>Use as</span></div>
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="7">
+<div class="{{c.cls}}">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 15px; font-weight: 700">{{c.name}}</span><span class="mono" style="font-size: 11px; color: var(--muted)">{{c.note}}</span></span>
+<span class="mono samp">{{c.samples}}</span>
+<span><label class="sr" for="{{c.id}}">Use column {{c.name}} as</label><select id="{{c.id}}" class="inp" value="{{c.val}}" onChange="{{c.pick}}"><sc-for list="{{targets}}" as="o" hint-placeholder-count="9"><option value="{{o.v}}">{{o.l}}</option></sc-for></select></span>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{noName}}" hint-placeholder-val="{{false}}">
+<div class="alert" role="alert"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"></path><path d="M12 10v4M12 17.5v.01"></path></svg><span>Pick the column that holds each item’s <strong>name</strong>. It’s the only one that’s required.</span></div>
+</sc-if>
+<sc-if value="{{noType}}" hint-placeholder-val="{{false}}">
+<div class="note">No type column: on the next step you’ll pick one type for every row.</div>
+</sc-if>
+<div class="note">Breakers can be slot numbers (<span class="mono">16</span>, <span class="mono">1/3</span>, <span class="mono">17A</span>, <span class="mono">G6</span>), several joined with + (<span class="mono">14 + 21</span>), or a breaker’s label. Each “Use as” can be picked once; picking it again moves it.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isS2}}" hint-placeholder-val="{{false}}">
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<div style="width: 440px; flex-shrink: 0; overflow: auto; padding: 20px 24px 24px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; border-right: 1px solid var(--line)">
+
+<div class="grp">
+<div class="gh"><span class="gt">Types</span><span class="mono gc">{{typesSummary}}</span></div>
+<sc-for list="{{typeVals}}" as="t" hint-placeholder-count="6">
+<div class="vrow">
+<span class="vv"><span style="font-weight: 600">“{{t.v}}”</span><span class="mono" style="font-size: 11px; color: var(--muted)">{{t.rows}}</span></span>
+<span class="arr" aria-hidden="true">→</span>
+<span style="display: flex; flex-direction: column; gap: 3px"><label class="sr" for="{{t.id}}">Type for “{{t.v}}”</label><select id="{{t.id}}" class="{{t.selCls}}" value="{{t.val}}" onChange="{{t.pick}}"><option value="outlet">Outlet</option><option value="light">Light</option><option value="switch">Switch</option><option value="appliance">Appliance</option><option value="skip">Skip these rows</option></select><span class="hintl">{{t.hint}}</span></span>
+</div>
+</sc-for>
+</div>
+
+<div class="grp">
+<div class="gh"><span class="gt">Floors</span><span class="mono gc">{{floorsSummary}}</span></div>
+<sc-for list="{{floorVals}}" as="f" hint-placeholder-count="4">
+<div class="vrow">
+<span class="vv"><span style="font-weight: 600">“{{f.v}}”</span><span class="mono" style="font-size: 11px; color: var(--muted)">{{f.rows}}</span></span>
+<span class="arr" aria-hidden="true">→</span>
+<span style="display: flex; flex-direction: column; gap: 3px"><label class="sr" for="{{f.id}}">Floor for “{{f.v}}”</label><select id="{{f.id}}" class="{{f.selCls}}" value="{{f.val}}" onChange="{{f.pick}}"><option value="bsmt">Basement</option><option value="main">Main floor</option><option value="up">Upstairs</option><option value="new">New floor “{{f.v}}”</option><option value="none">No floor</option></select><span class="hintl">{{f.hint}}</span></span>
+</div>
+</sc-for>
+</div>
+
+<div class="grp">
+<div class="gh"><span class="gt">Heads up</span></div>
+<div class="hu"><span class="hi ok">+</span><span><strong>{{roomsText}}</strong> will be created: {{roomsList}}. They start without a shape; draw them in Edit layout.</span></div>
+<div class="hu"><span class="hi warn">!</span><span><strong>2 rows</strong> name a breaker we can’t find (“32”, “Kitchen 2”). They’ll come in with no breaker and show under Needs attention.</span></div>
+<div class="hu" style="align-items: flex-start"><span class="hi warn">!</span><span style="display: flex; flex-direction: column; gap: 8px; flex-grow: 1"><span><strong>3 rows</strong> look like items you already have (same name and room): Dryer, Refrigerator, Sump pump.</span><span class="seg" role="group" aria-label="Duplicates" style="align-self: flex-start"><button type="button" class="{{dupSkipCls}}" aria-pressed="{{dupSkipP}}" onClick="{{dupSkip}}">Skip them</button><button type="button" class="{{dupAddCls}}" aria-pressed="{{dupAddP}}" onClick="{{dupAdd}}">Import anyway</button></span></span></div>
+</div>
+</div>
+
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; padding: 20px 28px 24px 24px; box-sizing: border-box; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between"><span class="gt">Preview</span><span class="mono gc">First 8 of 64 rows, as they’ll be imported</span></div>
+<div style="flex-grow: 1; min-height: 0; overflow: auto; border: 1px solid var(--line-2); border-radius: 10px">
+<div class="prow phead"><span>Row</span><span>Name</span><span>Type</span><span>Floor</span><span>Room</span><span>Breaker</span></div>
+<sc-for list="{{preview}}" as="p" hint-placeholder-count="8">
+<div class="{{p.cls}}">
+<span class="mono dim">{{p.i}}</span>
+<span class="pc" style="font-weight: 600">{{p.name}}</span>
+<span class="{{p.typeCls}}">{{p.type}}</span>
+<span class="{{p.floorCls}}">{{p.floor}}</span>
+<span class="pc">{{p.room}}<sc-if value="{{p.newRoom}}" hint-placeholder-val="{{false}}"><span class="tag" style="margin-left: 6px">NEW</span></sc-if></span>
+<span class="{{p.brkCls}}">{{p.brk}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 16px; font-size: 12px; color: var(--muted)"><span style="display: inline-flex; align-items: center; gap: 6px"><span class="hi warn" style="width: 16px; height: 16px; font-size: 10px">!</span>needs a look</span><span>Struck-through rows are skipped.</span></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isS3}}" hint-placeholder-val="{{false}}">
+<div style="flex-grow: 1; min-height: 0; overflow: auto; padding: 28px; display: flex; gap: 32px">
+<div style="flex: 1 1 0; display: flex; flex-direction: column; gap: 18px">
+<h3 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 108%">Ready to import {{importN}} items</h3>
+<div class="sumgrid">
+<sc-for list="{{summary}}" as="m" hint-placeholder-count="5">
+<div class="sum"><span class="sv">{{m.n}}</span><span class="sl">{{m.l}}</span></div>
+</sc-for>
+</div>
+<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.7; color: var(--soft)">
+<li>Imported items aren’t on the map yet. Place them from <strong>Not placed</strong> in Edit layout.</li>
+<li>Items are only added. Nothing you already have is changed or removed.</li>
+<li>The import is all or nothing: if something fails, nothing is saved.</li>
+</ul>
+</div>
+<div style="width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px">
+<span class="gt">Your choices</span>
+<sc-for list="{{choices}}" as="c" hint-placeholder-count="4">
+<div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 8px; font-size: 13px"><span style="color: var(--muted)">{{c.k}}</span><span style="font-weight: 600; text-align: right">{{c.v}}</span></div>
+</sc-for>
+<button type="button" class="lnk" style="align-self: flex-start; font-size: 13px" onClick="{{goS2}}">Change these</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isS4}}" hint-placeholder-val="{{false}}">
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 28px; text-align: center">
+<span style="width: 64px; height: 64px; border-radius: 50%; background: var(--amber-soft); color: var(--amber-ink); display: flex; align-items: center; justify-content: center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg></span>
+<h3 style="margin: 0; font-size: 26px; font-weight: 800; font-stretch: 108%" role="status">Imported {{importN}} items</h3>
+<p style="margin: 0; font-size: 15px; color: var(--soft); line-height: 1.5; max-width: 520px">{{doneLine}}</p>
+</div>
+</sc-if>
+
+<div style="flex-shrink: 0; padding: 16px 28px; display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--line); background: var(--raised)">
+<span style="flex-grow: 1; font-size: 13px; color: var(--muted)">{{footNote}}</span>
+<sc-if value="{{showBack}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{back}}">Back</button></sc-if>
+<sc-if value="{{showCancel}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" style="border-color: transparent; background: transparent">Cancel</button></sc-if>
+<sc-if value="{{isS4}}" hint-placeholder-val="{{false}}"><button type="button" class="btn">Show the 2 without a breaker</button></sc-if>
+<button type="button" class="btn btn-pri" disabled="{{priDisabled}}" onClick="{{next}}">{{priLabel}}</button>
+</div>
+</section>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"step":{"editor":"enum","options":["1","2","3","4"],"default":"1"},"$preview":{"width":1440,"height":960}}'>
+var TARGETS = [['ignore', 'Don’t import'], ['name', 'Name'], ['type', 'Type'], ['floor', 'Floor'], ['room', 'Room'], ['breakers', 'Breaker(s)'], ['critical', 'Critical (yes/no)'], ['critical_note', 'Critical note'], ['notes', 'Notes']];
+var TL = { outlet: 'Outlet', light: 'Light', 'switch': 'Switch', appliance: 'Appliance', skip: 'Skipped' };
+var FL = { bsmt: 'Basement', main: 'Main floor', up: 'Upstairs' };
+var COLS = [
+  { k: 'c1', name: 'Item', samples: 'Outlet by fridge · Pantry light · Attic fan', guess: 'name' },
+  { k: 'c2', name: 'Kind', samples: 'receptacle · light · appliance', guess: 'type' },
+  { k: 'c3', name: 'Level', samples: 'Main · Main · Attic', guess: 'floor' },
+  { k: 'c4', name: 'Location', samples: 'Kitchen · Pantry · Attic', guess: 'room' },
+  { k: 'c5', name: 'Circuit', samples: '12 · 14 · 32', guess: 'breakers' },
+  { k: 'c6', name: 'Notes', samples: '— · GFCI upstream · On a timer', guess: 'notes' },
+  { k: 'c7', name: 'Photo URL', samples: 'https://…/img_0412.jpg · …', guess: 'ignore' }
+];
+var TYPEV = [
+  { v: 'outlet', n: 28, g: 'outlet', how: 'exact' },
+  { v: 'light', n: 17, g: 'light', how: 'exact' },
+  { v: 'switch', n: 9, g: 'switch', how: 'exact' },
+  { v: 'receptacle', n: 4, g: 'outlet', how: 'guess' },
+  { v: 'appliance', n: 4, g: 'appliance', how: 'exact' },
+  { v: 'smoke detector', n: 2, g: null, how: 'none' }
+];
+var FLOORV = [
+  { v: 'Bsmt', n: 14, g: 'bsmt', how: 'guess' },
+  { v: 'Main', n: 31, g: 'main', how: 'guess' },
+  { v: 'Upper', n: 16, g: 'up', how: 'guess' },
+  { v: 'Attic', n: 3, g: 'new', how: 'none' }
+];
+var ROWS = [
+  { name: 'Outlet by fridge', t: 'receptacle', f: 'Main', room: 'Kitchen', b: '12', bok: true },
+  { name: 'Under-cabinet lights', t: 'light', f: 'Main', room: 'Kitchen', b: '14', bok: true },
+  { name: 'Pantry light', t: 'light', f: 'Main', room: 'Pantry', b: '14', bok: true, nr: true },
+  { name: 'Mudroom outlet', t: 'outlet', f: 'Main', room: 'Mudroom', b: 'Kitchen 2', bok: false, nr: true },
+  { name: 'Attic fan', t: 'appliance', f: 'Attic', room: 'Attic', b: '32', bok: false, nr: true },
+  { name: 'Dryer', t: 'appliance', f: 'Main', room: 'Laundry', b: '2/4', bok: true, dup: true },
+  { name: 'Hall smoke detector', t: 'smoke detector', f: 'Upper', room: 'Hall', b: '21', bok: true },
+  { name: 'Porch light', t: 'light', f: 'Main', room: 'Porch', b: '24', bok: true, nr: true }
+];
+var BG = [['Light switch', 'Rec room', 'Basement', '25'], ['Outlet — east wall N', 'Rec room', 'Basement', '26'], ['Outlet — east wall S', 'Rec room', 'Basement', '26'], ['Recessed lights (north)', 'Rec room', 'Basement', '25'], ['Storage light', 'Storage', 'Basement', '25'], ['Furnace', 'Utility', 'Basement', '23'], ['Sump pump', 'Utility', 'Basement', '28'], ['Counter outlet W1', 'Kitchen', 'Main floor', '9'], ['Range', 'Kitchen', 'Main floor', '1/3'], ['Dryer', 'Laundry', 'Main floor', '2/4'], ['Vanity light', 'Half bath', 'Main floor', '16'], ['Ceiling fan', 'Office', 'Upstairs', '19'], ['GFCI outlet', 'Hall bath', 'Upstairs', '16'], ['Desk outlet', 'Office', 'Upstairs', '19']];
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = this.state || {};
+    var set = function (o) { self.setState(o); };
+    var dark = st.dark !== undefined ? st.dark : (this.props.dark !== undefined ? !!this.props.dark : true);
+    var step = st.step || (this.props.step ? +this.props.step : 1);
+    var map = st.map || (function () { var m = {}; COLS.forEach(function (c) { m[c.k] = c.guess; }); return m; })();
+    var tmap = st.tmap || (function () { var m = {}; TYPEV.forEach(function (t) { m[t.v] = t.g || 'skip'; }); return m; })();
+    var fmap = st.fmap || (function () { var m = {}; FLOORV.forEach(function (f) { m[f.v] = f.g; }); return m; })();
+    var dup = st.dup || 'skip';
+    var hasHeader = st.hasHeader !== undefined ? st.hasHeader : true;
+    var used = function (t) { return COLS.some(function (c) { return map[c.k] === t; }); };
+    var noName = !used('name');
+    var noType = !used('type');
+
+    var cols = COLS.map(function (c) {
+      var v = map[c.k];
+      var auto = v === c.guess;
+      return {
+        id: 'm-' + c.k, name: hasHeader ? c.name : 'Column ' + c.k.slice(1), samples: c.samples, val: v,
+        note: v === 'ignore' ? 'Not imported' : (auto ? 'Matched from the column name' : 'Changed by you'),
+        cls: 'mrow' + (v === 'ignore' ? ' is-off' : ''),
+        pick: function (e) {
+          var nv = e.target.value; var m = Object.assign({}, map);
+          if (nv !== 'ignore') COLS.forEach(function (o) { if (m[o.k] === nv) m[o.k] = 'ignore'; });
+          m[c.k] = nv; set({ map: m });
+        }
+      };
+    });
+
+    var skipRows = 0, unmatched = 0;
+    var typeVals = TYPEV.map(function (t) {
+      var v = tmap[t.v];
+      if (v === 'skip') skipRows += t.n;
+      var needs = t.how === 'none';
+      if (needs && v === 'skip') unmatched++;
+      return {
+        id: 't-' + t.v.replace(/\s/g, '-'), v: t.v, rows: t.n + (t.n === 1 ? ' row' : ' rows'), val: v,
+        selCls: 'inp vsel' + (needs && v === 'skip' ? ' is-warn' : ''),
+        hint: needs ? (v === 'skip' ? 'Not a type Breakerbook knows. Pick one, or these rows are skipped.' : 'Picked by you') : (t.how === 'guess' ? 'Best guess, check it' : ''),
+        pick: function (e) { var m = Object.assign({}, tmap); m[t.v] = e.target.value; set({ tmap: m }); }
+      };
+    });
+    var newFloor = false, noFloorRows = 0;
+    var floorVals = FLOORV.map(function (f) {
+      var v = fmap[f.v];
+      if (v === 'new') newFloor = true;
+      if (v === 'none') noFloorRows += f.n;
+      return {
+        id: 'f-' + f.v, v: f.v, rows: f.n + ' rows', val: v, selCls: 'inp vsel',
+        hint: f.how === 'none' ? (v === 'new' ? 'No floor by that name. A new floor tab will be added.' : (v === 'none' ? 'Items come in with no floor and no room.' : 'Picked by you')) : 'Best guess from the name, check it',
+        pick: function (e) { var m = Object.assign({}, fmap); m[f.v] = e.target.value; set({ fmap: m }); }
+      };
+    });
+    var atticOk = fmap.Attic !== 'none';
+    var rooms = ['Pantry', 'Mudroom', 'Porch'].concat(atticOk ? ['Attic'] : []);
+    var dupN = dup === 'skip' ? 3 : 0;
+    var importN = 64 - skipRows - dupN;
+
+    var preview = ROWS.map(function (r, i) {
+      var tv = tmap[r.t];
+      var fv = fmap[r.f];
+      var skipped = tv === 'skip' || (r.dup && dup === 'skip');
+      var fName = fv === 'new' ? r.f : (fv === 'none' ? 'No floor' : FL[fv]);
+      var roomShown = fv === 'none' ? '—' : r.room;
+      return {
+        i: i + 2, name: r.name, type: tv === 'skip' ? '“' + r.t + '”' : TL[tv], floor: fName, room: roomShown,
+        newRoom: !!r.nr && fv !== 'none' && !skipped,
+        brk: r.b, cls: 'prow' + (skipped ? ' is-skip' : ''),
+        typeCls: 'pc' + (tv === 'skip' && !skipped ? '' : '') + (tv === 'skip' ? ' pw' : ''),
+        floorCls: 'pc' + (fv === 'none' ? ' pw' : ''),
+        brkCls: 'pc mono' + (r.bok ? '' : ' pw')
+      };
+    });
+
+    var summary = [
+      { n: importN, l: 'items added' },
+      { n: rooms.length, l: rooms.length === 1 ? 'new room' : 'new rooms' },
+      { n: newFloor ? 1 : 0, l: 'new floor' },
+      { n: 2 + (atticOk ? 0 : 0), l: 'without a breaker' },
+      { n: skipRows + dupN, l: 'rows skipped' }
+    ];
+    var choices = [
+      { k: '“smoke detector”', v: tmap['smoke detector'] === 'skip' ? 'Skipped (2 rows)' : TL[tmap['smoke detector']] },
+      { k: '“receptacle”', v: TL[tmap.receptacle] },
+      { k: '“Attic”', v: fmap.Attic === 'new' ? 'New floor' : (fmap.Attic === 'none' ? 'No floor' : FL[fmap.Attic]) },
+      { k: 'Possible duplicates', v: dup === 'skip' ? 'Skipped (3)' : 'Imported anyway' }
+    ];
+
+    var labels = ['Match columns', 'Check values', 'Import'];
+    var steps = labels.map(function (l, i) {
+      var n = i + 1; var s = Math.min(step, 3);
+      return { n: n < s || step === 4 ? '✓' : String(n), label: l, cls: 'st' + (n === s && step !== 4 ? ' is-on' : '') + (n < s || step === 4 ? ' is-done' : ''), cur: n === s && step !== 4 ? 'step' : 'false' };
+    });
+
+    var foot = {
+      1: noName ? 'A name column is required.' : '7 columns · 6 imported',
+      2: unmatched ? '2 rows will be skipped unless you pick a type for “smoke detector”.' : 'Everything has a match.',
+      3: 'Nothing is saved until you import.',
+      4: 'They’re on the Items page now.'
+    }[step];
+    var pri = { 1: 'Next: check values', 2: 'Next: review', 3: 'Import ' + importN + ' items', 4: 'Done' }[step];
+
+    return {
+      themeCls: dark ? 'th-dark' : 'th-light', isDark: dark, isLight: !dark,
+      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: function () { set({ dark: !dark }); }, q: '', onSearch: function () {},
+      bgRows: BG.map(function (r) { return { n: r[0], room: r[1], fl: r[2], b: r[3] }; }),
+      steps: steps, isS1: step === 1, isS2: step === 2, isS3: step === 3, isS4: step === 4,
+      hasHeader: hasHeader, tHeader: function () { set({ hasHeader: !hasHeader }); },
+      cols: cols, targets: TARGETS.map(function (t) { return { v: t[0], l: t[1] }; }), noName: noName, noType: noType,
+      typeVals: typeVals, floorVals: floorVals,
+      typesSummary: '6 values · ' + (unmatched ? '1 to pick' : 'all matched'),
+      floorsSummary: '4 values · ' + (newFloor ? '1 new' : 'all existing'),
+      roomsText: rooms.length + ' new rooms', roomsList: rooms.join(', '),
+      dupSkipCls: 'sb' + (dup === 'skip' ? ' is-on' : ''), dupAddCls: 'sb' + (dup === 'add' ? ' is-on' : ''),
+      dupSkipP: dup === 'skip' ? 'true' : 'false', dupAddP: dup === 'add' ? 'true' : 'false',
+      dupSkip: function () { set({ dup: 'skip' }); }, dupAdd: function () { set({ dup: 'add' }); },
+      preview: preview, summary: summary, choices: choices, importN: importN,
+      doneLine: rooms.length + ' new rooms' + (newFloor ? ' and a new floor (Attic)' : '') + ' were added. 2 items have no breaker yet: trace them, or pick one in the item.',
+      footNote: foot, priLabel: pri, priDisabled: step === 1 && noName,
+      showBack: step === 2 || step === 3, showCancel: step !== 4,
+      back: function () { set({ step: step - 1 }); },
+      next: function () { set({ step: step === 4 ? 1 : step + 1 }); },
+      goS2: function () { set({ step: 2 }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

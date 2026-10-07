@@ -32,6 +32,8 @@ They won't open standalone in a browser (they need the canvas runtime). Read the
 | `QuadPanel.dc.html` | Panel with two quads (21/23 two 2-poles; 25/27 mixed) + a tandem; outer pair selected | 1440 × 960 |
 | `PrintSetup.dc.html` | Print the directory: options + live preview | 1440 × 960 |
 | `PrintSheet.dc.html` | The printed sheet itself (Letter; tweak switches to A4 / door card) | 816 × 1056 |
+| `ImportCsv.dc.html` | Import items from CSV, steps 1–4 (`step` tweak) | 1440 × 960 |
+| `ImportCsvStates.dc.html` | Import CSV: entry points, file problems, no type column, no header row, phone | 1440 × 960 |
 | `SubMain.dc.html` | Main panel with a subpanel feeder (30/32) selected; panel tabs | 1440 × 960 |
 | `SubGarage.dc.html` | Garage subpanel (short code G), G1 selected, power path | 1440 × 960 |
 | `SubPattern.dc.html` | Pattern sheet: subpanels in add form, settings, header, fed-by, shutoff, trace | 1440 × 960 |
