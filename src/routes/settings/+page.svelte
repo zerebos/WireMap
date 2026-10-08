@@ -233,7 +233,7 @@
 	}
 
 	function exportCsv() {
-		save(new Blob([itemsCsv(house)], { type: 'text/csv' }), `${fileBase()}-items-${today()}.csv`);
+		save(new Blob([itemsCsv(house, ix)], { type: 'text/csv' }), `${fileBase()}-items-${today()}.csv`);
 	}
 
 	async function restore(e: Event & { currentTarget: HTMLInputElement }) {

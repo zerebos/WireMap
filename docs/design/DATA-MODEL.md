@@ -120,4 +120,4 @@ breaker_id · traced_at · user_id · items_added · items_removed. Nice for "la
 - **Checked progress**: breakers with `last_checked_at` / total breakers.
 
 ## API needs (shape, not names)
-CRUD for every entity; bulk reassign items to a breaker; save-trace transaction (label + reassignments + last_checked in one write); export/import all as JSON; CSV export of items; floor-plan upload; nightly backup job.
+CRUD for every entity; bulk reassign items to a breaker; save-trace transaction (label + reassignments + last_checked in one write); export/import all as JSON; CSV export of items; CSV import of items with column mapping (§5.20: one transaction, adds only, may create floors and shapeless rooms); floor-plan upload; nightly backup job.

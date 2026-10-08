@@ -13,7 +13,7 @@
 	import { index, mutate, type HouseItem } from '$lib/house';
 	import { createItem, moveItemsToBreaker } from '$lib/db/ops';
 	import { query, search } from '$lib/search.svelte';
-	import { importItemsCsv } from '$lib/csv';
+	import ImportDialog from '$lib/components/items/ImportDialog.svelte';
 	import { access } from '$lib/access.svelte';
 	import { viewport } from '$lib/viewport.svelte';
 
@@ -218,29 +218,61 @@
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	}
 
-	// ---- CSV import (empty state only; DESIGN.md §5.9)
-	let csvInput: HTMLInputElement | undefined = $state();
-	let importing = $state(false);
-	let toast = $state<{ text: string; warn: boolean } | null>(null);
-	let toastTimer: ReturnType<typeof setTimeout> | undefined;
-	function say(text: string, warn = false) {
-		toast = { text, warn };
-		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => (toast = null), 8000);
+	// ---- CSV import (DESIGN.md §5.20): the file picker first, then the dialog. Not for guests.
+	let csvInput = $state<HTMLInputElement>();
+	let importing = $state<{ key: number; name: string; text: string | null } | null>(null);
+	let importKey = 0;
+	const chooseCsv = () => csvInput?.click();
+	async function openCsv(file: File | undefined) {
+		if (!file || access.guest) return;
+		// Anything that isn't text (a PDF, a spreadsheet's own format) gets "Couldn't read".
+		const csvLike = /\.(csv|tsv|txt)$/i.test(file.name) || file.type.startsWith('text/');
+		const text = csvLike ? await file.text().catch(() => null) : null;
+		importing = { key: ++importKey, name: file.name, text };
+		if (csvInput) csvInput.value = '';
 	}
-	async function importCsv(file: File | undefined) {
-		if (!file) return;
-		importing = true;
-		try {
-			const text = await file.text();
-			const r = await mutate(() => importItemsCsv(house, text));
-			say(`Imported ${r.imported} ${r.imported === 1 ? 'item' : 'items'} (${r.skipped} skipped)`);
-		} catch (e) {
-			say(e instanceof Error && e.message.startsWith('The first row') ? e.message : "Couldn't read that CSV file.", true);
-		} finally {
-			importing = false;
-			if (csvInput) csvInput.value = '';
+	function showMissing() {
+		importing = null;
+		attn = true;
+	}
+
+	// Dropping a file anywhere on the page imports it, with a dashed overlay while it's dragged over.
+	let dragDepth = 0;
+	let dragging = $state(false);
+	let dragName = $state('');
+	const canDrop = (e: DragEvent) => !access.guest && !importing && !!e.dataTransfer?.types.includes('Files');
+	function ondragenter(e: DragEvent) {
+		if (!canDrop(e)) return;
+		e.preventDefault();
+		dragDepth++;
+		dragging = true;
+		// Most browsers only tell the file's name on drop.
+		dragName = e.dataTransfer?.files[0]?.name ?? '';
+	}
+	// While the dialog is open a dropped file is ignored, rather than opened by the browser.
+	const holdDrop = (e: DragEvent) => {
+		if (access.guest || !importing || !e.dataTransfer?.types.includes('Files')) return false;
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'none';
+		return true;
+	};
+	function ondragover(e: DragEvent) {
+		if (holdDrop(e) || !canDrop(e)) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+	}
+	function ondragleave() {
+		if (dragging && --dragDepth <= 0) {
+			dragDepth = 0;
+			dragging = false;
 		}
+	}
+	function ondrop(e: DragEvent) {
+		if (holdDrop(e) || !canDrop(e)) return;
+		e.preventDefault();
+		dragDepth = 0;
+		dragging = false;
+		openCsv(e.dataTransfer?.files[0]);
 	}
 
 	const mapHref = (id: number) => resolve('/map') + '?item=' + id;
@@ -284,18 +316,9 @@
 			{#if !access.guest}<div class="nacts">
 				<a class="btn btn-pri" href={resolve('/trace')}>Trace a breaker</a>
 				<button type="button" class="btn" onclick={addItem}>Add item</button>
-				<button type="button" class="btn" disabled={importing} onclick={() => csvInput?.click()}>Import CSV…</button>
-				<input
-					bind:this={csvInput}
-					class="sr"
-					type="file"
-					accept=".csv,text/csv"
-					tabindex="-1"
-					aria-hidden="true"
-					onchange={(e) => importCsv(e.currentTarget.files?.[0])}
-				/>
+				<button type="button" class="btn" onclick={chooseCsv}>Import CSV…</button>
 			</div>
-			<span class="mono hint">CSV columns: name, type, floor, room, breaker</span>{/if}
+			<span class="mono hint">Any spreadsheet saved as CSV; you match the columns next</span>{/if}
 		</div>
 	</div>
 {/snippet}
@@ -408,11 +431,6 @@
 			{/if}
 		</div>
 	{/if}
-	<div class="toastslot" role="status">
-		{#if toast}
-			<div class="toast inv"><Icon name={toast.warn ? 'warning' : 'check'} size={16} stroke={2.4} />{toast.text}</div>
-		{/if}
-	</div>
 {:else}
 <main class="page">
 	<section aria-label="All items" class="list">
@@ -425,6 +443,7 @@
 						: ''}</span>
 			</div>
 			<div class="acts">
+				{#if !access.guest}<button type="button" class="btn" onclick={chooseCsv}>Import CSV…</button>{/if}
 				<button
 					type="button"
 					class="btn"
@@ -578,11 +597,6 @@
 		{/if}
 	</section>
 
-	<div class="toastslot" role="status">
-		{#if toast}
-			<div class="toast inv"><Icon name={toast.warn ? 'warning' : 'check'} size={16} stroke={2.4} />{toast.text}</div>
-		{/if}
-	</div>
 
 	{#if openItem}
 		{#key openItem.id}
@@ -590,6 +604,27 @@
 		{/key}
 	{/if}
 </main>
+{/if}
+
+<svelte:window {ondragenter} {ondragover} {ondragleave} {ondrop} />
+
+{#if !access.guest}
+	<input
+		bind:this={csvInput}
+		class="sr"
+		type="file"
+		accept=".csv,text/csv"
+		tabindex="-1"
+		aria-hidden="true"
+		onchange={(e) => openCsv(e.currentTarget.files?.[0])} />
+	{#if dragging}
+		<div class="drop" aria-hidden="true"><span>Drop to import {dragName || 'this file'}</span></div>
+	{/if}
+	{#if importing}
+		{#key importing.key}
+			<ImportDialog {house} file={importing} onclose={() => (importing = null)} onchoose={chooseCsv} onshowmissing={showMissing} />
+		{/key}
+	{/if}
 {/if}
 
 <style>
@@ -720,25 +755,22 @@
 		font-size: 12px;
 		color: var(--muted);
 	}
-	.toastslot {
+	/* Dragging a file over the page (DESIGN.md §5.20). */
+	.drop {
 		position: fixed;
-		left: 50%;
-		bottom: 24px;
-		transform: translateX(-50%);
-		z-index: 20;
-	}
-	.toastslot:empty {
-		display: none;
-	}
-	.toast {
-		padding: 10px 14px;
-		border-radius: var(--r-lg);
-		font-size: 13px;
-		font-weight: 600;
+		inset: calc(var(--header-h) + 16px) 16px 16px;
+		z-index: 30;
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		box-shadow: var(--shadow-pop-strong);
+		justify-content: center;
+		padding: 24px;
+		border: 2px dashed var(--dash);
+		border-radius: var(--r-2xl);
+		background: color-mix(in srgb, var(--raised) 92%, transparent);
+		font-size: 18px;
+		font-weight: 700;
+		text-align: center;
+		pointer-events: none;
 	}
 	.tbl {
 		flex: 1 1 0;
@@ -1051,10 +1083,5 @@
 	}
 	.pfoot .btn {
 		flex: 1 1 0;
-	}
-	@media (max-width: 699px) {
-		.toastslot {
-			bottom: 148px;
-		}
 	}
 </style>

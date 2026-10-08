@@ -123,7 +123,6 @@ long-term direction.
 Not designed yet, so ask the owner before building:
 
 - Keyboard access on the map: drawing rooms and placing items without a pointer.
-- CSV import column mapping (today the CSV must use the exact column names).
 - Change history.
 - A 3D view (exploratory).
 
