@@ -777,7 +777,8 @@
 			// The next Place button, so a list of items goes quickly; the canvas once none are left.
 			await tick();
 			const buttons = layoutEl?.querySelectorAll<HTMLButtonElement>('.ub') ?? [];
-			const nextBtn = buttons[Math.min(index, buttons.length - 1)];
+			// After the last one in the list, the next is the first that's left.
+			const nextBtn = buttons[index] ?? buttons[0];
 			if (nextBtn) nextBtn.focus();
 			else focusCanvas();
 			return;
@@ -840,6 +841,17 @@
 		const d: Record<string, Point> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
 		return d[e.key] ?? null;
 	}
+	/** A nudge or resize still saving: a held arrow key waits for it rather than starting from the old shape. */
+	let keyBusy = false;
+	async function keyStep(run: () => Promise<unknown>) {
+		if (keyBusy) return;
+		keyBusy = true;
+		try {
+			await run();
+		} finally {
+			keyBusy = false;
+		}
+	}
 	/** Keeps focus on a room's element when a change moves it in the reading order. */
 	async function refocus(el: HTMLElement) {
 		await tick();
@@ -864,20 +876,25 @@
 		const d = nudgeOf(e);
 		if (!d) return;
 		e.preventDefault();
-		const s = shapeOf(r);
-		if (!s) return;
 		const el = e.currentTarget as HTMLElement;
-		sel = { k: 'room', id: r.id };
-		if (e.altKey) {
-			// Alt+arrows resize a rectangle from its right and bottom edges, snapping like the handles.
-			if (s.type !== 'rect') return;
-			const { r: next } = resized(s, d[0] ? 'e' : 's', d[0], d[1], r.id, e.shiftKey);
-			if (next.w === s.w && next.h === s.h) return;
-			await commit(() => setRoomShape(r.id, { type: 'rect', ...next }));
-		} else {
-			const c = carry ? { itemIds: itemsInside(s).map((i) => i.id), dx: d[0], dy: d[1] } : undefined;
-			await commit(() => setRoomShape(r.id, translate(s, d[0], d[1]), c));
-		}
+		const { altKey, shiftKey } = e;
+		await keyStep(async () => {
+			// Read the room fresh: the event's copy can be from before the last step saved.
+			const room = rooms.find((x) => x.id === r.id);
+			const s = room ? shapeOf(room) : null;
+			if (!s) return;
+			sel = { k: 'room', id: r.id };
+			if (altKey) {
+				// Alt+arrows resize a rectangle from its right and bottom edges, snapping like the handles.
+				if (s.type !== 'rect') return;
+				const { r: next } = resized(s, d[0] ? 'e' : 's', d[0], d[1], r.id, shiftKey);
+				if (next.w === s.w && next.h === s.h) return;
+				await commit(() => setRoomShape(r.id, { type: 'rect', ...next }));
+			} else {
+				const c = carry ? { itemIds: itemsInside(s).map((i) => i.id), dx: d[0], dy: d[1] } : undefined;
+				await commit(() => setRoomShape(r.id, translate(s, d[0], d[1]), c));
+			}
+		});
 		refocus(el);
 	}
 	async function itemKey(e: KeyboardEvent, i: HouseItem) {
@@ -896,20 +913,26 @@
 		const d = nudgeOf(e);
 		if (!d) return;
 		e.preventDefault();
-		const p = posOf(i);
-		if (!p) return;
-		sel = { k: 'item', id: i.id };
-		commit(() => placeItem(i.id, floorId, clampX(p[0] + d[0]), clampY(p[1] + d[1])));
+		keyStep(async () => {
+			const it = floorItems.find((x) => x.id === i.id);
+			const p = it ? posOf(it) : null;
+			if (!p) return;
+			sel = { k: 'item', id: i.id };
+			await commit(() => placeItem(i.id, floorId, clampX(p[0] + d[0]), clampY(p[1] + d[1])));
+		});
 	}
 	function vertexKey(e: KeyboardEvent, r: Room, index: number) {
 		const d = nudgeOf(e);
 		if (!d || e.altKey) return;
 		e.preventDefault();
-		const s = shapeOf(r);
-		if (!s || s.type !== 'polygon') return;
-		const points = s.points.map((q) => [q[0], q[1]] as Point);
-		points[index] = [clampX(points[index][0] + d[0]), clampY(points[index][1] + d[1])];
-		commit(() => setRoomShape(r.id, { type: 'polygon', points }));
+		keyStep(async () => {
+			const room = rooms.find((x) => x.id === r.id);
+			const s = room ? shapeOf(room) : null;
+			if (!s || s.type !== 'polygon') return;
+			const points = s.points.map((q) => [q[0], q[1]] as Point);
+			points[index] = [clampX(points[index][0] + d[0]), clampY(points[index][1] + d[1])];
+			await commit(() => setRoomShape(r.id, { type: 'polygon', points }));
+		});
 	}
 	function measureKey(e: KeyboardEvent, end: 'a' | 'b') {
 		const d = nudgeOf(e);
