@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Breakerbook — Map keyboard pattern</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo','Helvetica Neue',sans-serif}
+.th-light{--scrim:rgba(0,0,0,.55);--bg:#F1EFEA;--raised:#FBFAF7;--surface:#FFFFFF;--ink:#1A1B1D;--muted:#55595E;--soft:#44474B;--line:#E6E3DC;--line-2:#D6D3CC;--field:#CFCBC2;--dash:#C9C5BC;--warn:#A93F1B;--ok:#3F8A5A;--tag-bg:#E1E8F2;--tag-fg:#27466F;--focus:#2F5FA7;--hdr:#1A1B1D;--hdr-bd:#1A1B1D;--pri:#1A1B1D;--pri-h:#34363A;--pri-fg:#FFFFFF;--amber-soft:#FFF6E8;--amber-ink:#5A3A0C;--hover:#F1EFEA;--btn-bd:#1A1B1D;--btn-bd-h:#1A1B1D;--sel-row:#FFF6E8;--handle:#2A2C2F;--track:#CFCBC2;color-scheme:light}
+.th-dark{--scrim:rgba(0,0,0,.55);--bg:#121315;--raised:#1B1D20;--surface:#202226;--ink:#ECEAE4;--muted:#A3A7AD;--soft:#B7BAC0;--line:#2C2F34;--line-2:#34373C;--field:#3C4046;--dash:#44484E;--warn:#F08A64;--ok:#5DBB80;--tag-bg:#1F2E45;--tag-fg:#A9C4EA;--focus:#7FA8E8;--hdr:#0B0C0D;--hdr-bd:#2C2F34;--pri:#F2A33A;--pri-h:#F6B75C;--pri-fg:#121315;--amber-soft:#2A2217;--amber-ink:#F2C27A;--hover:#2A2D31;--btn-bd:#4A4F55;--btn-bd-h:#6E737A;--sel-row:#2A2217;--handle:#0B0C0D;--track:#4A4F55;color-scheme:dark}
+a{color:var(--ink)}a:hover{color:var(--amber-ink)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.nav{display:flex;align-items:center;padding:0 14px;color:#B9BBBF;text-decoration:none;font-size:14px;font-weight:600;border-top:3px solid transparent;border-bottom:3px solid transparent}
+.nav:hover{color:#FFFFFF}
+.nav.is-on{color:#FFFFFF;border-bottom-color:#F2A33A}
+.search{width:340px;height:38px;box-sizing:border-box;border:1px solid #3A3C40;border-radius:8px;background:#26282B;color:#ECEAE4;font:inherit;font-size:14px;padding:0 12px 0 36px}
+.search::placeholder{color:#9A9DA2}
+.search:focus{outline:2px solid #F2A33A;outline-offset:1px}
+.tgl{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #3A3C40;border-radius:8px;background:transparent;color:#ECEAE4;cursor:pointer;padding:0;flex-shrink:0}
+.tgl:hover{background:#26282B}
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 4px;border-radius:3px;background:var(--tag-bg);color:var(--tag-fg);flex-shrink:0;line-height:1.2}
+.ov{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.btn{height:44px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;border:1px solid var(--btn-bd);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover);color:var(--ink);border-color:var(--btn-bd-h)}
+.btn-pri{background:var(--pri);color:var(--pri-fg);border-color:var(--pri)}
+.btn-pri:hover{background:var(--pri-h);color:var(--pri-fg);border-color:var(--pri-h)}
+.btn-warn{color:var(--warn);border-color:var(--warn)}
+.btn-warn:hover{color:var(--warn);border-color:var(--warn)}
+.ibtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;padding:0;flex-shrink:0}
+.ibtn:hover{border-color:var(--btn-bd-h)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .k{font-size:12px;font-weight:600;color:var(--muted)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid var(--field);border-radius:6px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+select.inp{padding:0 10px}
+textarea.inp{height:auto;padding:10px 12px;resize:vertical;line-height:1.45}
+.inp:focus{outline:2px solid #F2A33A;outline-offset:0;border-color:var(--ink)}
+.inp::placeholder{color:var(--muted)}
+.seg{display:flex;background:var(--line);border-radius:8px;padding:3px;gap:2px}
+.sb{height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--soft);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.sb:hover{color:var(--ink)}
+.sb.is-on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.sb .ct{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)}
+.chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip.is-on{background:#F2A33A;color:#1A1B1D;border-color:#F2A33A}
+.ico{width:30px;height:30px;flex-shrink:0;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.bnum{min-width:44px;height:26px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--handle);color:#ECEAE4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.sw{width:48px;height:28px;flex-shrink:0;border:0;border-radius:14px;background:var(--track);padding:3px;cursor:pointer;display:flex;align-items:center;transition:background .15s}
+.sw .kn{width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw.is-on{background:#F2A33A}
+.sw.is-on .kn{transform:translateX(20px)}
+.sw:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.ibtn:focus-visible,.sb:focus-visible,.chip:focus-visible,.sw:focus-visible,.tgl:focus-visible,.th:focus-visible,.rname:focus-visible,.snav:focus-visible,.tcard:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.trow{display:grid;grid-template-columns:32px 36px minmax(0,2.2fr) minmax(0,1.3fr) 100px minmax(0,1.9fr) 112px;align-items:center;column-gap:12px;padding:0 16px;min-height:50px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.trow:hover{background:var(--hover)}
+.trow.is-chk,.trow.is-open{background:var(--sel-row)}
+.thead{min-height:42px;background:var(--raised);border-bottom:1px solid var(--line-2);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.thead:hover{background:var(--raised)}
+.th{height:42px;padding:0;border:0;background:transparent;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-align:left}
+.th:hover{color:var(--ink)}
+.rname{width:100%;padding:8px 0;border:0;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rname:hover{text-decoration:underline}
+.cell{font-size:14px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dim{color:var(--muted)}
+.warnc{color:var(--warn);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:#F2A33A;cursor:pointer}
+.fsel{width:auto;height:38px;min-width:150px}
+
+.lnk{padding:0;border:0;background:transparent;font:inherit;color:var(--ink);text-decoration:underline;cursor:pointer}
+.lnk:hover{color:var(--amber-ink)}
+.lnk:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.steps{list-style:none;margin:6px 0 0;padding:0;display:flex;gap:6px;align-items:center}
+.st{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px 0 6px;border-radius:17px;font-size:13px;font-weight:600;color:var(--muted)}
+.st .sn{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line-2);display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px}
+.st.is-on{background:var(--amber-soft);color:var(--ink)}
+.st.is-on .sn{background:#F2A33A;border-color:#F2A33A;color:#1A1B1D}
+.st.is-done{color:var(--soft)}
+.st.is-done .sn{border-color:var(--ok);color:var(--ok)}
+.chk{display:flex;gap:10px;align-items:center;font-size:14px;cursor:pointer;white-space:nowrap}
+.mrow{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 240px;align-items:center;column-gap:20px;padding:10px 16px;min-height:64px;border-bottom:1px solid var(--line);box-sizing:border-box}
+.mrow:last-child{border-bottom:0}
+.mrow.is-off{background:var(--raised)}
+.mrow.is-off .samp{opacity:.6}
+.mhead{min-height:40px;padding:0 16px;background:var(--raised);border-bottom:1px solid var(--line-2);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.samp{font-size:12px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-size:14px;line-height:1.45}
+.alert span{color:var(--ink)}
+.note{font-size:13px;color:var(--muted);line-height:1.5}
+.grp{display:flex;flex-direction:column;gap:10px}
+.gh{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.gt{font-size:15px;font-weight:800}
+.gc{font-size:11px;color:var(--muted)}
+.vrow{display:grid;grid-template-columns:minmax(0,1fr) 16px 190px;align-items:start;column-gap:10px}
+.vv{display:flex;flex-direction:column;gap:2px;padding-top:9px;font-size:14px;min-width:0}
+.arr{padding-top:10px;color:var(--muted);font-size:14px}
+.vsel{height:40px}
+.vsel.is-warn{border-color:var(--warn);border-width:1.5px}
+.hintl{font-size:11px;color:var(--muted);line-height:1.35}
+.hu{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--soft)}
+.hu strong{color:var(--ink)}
+.hi{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-top:1px}
+.hi.ok{background:var(--tag-bg);color:var(--tag-fg)}
+.hi.warn{background:var(--warn);color:var(--surface)}
+.prow{display:grid;grid-template-columns:40px minmax(0,1.6fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,1.1fr) 84px;align-items:center;column-gap:10px;padding:0 14px;min-height:44px;border-bottom:1px solid var(--line);font-size:13px;box-sizing:border-box}
+.phead{min-height:36px;background:var(--raised);border-bottom:1px solid var(--line-2);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);position:sticky;top:0}
+.pc{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center}
+.pw{color:var(--warn);font-weight:600}
+.pw::before{content:'!';width:14px;height:14px;border-radius:50%;background:var(--warn);color:var(--surface);font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;flex-shrink:0;font-family:'Archivo',sans-serif}
+.prow.is-skip{color:var(--muted)}
+.prow.is-skip .pc{text-decoration:line-through}
+.prow.is-skip .pw{color:var(--muted)}
+.prow.is-skip .pw::before{display:none}
+.sumgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.sum{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid var(--line-2);border-radius:10px;background:var(--raised)}
+.sv{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:26px;font-weight:600}
+.sl{font-size:12px;color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:default}
+.sheet{background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0;overflow:hidden}
+.cap{font-size:13px;color:var(--muted);line-height:1.45}
+.ecard{display:flex;flex-direction:column;gap:8px;padding:16px;border:1px solid var(--line-2);border-radius:10px;background:var(--raised)}
+.eh{font-size:16px;font-weight:800}
+.eb{font-size:13px;color:var(--soft);line-height:1.5}
+.pmini{width:200px;height:300px;flex-shrink:0;border:1px solid var(--line-2);border-radius:14px;background:var(--surface);display:flex;flex-direction:column;overflow:hidden}
+.pcard{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--line-2);border-radius:8px}
+.pfake{height:24px;width:100%;box-sizing:border-box;border:1px solid var(--field);border-radius:5px;font-size:11px;display:inline-flex;align-items:center;padding:0 8px}
+.kx{position:absolute;pointer-events:none;z-index:9}
+.kx.h{left:0;right:0;height:0;border-top:1px dashed #F2A33A;opacity:.7}
+.kx.v{top:0;bottom:0;width:0;border-left:1px dashed #F2A33A;opacity:.7}
+.kring{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;box-sizing:border-box;border:2.5px solid #F2A33A;border-radius:50%;background:rgba(242,163,58,.18);pointer-events:none;z-index:10}
+.kdot{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#F2A33A;pointer-events:none;z-index:10}
+.klab{position:absolute;z-index:10;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;background:#F2A33A;color:#1A1B1D;padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none}
+.kcanvas:focus{outline:none}
+.kcanvas:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+.kbar{position:absolute;left:12px;right:12px;bottom:10px;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 14px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);box-shadow:0 6px 20px rgba(0,0,0,.14);z-index:11}
+.kbar .kt{flex-grow:1;font-size:13px;line-height:1.4;min-width:0}
+.kbar .kk{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;padding:2px 6px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;background:var(--bg);white-space:nowrap}
+.khelp{position:absolute;right:12px;bottom:66px;width:420px;max-height:calc(100% - 90px);overflow:auto;box-sizing:border-box;padding:16px 18px;border:1px solid var(--line-2);border-radius:12px;background:var(--surface);box-shadow:0 20px 50px rgba(0,0,0,.3);z-index:12;display:flex;flex-direction:column;gap:12px}
+.ksec{display:flex;flex-direction:column;gap:6px}
+.ksec h3{margin:0;font-size:11px;font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.krow{display:grid;grid-template-columns:132px minmax(0,1fr);gap:10px;align-items:baseline;font-size:13px;line-height:1.4}
+.krow .ks{display:flex;gap:4px;flex-wrap:wrap}
+.kk{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;padding:2px 6px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;background:var(--bg);white-space:nowrap}
+.numf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.numf .inp{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+.unit{position:relative}
+.unit span.u{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--muted);pointer-events:none}
+.unit .inp{padding-right:28px}
+.crow{display:grid;grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 36px;gap:8px;align-items:center;padding:2px 4px;border-radius:6px}
+.crow.is-on{background:var(--amber-soft)}
+.ci{height:36px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+.say{padding:8px 12px;border-left:0;border:1px solid var(--line-2);border-radius:8px;background:var(--raised)}
+</style>
+</helmet>
+<div class="{{themeCls}}" style="width: 1440px; height: 960px; box-sizing: border-box; background: var(--bg); color: var(--ink); padding: 36px 40px; display: flex; flex-direction: column; gap: 22px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="ov">Pattern</span>
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em">Editing the map without a mouse</h1>
+<p style="margin: 0; font-size: 15px; color: var(--soft); max-width: 1040px; line-height: 1.5">There are two ways in, and either works alone. A <strong>drawing cursor</strong> on the canvas moves with the arrow keys, and Enter acts. <strong>Number fields</strong> in the inspector take exact positions and sizes. Every action also goes to a live status line, so a screen reader hears what changed.</p>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 20px">
+
+<div class="sheet">
+<span class="ov">Focus order</span>
+<ol style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.75; color: var(--soft)">
+<li>Toolbar: tools, Floor plan, shortcuts, Undo, Done editing</li>
+<li>Left panel: Rooms list, then Not placed and its Place buttons</li>
+<li><strong style="color: var(--ink)">Canvas</strong>: one stop. It holds the cursor while a tool is on.</li>
+<li>Rooms in reading order (top-left first), then items, then corner handles of the selected polygon</li>
+<li>Inspector fields</li>
+</ol>
+<span class="cap">R, P and I work from anywhere in the editor except text fields. They turn on the tool and move focus to the canvas.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">The drawing cursor</span>
+<div style="position: relative; height: 150px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg); overflow: hidden" aria-hidden="true">
+<div style="position: absolute; left: 0; right: 0; top: 74px; border-top: 1px dashed #F2A33A; opacity: .7"></div>
+<div style="position: absolute; top: 0; bottom: 0; left: 150px; border-left: 1px dashed #F2A33A; opacity: .7"></div>
+<span style="position: absolute; left: 139px; top: 63px; width: 22px; height: 22px; box-sizing: border-box; border: 2.5px solid #F2A33A; border-radius: 50%; background: rgba(242,163,58,.18)"></span>
+<span class="mono" style="position: absolute; left: 166px; top: 86px; font-size: 11px; font-weight: 600; background: #F2A33A; color: #1A1B1D; padding: 3px 7px; border-radius: 4px">5′, 33′ · Living room</span>
+</div>
+<span class="cap">Amber ring plus faint crosshair lines, with a chip giving the position in feet and the room under it. It only shows when the canvas has keyboard focus and Room, Polygon, Item or Place is on. Moving the pointer hides it until the next arrow key. It snaps like the pointer does: grid and room edges, Shift for free.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Polygon corners, by number</span>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div class="crow" style="font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); min-height: 24px"><span>#</span><span>x′</span><span>y′</span><span></span></div>
+<div class="crow"><span class="mono dim">1</span><input class="inp ci" type="number" value="21" aria-label="Corner 1 across, feet"><input class="inp ci" type="number" value="33" aria-label="Corner 1 down, feet"><button type="button" class="ibtn" style="width: 36px; height: 36px" aria-label="Remove corner 1">×</button></div>
+<div class="crow is-on"><span class="mono">2</span><input class="inp ci" type="number" value="37" aria-label="Corner 2 across, feet"><input class="inp ci" type="number" value="33" aria-label="Corner 2 down, feet"><button type="button" class="ibtn" style="width: 36px; height: 36px" aria-label="Remove corner 2">×</button></div>
+<div class="crow"><span class="mono dim">3</span><input class="inp ci" type="number" value="37" aria-label="Corner 3 across, feet"><input class="inp ci" type="number" value="35" aria-label="Corner 3 down, feet"><button type="button" class="ibtn" style="width: 36px; height: 36px" aria-label="Remove corner 3">×</button></div>
+</div>
+<button type="button" class="btn" style="justify-content: flex-start">+ Add a corner after 2</button>
+<span class="cap">For a polygon room, the inspector lists its corners in place of Position and Size. Focusing a row highlights that corner on the canvas. Remove is disabled at 3 corners.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">Placing from “Not placed”</span>
+<ol style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; color: var(--soft)">
+<li>Press <span class="kk">Enter</span> on <strong style="color: var(--ink)">Place</strong>. Focus moves to the canvas, and the cursor starts in the middle of the item’s room (if it has one), otherwise in the middle of the view.</li>
+<li>Arrow keys move it. The chip shows the room it would land in.</li>
+<li><span class="kk">Enter</span> drops the item. Focus returns to the next Place button, so a list of items goes quickly.</li>
+</ol>
+<span class="cap">The Item tool (I) is the same, but drops a new item and moves focus to its Name field.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">What a screen reader hears</span>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.45">
+<div class="say">“Room tool. Cursor at 0 feet, 28 feet, in Living room. Arrow keys move, Enter sets the first corner.”</div>
+<div class="say">“First corner set. 5 feet 6 by 5 feet.”</div>
+<div class="say">“New room created, 5 feet 6 by 5 feet. Name field.”</div>
+<div class="say">“Chest freezer placed in Garage.”</div>
+</div>
+<span class="cap">One polite live region, the status line. Each arrow press updates the line but isn’t announced, to avoid chatter. Announcements happen on Enter, Esc, tool changes and when the cursor enters a different room.</span>
+</div>
+
+<div class="sheet">
+<span class="ov">No scale yet</span>
+<div class="say" style="font-family: 'JetBrains Mono', ui-monospace, monospace">Room · cursor at 12, 56 steps · Kitchen</div>
+<div class="numf"><div class="unit"><input class="inp" type="number" value="34" aria-label="Width, grid steps"><span class="u">w</span></div><div class="unit"><input class="inp" type="number" value="30" aria-label="Depth, grid steps"><span class="u">d</span></div></div>
+<span class="cap">Until a scale is set, the cursor chip, status line and fields count grid steps (one arrow press each). Inspector fields add the hint “Set a scale to use feet”. Everything else works the same.</span>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var dark = this.props.dark !== undefined ? !!this.props.dark : true;
+    return { themeCls: dark ? 'th-dark' : 'th-light' };
+  }
+}
+</script>
+</body>
+</html>

@@ -34,6 +34,8 @@ They won't open standalone in a browser (they need the canvas runtime). Read the
 | `PrintSheet.dc.html` | The printed sheet itself (Letter; tweak switches to A4 / door card) | 816 × 1056 |
 | `ImportCsv.dc.html` | Import items from CSV, steps 1–4 (`step` tweak) | 1440 × 960 |
 | `ImportCsvStates.dc.html` | Import CSV: entry points, file problems, no type column, no header row, phone | 1440 × 960 |
+| `MapKeyboard.dc.html` | Map editing with the keyboard: drawing cursor, status line, shortcuts, Position/Size fields (tweak `kb`: rect · poly · place · fields · help) | 1440 × 960 |
+| `MapKeyboardPattern.dc.html` | Keyboard map editing pattern: focus order, cursor, polygon corners, Place flow, announcements, no scale | 1440 × 960 |
 | `SubMain.dc.html` | Main panel with a subpanel feeder (30/32) selected; panel tabs | 1440 × 960 |
 | `SubGarage.dc.html` | Garage subpanel (short code G), G1 selected, power path | 1440 × 960 |
 | `SubPattern.dc.html` | Pattern sheet: subpanels in add form, settings, header, fed-by, shutoff, trace | 1440 × 960 |
