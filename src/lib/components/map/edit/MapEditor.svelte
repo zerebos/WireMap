@@ -41,6 +41,21 @@
 	} from '$lib/shape';
 	import { PLAN_ACCEPT, planBox, slotsText, uploadPlan } from '../model';
 	import { ITEM_TYPES, ITEM_TYPE_LABELS, type ItemType } from '$lib/constants';
+	import Shortcuts from './Shortcuts.svelte';
+	import {
+		GRID,
+		MIN,
+		cursorStep,
+		fromField,
+		isTextField,
+		posText,
+		sizeOf,
+		snapVal,
+		spokenPos,
+		spokenSize,
+		toField,
+		toGrid
+	} from './keys';
 
 	let {
 		ix,
@@ -56,10 +71,6 @@
 		drawFirst?: boolean;
 		ondone: () => void;
 	} = $props();
-
-	const GRID = 10;
-	const SNAP = 8;
-	const MIN = 60;
 
 	const floor = $derived(ix.floorById.get(floorId)!);
 	const upf = $derived(floor.unitsPerFt);
@@ -84,11 +95,15 @@
 	const planSel = $derived(sel?.k === 'plan');
 
 	function setTool(t: ETool) {
+		const changed = t !== tool;
 		tool = t;
 		placing = null;
 		polyPts = [];
+		kbCorner = null;
 		if (t !== 'select') sel = null;
 		if (t === 'scale') startMeasure();
+		if (t === 'rect' || t === 'poly' || t === 'item') startCursor();
+		if (changed) announce(toolSaid(t));
 	}
 
 	// ---- Drafts: what a drag shows before it's saved
@@ -106,6 +121,14 @@
 	const posOf = (i: HouseItem): Point | null => itemDraft[i.id] ?? (i.x === null || i.y === null ? null : [i.x, i.y]);
 	const shapedRooms = $derived(rooms.map((r) => ({ ...r, shape: shapeOf(r) })));
 	const roomNameAt = (p: Point) => roomAt(p, shapedRooms)?.name ?? 'Not in a room';
+	/** Rooms in reading order, top-left first, so Tab meets them the way the eye does (§5.21). */
+	const orderedRooms = $derived(
+		rooms
+			.map((r) => ({ r, b: parseShape(r.shape) }))
+			.map(({ r, b }) => ({ r, b: b ? bboxOf(b) : { x: Infinity, y: Infinity, w: 0, h: 0 } }))
+			.sort((a, b) => a.b.y - b.b.y || a.b.x - b.b.x || b.b.w * b.b.h - a.b.w * a.b.h || a.r.id - b.r.id)
+			.map(({ r }) => r)
+	);
 	const itemsInside = (s: Shape) =>
 		floorItems.filter((i) => {
 			const p = posOf(i);
@@ -174,10 +197,12 @@
 	}
 	function fit() {
 		const pad = 20;
-		const nz = Math.min(4, Math.max(0.25, Math.min((cw - pad * 2) / floor.planWidth, (ch - pad * 2) / floor.planHeight)));
+		// The status line covers the bottom of the canvas, so the floor fits above it.
+		const bar = 60;
+		const nz = Math.min(4, Math.max(0.25, Math.min((cw - pad * 2) / floor.planWidth, (ch - bar - pad * 2) / floor.planHeight)));
 		z = nz;
 		px = (cw - floor.planWidth * nz) / 2;
-		py = (ch - floor.planHeight * nz) / 2;
+		py = (ch - bar - floor.planHeight * nz) / 2;
 	}
 	$effect(() => {
 		if (!grid) return;
@@ -197,7 +222,6 @@
 	}
 	const clampX = (x: number) => Math.min(Math.max(x, 0), floor.planWidth);
 	const clampY = (y: number) => Math.min(Math.max(y, 0), floor.planHeight);
-	const toGrid = (v: number) => Math.round(v / GRID) * GRID;
 
 	// ---- Snapping: a 10-unit grid, or another room's edge within 8 units (with a guide line)
 	type Guide = { v?: number; h?: number };
@@ -212,19 +236,6 @@
 			else out.push(b.y, b.y + b.h);
 		}
 		return out;
-	}
-	function snapVal(v: number, cands: number[], free: boolean): { v: number; g: number | null } {
-		if (free) return { v, g: null };
-		let best: number | null = null;
-		let bestD = SNAP;
-		for (const c of cands) {
-			const d = Math.abs(c - v);
-			if (d <= bestD) {
-				best = c;
-				bestD = d;
-			}
-		}
-		return best !== null ? { v: best, g: best } : { v: toGrid(v), g: null };
 	}
 	const sizeTip = (b: Rect) => (upf ? `${feet(b.w, upf)} × ${feet(b.h, upf)}` : null);
 
@@ -428,6 +439,10 @@
 	}
 
 	function ongridMove(e: PointerEvent) {
+		// Moving the pointer hides the drawing cursor until the next arrow key. Browsers also send
+		// moves when the page moves under a still pointer, so only a real move counts.
+		if (!lastPointer || lastPointer[0] !== e.clientX || lastPointer[1] !== e.clientY) kbShow = false;
+		lastPointer = [e.clientX, e.clientY];
 		const p = toMap(e);
 		hover = inOverlay(e) ? null : p;
 		const d = drag;
@@ -544,7 +559,9 @@
 		return `New room ${n}`;
 	}
 	let nameInput: HTMLInputElement | undefined = $state();
+	let layoutEl: HTMLElement | undefined = $state();
 	async function addRoom(shape: Shape) {
+		kbCorner = null;
 		const name = newRoomName();
 		const id = await commit(() => createRoom({ floorId, name, kind: 'interior', shape }));
 		tool = 'select';
@@ -619,35 +636,303 @@
 		commit(() => setRoomShape(r.id, { type: 'polygon', points }));
 	}
 
+	// ---- Keyboard drawing (§5.21): a cursor on the canvas that the arrow keys move and Enter acts at.
+	// It shows only while the canvas has keyboard focus and a drawing tool or Place is on.
+	let kc = $state<Point>([0, 0]);
+	let kbCorner = $state<Point | null>(null);
+	let canvasFocused = $state(false);
+	/** The last thing to move the cursor was a key, not the pointer. */
+	let kbShow = $state(false);
+	let focusByKey = false;
+	let kbBusy = false;
+	const kbTool = $derived(tool === 'rect' || tool === 'poly' || tool === 'item' || placing !== null);
+	const kbOn = $derived(canvasFocused && kbShow && kbTool);
+	const rectOf = (a: Point, b: Point): Rect => ({
+		x: Math.min(a[0], b[0]),
+		y: Math.min(a[1], b[1]),
+		w: Math.abs(b[0] - a[0]),
+		h: Math.abs(b[1] - a[1])
+	});
+	/** The room the cursor was last announced in. */
+	let cursorRoom = '';
+	/** Starts the cursor at a point (snapped), or in the middle of the view. */
+	function startCursor(at?: Point) {
+		const c: Point = at ?? [(cw / 2 - px) / z, (ch / 2 - py) / z];
+		kc = [clampX(toGrid(c[0])), clampY(toGrid(c[1]))];
+		kbCorner = null;
+		cursorRoom = roomNameAt(kc);
+	}
+	/** Pans so the cursor stays in view, clear of the status line. */
+	function keepInView(p: Point) {
+		const m = 40;
+		const x = sx(p[0]);
+		const y = sy(p[1]);
+		if (x < m) px += m - x;
+		else if (x > cw - m) px -= x - (cw - m);
+		if (y < m) py += m - y;
+		else if (y > ch - m - 60) py -= y - (ch - m - 60);
+	}
+	function focusCanvas() {
+		focusByKey = true;
+		kbShow = true;
+		grid?.focus({ preventScroll: true });
+		focusByKey = false;
+	}
+	function canvasFocus(e: FocusEvent) {
+		if (e.target !== grid) return;
+		canvasFocused = true;
+		// A mouse click focuses the canvas too, but never shows the cursor.
+		kbShow = focusByKey || grid.matches(':focus-visible');
+	}
+	let lastPointer: [number, number] | null = null;
+
+	// Announcements go to a separate, visually hidden live region, so the status line can follow
+	// every arrow press without being read out each time.
+	let said = $state('');
+	let sayTimer: ReturnType<typeof setTimeout> | undefined;
+	function announce(t: string) {
+		said = '';
+		clearTimeout(sayTimer);
+		sayTimer = setTimeout(() => (said = t), 60);
+	}
+	$effect(() => () => clearTimeout(sayTimer));
+
+	/** The status line (§5.21), or the same words for a screen reader. */
+	function statusText(spoken: boolean): string {
+		const at = (p: Point) => (spoken ? spokenPos(p, upf) : posText(p, upf));
+		const size = (w: number, h: number) => (spoken ? spokenSize(w, h, upf) : sizeOf(w, h, upf));
+		const where = roomNameAt(kc);
+		if (tool === 'rect') {
+			if (!kbCorner) return `Room · cursor at ${at(kc)} in ${where}. Arrow keys move, Enter sets the first corner.`;
+			const r = rectOf(kbCorner, kc);
+			return `Room · first corner at ${at(kbCorner)} · cursor at ${at(kc)}, ${size(r.w, r.h)}. Enter sets the other corner.`;
+		}
+		if (tool === 'poly') {
+			const n = polyPts.length;
+			return `Polygon · ${n} corner${n === 1 ? '' : 's'} · cursor at ${at(kc)}. Enter adds a corner, C closes, Backspace removes the last.`;
+		}
+		if (placingItem) return `Placing ${placingItem.name} · cursor at ${at(kc)} in ${where}. Enter drops it, Esc cancels.`;
+		if (tool === 'item') return `New item · cursor at ${at(kc)} in ${where}. Enter drops it here.`;
+		if (tool !== 'select') return 'Tab to a room or item, or press R, P or I to draw.';
+		if (selItem && selItemPos) return `${selItem.name} · in ${selItemRoom} at ${at(selItemPos)}. Arrows move it; Delete takes it off the map.`;
+		if (selRoom && selBox) {
+			const resize = selShape?.type === 'rect' ? ', Alt+arrows resize' : '';
+			return `${selRoom.name} selected · ${size(selBox.w, selBox.h)} at ${at([selBox.x, selBox.y])}. Arrows move${resize}.`;
+		}
+		return 'Tab to a room or item, or press R, P or I to draw.';
+	}
+	/** "Room tool. Cursor at 0 feet, 28 feet, in Living room. Arrow keys move, Enter sets the first corner." */
+	function toolSaid(t: ETool | 'place'): string {
+		const name = { select: 'Select', rect: 'Room', poly: 'Polygon', item: 'New item', scale: 'Scale', place: '' }[t];
+		if (t === 'select' || t === 'scale') return `${name} tool.`;
+		const rest = statusText(true).split(' · ').slice(1).join('. ');
+		const lead = t === 'place' ? `Placing ${placingItem?.name ?? 'item'}.` : `${name} tool.`;
+		return `${lead} ${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
+	}
+
+	function canvasKey(e: KeyboardEvent) {
+		if (e.target !== grid || !kbTool || e.ctrlKey || e.metaKey || e.altKey) return;
+		const next = cursorStep(kc, e, { x: edges(null, 0), y: edges(null, 1) }, { w: floor.planWidth, h: floor.planHeight });
+		if (next) {
+			e.preventDefault();
+			kbShow = true;
+			kc = next;
+			keepInView(next);
+			const rn = roomNameAt(next);
+			if (rn !== cursorRoom) {
+				cursorRoom = rn;
+				announce(`In ${rn}.`);
+			}
+			return;
+		}
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			// After the pointer, the first Enter only brings the cursor back. A held key or a press
+			// while the last one is still saving never creates a second room or item.
+			if (!kbOn) kbShow = true;
+			else if (!e.repeat && !kbBusy) {
+				kbBusy = true;
+				kbEnter().finally(() => (kbBusy = false));
+			}
+		} else if (e.key === 'Backspace' && tool === 'poly' && kbOn) {
+			e.preventDefault();
+			if (!polyPts.length) return;
+			polyPts = polyPts.slice(0, -1);
+			announce(`Last corner removed. ${polyPts.length} corner${polyPts.length === 1 ? '' : 's'}.`);
+		} else if (e.key.toLowerCase() === 'c' && tool === 'poly' && kbOn) {
+			e.preventDefault();
+			closeKbPoly();
+		}
+	}
+	async function kbEnter() {
+		const p = kc;
+		if (placing !== null) {
+			const id = placing;
+			const name = placingItem?.name ?? 'Item';
+			const index = unplaced.findIndex((i) => i.id === id);
+			placing = null;
+			sel = { k: 'item', id };
+			await commit(() => placeItem(id, floorId, p[0], p[1]));
+			announce(`${name} placed in ${roomNameAt(p)}.`);
+			// The next Place button, so a list of items goes quickly; the canvas once none are left.
+			await tick();
+			const buttons = layoutEl?.querySelectorAll<HTMLButtonElement>('.ub') ?? [];
+			// After the last one in the list, the next is the first that's left.
+			const nextBtn = buttons[index] ?? buttons[0];
+			if (nextBtn) nextBtn.focus();
+			else focusCanvas();
+			return;
+		}
+		if (tool === 'item') {
+			announce(`New ${ITEM_TYPE_LABELS[newType].one.toLowerCase()} placed in ${roomNameAt(p)}.`);
+			await addItem(p);
+			return;
+		}
+		if (tool === 'rect') {
+			if (!kbCorner) {
+				kbCorner = p;
+				announce(`First corner set at ${spokenPos(p, upf)}.`);
+				return;
+			}
+			const r = rectOf(kbCorner, p);
+			if (r.w < MIN || r.h < MIN) {
+				announce(`Too small for a room. Make it at least ${spokenSize(MIN, MIN, upf)}.`);
+				return;
+			}
+			kbCorner = null;
+			announce(`New room created, ${spokenSize(r.w, r.h, upf)}.`);
+			await addRoom({ type: 'rect', ...r });
+			return;
+		}
+		if (tool === 'poly') {
+			const last = polyPts.at(-1);
+			if (polyPts.length >= 3 && dist(p, polyPts[0]) < 0.5) return closeKbPoly();
+			if (last && dist(p, last) < 0.5) return;
+			polyPts = [...polyPts, p];
+			announce(`Corner ${polyPts.length} set.`);
+		}
+	}
+	function closeKbPoly() {
+		if (polyPts.length < 3) return announce('A polygon needs 3 corners.');
+		const points = polyPts;
+		polyPts = [];
+		const b = bboxOf({ type: 'polygon', points });
+		announce(`New room created, ${spokenSize(b.w, b.h, upf)}.`);
+		addRoom({ type: 'polygon', points });
+	}
+
+	// ---- Shortcuts popover: the toolbar button, the status line button and ? open it
+	let helpOpen = $state(false);
+	let helpOpener: HTMLElement | null = null;
+	function toggleHelp(opener: Element | null) {
+		if (helpOpen) return closeHelp();
+		helpOpener = opener instanceof HTMLElement ? opener : null;
+		helpOpen = true;
+	}
+	function closeHelp(restore = true) {
+		helpOpen = false;
+		if (restore) helpOpener?.focus();
+		helpOpener = null;
+	}
+
 	// ---- Keyboard: arrows nudge a grid step (Shift = 1 unit), Esc deselects
 	function nudgeOf(e: KeyboardEvent): Point | null {
 		const step = e.shiftKey ? 1 : GRID;
 		const d: Record<string, Point> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
 		return d[e.key] ?? null;
 	}
-	function roomKey(e: KeyboardEvent, r: Room) {
-		if ((e.key === 'Enter' || e.key === ' ') && tool === 'select' && placing === null) {
+	/** A nudge or resize still saving: a held arrow key waits for it rather than starting from the old shape. */
+	let keyBusy = false;
+	async function keyStep(run: () => Promise<unknown>) {
+		if (keyBusy) return;
+		keyBusy = true;
+		try {
+			await run();
+		} finally {
+			keyBusy = false;
+		}
+	}
+	/** Keeps focus on a room's element when a change moves it in the reading order. */
+	async function refocus(el: HTMLElement) {
+		await tick();
+		if (el.isConnected && document.activeElement !== el) el.focus({ preventScroll: true });
+	}
+	async function roomKey(e: KeyboardEvent, r: Room) {
+		const editing = tool === 'select' && placing === null;
+		if ((e.key === 'Enter' || e.key === ' ') && editing) {
 			e.preventDefault();
 			sel = { k: 'room', id: r.id };
+			return;
+		}
+		if ((e.key === 'Delete' || e.key === 'Backspace') && editing) {
+			e.preventDefault();
+			sel = { k: 'room', id: r.id };
+			if (await removeRoom(r)) {
+				announce(`${r.name} deleted.`);
+				focusCanvas();
+			}
 			return;
 		}
 		const d = nudgeOf(e);
 		if (!d) return;
 		e.preventDefault();
-		const s = shapeOf(r);
-		if (!s) return;
-		sel = { k: 'room', id: r.id };
-		const c = carry ? { itemIds: itemsInside(s).map((i) => i.id), dx: d[0], dy: d[1] } : undefined;
-		commit(() => setRoomShape(r.id, translate(s, d[0], d[1]), c));
+		const el = e.currentTarget as HTMLElement;
+		const { altKey, shiftKey } = e;
+		await keyStep(async () => {
+			// Read the room fresh: the event's copy can be from before the last step saved.
+			const room = rooms.find((x) => x.id === r.id);
+			const s = room ? shapeOf(room) : null;
+			if (!s) return;
+			sel = { k: 'room', id: r.id };
+			if (altKey) {
+				// Alt+arrows resize a rectangle from its right and bottom edges, snapping like the handles.
+				if (s.type !== 'rect') return;
+				const { r: next } = resized(s, d[0] ? 'e' : 's', d[0], d[1], r.id, shiftKey);
+				if (next.w === s.w && next.h === s.h) return;
+				await commit(() => setRoomShape(r.id, { type: 'rect', ...next }));
+			} else {
+				const c = carry ? { itemIds: itemsInside(s).map((i) => i.id), dx: d[0], dy: d[1] } : undefined;
+				await commit(() => setRoomShape(r.id, translate(s, d[0], d[1]), c));
+			}
+		});
+		refocus(el);
 	}
-	function itemKey(e: KeyboardEvent, i: HouseItem) {
+	async function itemKey(e: KeyboardEvent, i: HouseItem) {
+		if ((e.key === 'Enter' || e.key === ' ') && tool === 'select' && placing === null) {
+			e.preventDefault();
+			sel = { k: 'item', id: i.id };
+			return;
+		}
+		if ((e.key === 'Delete' || e.key === 'Backspace') && tool === 'select' && placing === null) {
+			e.preventDefault();
+			await unplace(i);
+			announce(`${i.name} taken off the map.`);
+			focusCanvas();
+			return;
+		}
 		const d = nudgeOf(e);
 		if (!d) return;
 		e.preventDefault();
-		const p = posOf(i);
-		if (!p) return;
-		sel = { k: 'item', id: i.id };
-		commit(() => placeItem(i.id, floorId, clampX(p[0] + d[0]), clampY(p[1] + d[1])));
+		keyStep(async () => {
+			const it = floorItems.find((x) => x.id === i.id);
+			const p = it ? posOf(it) : null;
+			if (!p) return;
+			sel = { k: 'item', id: i.id };
+			await commit(() => placeItem(i.id, floorId, clampX(p[0] + d[0]), clampY(p[1] + d[1])));
+		});
+	}
+	function vertexKey(e: KeyboardEvent, r: Room, index: number) {
+		const d = nudgeOf(e);
+		if (!d || e.altKey) return;
+		e.preventDefault();
+		keyStep(async () => {
+			const room = rooms.find((x) => x.id === r.id);
+			const s = room ? shapeOf(room) : null;
+			if (!s || s.type !== 'polygon') return;
+			const points = s.points.map((q) => [q[0], q[1]] as Point);
+			points[index] = [clampX(points[index][0] + d[0]), clampY(points[index][1] + d[1])];
+			await commit(() => setRoomShape(r.id, { type: 'polygon', points }));
+		});
 	}
 	function measureKey(e: KeyboardEvent, end: 'a' | 'b') {
 		const d = nudgeOf(e);
@@ -657,18 +942,28 @@
 		measure = { ...measure, [end]: [clampX(q[0] + d[0]), clampY(q[1] + d[1])] };
 	}
 	function onkeydown(e: KeyboardEvent) {
-		const inField = !!(e.target as Element).closest?.('input, textarea, select');
+		const inField = isTextField(e.target);
 		if (e.key === 'Escape' && !e.defaultPrevented) {
-			if (inField && (e.target as Element).closest('.insp')) return;
+			if ((e.target as Element).closest?.('.insp input, .insp textarea, .insp select')) return;
 			if (drag?.k === 'new') {
 				drag = null;
 				draft = null;
-			} else if (placing !== null) placing = null;
-			else if (polyPts.length) polyPts = [];
-			else if (tool !== 'select') setTool('select');
+			} else if (helpOpen) closeHelp(false);
+			else if (kbCorner && tool === 'rect') {
+				kbCorner = null;
+				announce('First corner cleared.');
+			} else if (placing !== null) {
+				placing = null;
+				announce('Placing cancelled.');
+			} else if (polyPts.length) {
+				polyPts = [];
+				announce('Shape cleared.');
+			} else if (tool !== 'select') setTool('select');
 			else sel = null;
 			return;
 		}
+		// Alt+arrows resize a focused room; anywhere else in the editor they mustn't go Back a page.
+		if (e.altKey && e.key.startsWith('Arrow') && !inField) e.preventDefault();
 		if (inField || e.metaKey || e.ctrlKey || e.altKey) {
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !inField) {
 				e.preventDefault();
@@ -676,11 +971,18 @@
 			}
 			return;
 		}
+		if (e.key === '?') {
+			e.preventDefault();
+			toggleHelp(document.activeElement);
+			return;
+		}
+		if ((e.target as Element).closest?.('.khelp')) return;
 		const k = e.key.toLowerCase();
-		if (k === 'v') setTool('select');
-		else if (k === 'r') setTool('rect');
-		else if (k === 'p') setTool('poly');
-		else if (k === 'i') setTool('item');
+		const t: ETool | null = k === 'v' ? 'select' : k === 'r' ? 'rect' : k === 'p' ? 'poly' : k === 'i' ? 'item' : null;
+		if (!t) return;
+		// Pressing a drawing tool's key again keeps the shape in progress.
+		if (t !== tool || placing !== null) setTool(t);
+		if (t !== 'select') focusCanvas();
 	}
 
 	// ---- Plan image
@@ -708,6 +1010,7 @@
 	});
 	function togglePlan() {
 		placing = null;
+		kbCorner = null;
 		tool = 'select';
 		sel = planSel ? null : { k: 'plan' };
 	}
@@ -804,20 +1107,92 @@
 		const s = shapeOf(r);
 		if (s?.type === 'rect') commit(() => setRoomShape(r.id, { type: 'polygon', points: pointsOf(s) }));
 	}
-	async function removeRoom(r: Room) {
-		if (!confirm(`Delete ${r.name}? Its items stay where they are and show as “Not in a room”.`)) return;
+	async function removeRoom(r: Room): Promise<boolean> {
+		if (!confirm(`Delete ${r.name}? Its items stay where they are and show as “Not in a room”.`)) return false;
 		sel = null;
 		await commit(() => deleteRoom(r.id));
+		return true;
 	}
 	async function unplace(i: HouseItem) {
 		sel = null;
 		await commit(() => unplaceItem(i.id));
 	}
-	function startPlace(i: HouseItem) {
+	function startPlace(i: HouseItem, e: MouseEvent) {
 		tool = 'select';
 		polyPts = [];
+		kbCorner = null;
 		sel = null;
 		placing = placing === i.id ? null : i.id;
+		if (placing === null) return announce('Placing cancelled.');
+		// The cursor starts in the middle of the item's room when that room is on this floor.
+		const home = shapedRooms.find((r) => r.id === i.roomId)?.shape;
+		const b = home ? bboxOf(home) : null;
+		startCursor(b ? [b.x + b.w / 2, b.y + b.h / 2] : undefined);
+		announce(toolSaid('place'));
+		// Pressed from the keyboard (no pointer position): carry on at the canvas.
+		if (e.detail === 0) focusCanvas();
+	}
+
+	// ---- Number fields (§5.21): feet once a scale is set, otherwise grid steps; one undo step each
+	const unitWord = $derived(upf ? 'feet' : 'grid steps');
+	const unitMark = $derived(upf ? '′' : '');
+	async function setRect(r: Room, patch: Partial<Rect>) {
+		const s = shapeOf(r);
+		if (s?.type !== 'rect') return;
+		const next = { ...s, ...patch };
+		next.w = Math.max(MIN, next.w);
+		next.h = Math.max(MIN, next.h);
+		const dx = next.x - s.x;
+		const dy = next.y - s.y;
+		if (!dx && !dy && next.w === s.w && next.h === s.h) return;
+		const c = carry && (dx || dy) ? { itemIds: itemsInside(s).map((i) => i.id), dx, dy } : undefined;
+		await commit(() => setRoomShape(r.id, next, c));
+	}
+	/** The corner whose row has focus in the Corners list; it's highlighted on the canvas. */
+	let cornerAt = $state<number | null>(null);
+	let cornersFocused = $state(false);
+	$effect(() => {
+		void selId('room');
+		cornerAt = null;
+	});
+	async function setCorner(r: Room, n: number, axis: 0 | 1, v: number) {
+		const s = shapeOf(r);
+		if (s?.type !== 'polygon' || s.points[n][axis] === v) return;
+		const points = s.points.map((q) => [q[0], q[1]] as Point);
+		points[n][axis] = v;
+		await commit(() => setRoomShape(r.id, { type: 'polygon', points }));
+	}
+	const focusCorner = async (n: number) => {
+		await tick();
+		document.getElementById(`cx-${n}`)?.focus();
+	};
+	async function addCorner(r: Room, after: number) {
+		const s = shapeOf(r);
+		if (s?.type !== 'polygon') return;
+		const a = s.points[after];
+		const b = s.points[(after + 1) % s.points.length];
+		const points = s.points.map((q) => [q[0], q[1]] as Point);
+		points.splice(after + 1, 0, [Math.round((a[0] + b[0]) / 2), Math.round((a[1] + b[1]) / 2)]);
+		await commit(() => setRoomShape(r.id, { type: 'polygon', points }));
+		cornerAt = after + 1;
+		focusCorner(after + 1);
+	}
+	async function removeCorner(r: Room, n: number) {
+		const s = shapeOf(r);
+		if (s?.type !== 'polygon' || s.points.length <= 3) return;
+		await commit(() => setRoomShape(r.id, { type: 'polygon', points: s.points.filter((_, k) => k !== n) }));
+		cornerAt = Math.min(n, s.points.length - 2);
+		focusCorner(cornerAt);
+	}
+	/** An item's typed position: a live preview while typing (its room follows), saved on change. */
+	async function setItemAt(i: HouseItem, axis: 0 | 1, v: number, save: boolean) {
+		const p = posOf(i);
+		if (!p) return;
+		const next: Point = [p[0], p[1]];
+		next[axis] = axis ? clampY(v) : clampX(v);
+		if (!save) return void (itemDraft = { [i.id]: next });
+		if (next[0] === i.x && next[1] === i.y) return void (itemDraft = {});
+		await commit(() => placeItem(i.id, floorId, next[0], next[1]));
 	}
 
 	// ---- Derived view bits
@@ -849,6 +1224,33 @@
 		return `${ix.roomName(i.roomId)}${bs.length ? ` · on ${slotsText(ix, bs)}` : ''}`;
 	};
 	const cursor = $derived(placing !== null || tool === 'rect' || tool === 'poly' || tool === 'item' ? 'crosshair' : 'default');
+	const status = $derived(statusText(false));
+	const hints = $derived<[string, string][]>(
+		tool === 'rect'
+			? [
+					['Enter', kbCorner ? 'finish' : 'corner'],
+					['Esc', 'cancel']
+				]
+			: tool === 'poly'
+				? [
+						['Enter', 'corner'],
+						['C', 'close'],
+						['Esc', 'cancel']
+					]
+				: kbTool
+					? [
+							['Enter', 'drop'],
+							['Esc', 'cancel']
+						]
+					: tool === 'select' && selShape?.type === 'rect'
+						? [['Alt+arrows', 'resize']]
+						: []
+	);
+	// While the cursor shows, the status line says what the banner would; the Item banner stays for its types.
+	const showBanner = $derived(!!banner && !(kbOn && tool !== 'item'));
+	const canvasLabel = $derived(
+		`${floor.name} layout. ${kbTool ? 'Arrow keys move the drawing cursor, Enter acts.' : 'Press R, P or I to draw with the keyboard, or Tab to rooms and items.'}`
+	);
 	const pts = (s: Point[]) => s.map((p) => `${sx(p[0])},${sy(p[1])}`).join(' ');
 	const itemAria = (i: HouseItem) => `${i.name}, ${ix.typeLabel(i)}, in ${roomNameAt(posOf(i)!)}. Drag to move.`;
 	const roomAria = (r: Room, s: Shape) => `${r.name}${upf ? `, ${sizeText(s, upf).replace(' × ', ' by ')}` : ''}. Drag to move; arrow keys nudge.`;
@@ -856,7 +1258,43 @@
 
 <svelte:window {onkeydown} />
 
-<aside aria-label="Layout" class="layout">
+<!-- The toolbar comes first in the DOM so focus goes toolbar → left panel → canvas → inspector (§5.21);
+     the grid puts it above the canvas. -->
+<div class="ed">
+<div class="bar">
+	<span class="edit-pill"><Icon name="pencil" size={14} stroke={2.2} />Editing {floor.name}</span>
+	<div class="seg" role="group" aria-label="Tool">
+		<button type="button" class="sb" class:is-on={tool === 'select'} aria-pressed={tool === 'select'} title="Select and move (V)" onclick={() => setTool('select')}
+			>Select</button
+		>
+		<button type="button" class="sb" class:is-on={tool === 'rect'} aria-pressed={tool === 'rect'} title="Rectangle room (R)" onclick={() => setTool('rect')}
+			>Room</button
+		>
+		<button type="button" class="sb" class:is-on={tool === 'poly'} aria-pressed={tool === 'poly'} title="Polygon room (P)" onclick={() => setTool('poly')}
+			>Polygon</button
+		>
+		<button type="button" class="sb" class:is-on={tool === 'item'} aria-pressed={tool === 'item'} title="New item (I)" onclick={() => setTool('item')}
+			>Item</button
+		>
+		<button type="button" class="sb" class:is-on={tool === 'scale'} aria-pressed={tool === 'scale'} title="Set scale" onclick={() => setTool('scale')}
+			>Scale</button
+		>
+	</div>
+	<button type="button" class="sb planbtn" class:is-on={planSel} aria-pressed={planSel} onclick={togglePlan}>Floor plan</button>
+	<button
+		type="button"
+		class="ibtn tbtn push"
+		aria-label="Keyboard shortcuts"
+		title="Keyboard shortcuts (?)"
+		aria-expanded={helpOpen}
+		aria-controls="khelp"
+		onclick={(e) => toggleHelp(e.currentTarget)}><Icon name="keyboard" size={18} /></button
+	>
+	<button type="button" class="ibtn tbtn" aria-label="Undo" title="Undo" disabled={!history.length} onclick={undo}><Icon name="undo" size={16} /></button>
+	<button type="button" class="btn btn-pri done" onclick={ondone}>Done editing</button>
+</div>
+
+<aside aria-label="Layout" class="layout" bind:this={layoutEl}>
 	<div class="lscroll">
 		<div class="lh"><h2>Rooms</h2><span class="mono cnt">{rooms.length}</span></div>
 		{#each rooms as r (r.id)}
@@ -884,7 +1322,7 @@
 			<div class="urow">
 				<span class="ico u"><Icon name={i.type} size={16} /></span>
 				<span class="ut"><span class="un">{i.name}</span><span class="uw">{whereUnplaced(i)}</span></span>
-				<button type="button" class="btn ub" class:btn-pri={placing === i.id} aria-pressed={placing === i.id} onclick={() => startPlace(i)}
+				<button type="button" class="btn ub" class:btn-pri={placing === i.id} aria-pressed={placing === i.id} onclick={(e) => startPlace(i, e)}
 					>{placing === i.id ? 'Placing…' : 'Place'}<span class="sr"> {i.name}</span></button
 				>
 			</div>
@@ -895,43 +1333,50 @@
 </aside>
 
 <section aria-label="Floor layout editor" class="edcol">
-	<div class="bar">
-		<span class="edit-pill"><Icon name="pencil" size={14} stroke={2.2} />Editing {floor.name}</span>
-		<div class="seg" role="group" aria-label="Tool">
-			<button type="button" class="sb" class:is-on={tool === 'select'} aria-pressed={tool === 'select'} title="Select and move (V)" onclick={() => setTool('select')}
-				>Select</button
-			>
-			<button type="button" class="sb" class:is-on={tool === 'rect'} aria-pressed={tool === 'rect'} title="Rectangle room (R)" onclick={() => setTool('rect')}
-				>Room</button
-			>
-			<button type="button" class="sb" class:is-on={tool === 'poly'} aria-pressed={tool === 'poly'} title="Polygon room (P)" onclick={() => setTool('poly')}
-				>Polygon</button
-			>
-			<button type="button" class="sb" class:is-on={tool === 'item'} aria-pressed={tool === 'item'} title="New item (I)" onclick={() => setTool('item')}
-				>Item</button
-			>
-			<button type="button" class="sb" class:is-on={tool === 'scale'} aria-pressed={tool === 'scale'} title="Set scale" onclick={() => setTool('scale')}
-				>Scale</button
+	{#if showBanner}
+		<!-- Before the canvas, so Shift+Tab from the canvas reaches the item types and Cancel. -->
+		<div class="banner ovl" role="status">
+			<span>{banner}</span>
+			{#if tool === 'item' && placing === null}
+				<div class="seg types" role="group" aria-label="Item type">
+					{#each ITEM_TYPES as t (t)}
+						<button type="button" class="sb" class:is-on={newType === t} aria-pressed={newType === t} onclick={() => (newType = t)}
+							><Icon name={t} size={14} />{ITEM_TYPE_LABELS[t].one}</button
+						>
+					{/each}
+				</div>
+			{/if}
+			<button
+				type="button"
+				class="btn bb"
+				onclick={() => {
+					placing = null;
+					setTool('select');
+				}}>Cancel</button
 			>
 		</div>
-		<button type="button" class="sb planbtn" class:is-on={planSel} aria-pressed={planSel} onclick={togglePlan}>Floor plan</button>
-		<div class="grow"></div>
-		<button type="button" class="ibtn undo" aria-label="Undo" title="Undo" disabled={!history.length} onclick={undo}><Icon name="undo" size={16} /></button>
-		<button type="button" class="btn btn-pri done" onclick={ondone}>Done editing</button>
-	</div>
+	{/if}
 
-	<!-- Pointer handling for drawing and dragging. Every action here also has a keyboard path:
-	     rooms and items are buttons that take arrow keys, tools have buttons, Esc cancels. -->
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<!-- The canvas: one tab stop that holds the drawing cursor (§5.21), with the rooms, items and
+	     handles inside it as their own buttons. Pointer handling for drawing and dragging lives here
+	     too; every pointer action also has a keyboard path. -->
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 	<div
 		class="grid"
 		class:drawing={tool === 'rect' || tool === 'poly' || tool === 'item'}
 		bind:this={grid}
 		bind:clientWidth={cw}
 		bind:clientHeight={ch}
+		tabindex="0"
+		role="group"
+		aria-label={canvasLabel}
+		aria-describedby="kstatus"
 		style:cursor
 		style:background-size="{20 * z}px {20 * z}px"
 		style:background-position="{px}px {py}px"
+		onfocus={canvasFocus}
+		onblur={(e) => e.target === grid && (canvasFocused = false)}
+		onkeydown={canvasKey}
 		onpointerdowncapture={ongridDownCapture}
 		onpointerdown={ongridDown}
 		onpointermove={ongridMove}
@@ -975,7 +1420,7 @@
 			{/if}
 		{/if}
 
-		{#each rooms as r (r.id)}
+		{#each orderedRooms as r (r.id)}
 			{@const s = shapeOf(r)}
 			{#if s?.type === 'rect'}
 				<button
@@ -991,15 +1436,11 @@
 					aria-pressed={selRoom?.id === r.id}
 					onpointerdown={(e) => roomDown(e, r)}
 					onkeydown={(e) => roomKey(e, r)}
-					onfocus={() => tool === 'select' && placing === null && (sel = { k: 'room', id: r.id })}><span class="rn">{r.name}</span></button
+					><span class="rn">{r.name}</span></button
 				>
-			{/if}
-		{/each}
-		<svg class="polys" width={cw} height={ch}>
-			{#each rooms as r (r.id)}
-				{@const s = shapeOf(r)}
-				{#if s?.type === 'polygon'}
-					{@const b = bboxOf(s)}
+			{:else if s?.type === 'polygon'}
+				{@const b = bboxOf(s)}
+				<svg class="polys" width={cw} height={ch}>
 					<a
 						class="poly"
 						data-room={r.id}
@@ -1011,59 +1452,38 @@
 						onpointerdown={(e) => roomDown(e, r)}
 						onkeydown={(e) => roomKey(e, r)}
 						onclick={(e) => e.preventDefault()}
-						onfocus={() => tool === 'select' && placing === null && (sel = { k: 'room', id: r.id })}
 					>
 						<polygon points={pts(s.points)} />
 						<text x={sx(b.x) + 10} y={sy(b.y) + 19}>{r.name}</text>
 					</a>
-				{/if}
-			{/each}
+				</svg>
+			{/if}
+		{/each}
+		<svg class="polys drafts" width={cw} height={ch}>
 			{#if drag?.k === 'new' && draft}
 				<rect class="draft" x={sx(draft.x)} y={sy(draft.y)} width={draft.w * z} height={draft.h * z} />
 			{/if}
+			{#if kbOn && tool === 'rect' && kbCorner}
+				{@const d = rectOf(kbCorner, kc)}
+				<rect class="draft" x={sx(d.x)} y={sy(d.y)} width={d.w * z} height={d.h * z} />
+			{/if}
 			{#if polyPts.length}
-				{@const all = hover ? [...polyPts, hover] : polyPts}
+				{@const end = kbOn ? kc : hover}
+				{@const all = end ? [...polyPts, end] : polyPts}
 				<polyline class="draft" points={pts(all)} />
 				{#each polyPts as p, n (n)}
-					<circle cx={sx(p[0])} cy={sy(p[1])} r={n === 0 ? 6 : 5} class={n === 0 ? 'pfirst' : 'pcorner'} />
+					{#if kbOn}
+						<!-- The keyboard's corners: the first is a hollow ring, the others solid dots. -->
+						<circle cx={sx(p[0])} cy={sy(p[1])} r={n === 0 ? 5.75 : 5} class={n === 0 ? 'kfirst' : 'pfirst'} />
+					{:else}
+						<circle cx={sx(p[0])} cy={sy(p[1])} r={n === 0 ? 6 : 5} class={n === 0 ? 'pfirst' : 'pcorner'} />
+					{/if}
 				{/each}
 			{/if}
 			{#if tool === 'scale'}
 				<line class="mline" x1={sx(measure.a[0])} y1={sy(measure.a[1])} x2={sx(measure.b[0])} y2={sy(measure.b[1])} />
 			{/if}
 		</svg>
-
-		{#if selRoom && selShape && tool === 'select'}
-			{#if selShape.type === 'rect'}
-				{#each HANDLES as [h, fx, fy, cur] (h)}
-					<button
-						type="button"
-						class="hd"
-						style:left="{sx(selShape.x + selShape.w * fx)}px"
-						style:top="{sy(selShape.y + selShape.h * fy)}px"
-						style:cursor={cur}
-						aria-label="Resize {selRoom.name} from {h.toUpperCase()}"
-						onpointerdown={(e) => handleDown(e, selRoom, h)}
-					></button>
-				{/each}
-			{:else}
-				{#each selShape.points as p, n (n)}
-					<button
-						type="button"
-						class="hd"
-						style:left="{sx(p[0])}px"
-						style:top="{sy(p[1])}px"
-						style:cursor="move"
-						aria-label="Corner {n + 1} of {selRoom.name}"
-						onpointerdown={(e) => vertexDown(e, selRoom, n)}
-					></button>
-				{/each}
-			{/if}
-			{#if upf && selBox}
-				<span class="dim w" style:left="{sx(selBox.x + selBox.w / 2)}px" style:top="{sy(selBox.y) - 26}px">{feet(selBox.w, upf)}</span>
-				<span class="dim" style:left="{sx(selBox.x + selBox.w) + 12}px" style:top="{sy(selBox.y + selBox.h / 2) - 10}px">{feet(selBox.h, upf)}</span>
-			{/if}
-		{/if}
 
 		{#each floorItems as i (i.id)}
 			{@const p = posOf(i)}
@@ -1079,12 +1499,48 @@
 					aria-pressed={selItem?.id === i.id}
 					onpointerdown={(e) => itemDown(e, i)}
 					onkeydown={(e) => itemKey(e, i)}
-					onfocus={() => tool === 'select' && placing === null && (sel = { k: 'item', id: i.id })}
 				>
 					<Icon name={i.type} size={16} />
 				</button>
 			{/if}
 		{/each}
+
+		<!-- Handles after the items: a rectangle resizes from the keyboard with Alt+arrows on the room,
+		     so only a polygon's corners are tab stops. -->
+		{#if selRoom && selShape && tool === 'select'}
+			{#if selShape.type === 'rect'}
+				{#each HANDLES as [h, fx, fy, cur] (h)}
+					<button
+						type="button"
+						class="hd"
+						tabindex="-1"
+						style:left="{sx(selShape.x + selShape.w * fx)}px"
+						style:top="{sy(selShape.y + selShape.h * fy)}px"
+						style:cursor={cur}
+						aria-label="Resize {selRoom.name} from {h.toUpperCase()}"
+						onpointerdown={(e) => handleDown(e, selRoom, h)}
+					></button>
+				{/each}
+			{:else}
+				{#each selShape.points as p, n (n)}
+					<button
+						type="button"
+						class="hd"
+						class:is-hi={cornersFocused && cornerAt === n}
+						style:left="{sx(p[0])}px"
+						style:top="{sy(p[1])}px"
+						style:cursor="move"
+						aria-label="Corner {n + 1} of {selRoom.name}. Drag, or use the arrow keys."
+						onpointerdown={(e) => vertexDown(e, selRoom, n)}
+						onkeydown={(e) => vertexKey(e, selRoom, n)}
+					></button>
+				{/each}
+			{/if}
+			{#if upf && selBox}
+				<span class="dim w" style:left="{sx(selBox.x + selBox.w / 2)}px" style:top="{sy(selBox.y) - 26}px">{feet(selBox.w, upf)}</span>
+				<span class="dim" style:left="{sx(selBox.x + selBox.w) + 12}px" style:top="{sy(selBox.y + selBox.h / 2) - 10}px">{feet(selBox.h, upf)}</span>
+			{/if}
+		{/if}
 
 		{#if guide.v !== undefined}<div class="guide v" style:left="{sx(guide.v)}px"></div>{/if}
 		{#if guide.h !== undefined}<div class="guide h" style:top="{sy(guide.h)}px"></div>{/if}
@@ -1118,43 +1574,38 @@
 			>
 		{/if}
 
-		{#if (placingItem || tool === 'item') && hover}
+		{#if (placingItem || tool === 'item') && hover && !kbOn}
 			<div class="ghost" style:left="{sx(hover[0]) - 16}px" style:top="{sy(hover[1]) - 16}px"><Icon name={placingItem?.type ?? newType} size={16} /></div>
 		{/if}
 
-		{#if banner}
-			<div class="banner ovl" role="status">
-				<span>{banner}</span>
-				{#if tool === 'item' && placing === null}
-					<div class="seg types" role="group" aria-label="Item type">
-						{#each ITEM_TYPES as t (t)}
-							<button type="button" class="sb" class:is-on={newType === t} aria-pressed={newType === t} onclick={() => (newType = t)}
-								><Icon name={t} size={14} />{ITEM_TYPE_LABELS[t].one}</button
-							>
-						{/each}
-					</div>
-				{/if}
-				<button
-					type="button"
-					class="btn bb"
-					onclick={() => {
-						placing = null;
-						setTool('select');
-					}}>Cancel</button
-				>
-			</div>
+		{#if kbOn}
+			<!-- The drawing cursor: crosshair lines, an amber ring, and a chip with where it is. -->
+			<div class="kx h" style:top="{sy(kc[1])}px"></div>
+			<div class="kx v" style:left="{sx(kc[0])}px"></div>
+			{#if tool === 'rect' && kbCorner}
+				{@const d = rectOf(kbCorner, kc)}
+				<span class="kdot" style:left="{sx(kbCorner[0])}px" style:top="{sy(kbCorner[1])}px"></span>
+				<span class="dim w kdim" style:left="{sx(d.x + d.w / 2)}px" style:top="{sy(d.y) - 24}px">{sizeOf(d.w, d.h, upf)}</span>
+			{/if}
+			<span class="kring" style:left="{sx(kc[0])}px" style:top="{sy(kc[1])}px"></span>
+			<span class="klab" style:left="{sx(kc[0]) + 16}px" style:top="{sy(kc[1]) + 12}px">{posText(kc, upf)} · {roomNameAt(kc)}</span>
 		{/if}
-		<div class="hints ovl">
-			<span><span class="mono k">Arrows</span> nudge 1 grid step</span><span><span class="mono k">Shift</span> no snapping</span><span
-				><span class="mono k">Esc</span> cancel</span
-			>
-		</div>
-		<div class="zoom ovl">
-			<button type="button" class="zb" aria-label="Zoom out" onclick={() => zoomAt(1 / 1.25)}>−</button>
-			<span class="mono zt" aria-live="polite">{Math.round(z * 100)}%</span>
-			<button type="button" class="zb" aria-label="Zoom in" onclick={() => zoomAt(1.25)}>+</button>
-			<button type="button" class="zb fit" aria-label="Fit floor to screen" onclick={fit}><Icon name="fit" size={16} /></button>
-		</div>
+	</div>
+
+	<div class="kbar ovl">
+		<p class="kt" id="kstatus">{status}</p>
+		{#each hints as [k, t] (k)}<span class="khint"><span class="kk">{k}</span>{t}</span>{/each}
+		<button type="button" class="btn kbtn" aria-expanded={helpOpen} aria-controls="khelp" onclick={(e) => toggleHelp(e.currentTarget)}
+			><span class="kk">?</span>Shortcuts</button
+		>
+	</div>
+	<div class="sr" aria-live="polite">{said}</div>
+	{#if helpOpen}<Shortcuts id="khelp" onclose={() => closeHelp()} />{/if}
+	<div class="zoom ovl">
+		<button type="button" class="zb" aria-label="Zoom out" onclick={() => zoomAt(1 / 1.25)}>−</button>
+		<span class="mono zt" aria-live="polite">{Math.round(z * 100)}%</span>
+		<button type="button" class="zb" aria-label="Zoom in" onclick={() => zoomAt(1.25)}>+</button>
+		<button type="button" class="zb fit" aria-label="Fit floor to screen" onclick={fit}><Icon name="fit" size={16} /></button>
 	</div>
 </section>
 
@@ -1196,10 +1647,71 @@
 						>
 					</div>
 				</div>
-				<div class="two">
-					<div class="fld"><span class="k">Size</span><span class="mono ro">{upf ? sizeText(selShape, upf) : '—'}</span></div>
-					<div class="fld"><span class="k">Shape</span><span class="ro">{selShape.type === 'rect' ? 'Rectangle' : 'Polygon'}</span></div>
-				</div>
+				{#if selShape.type === 'rect'}
+					{@const get = (k: 'x' | 'y' | 'w' | 'h') => () => (selShape.type === 'rect' ? selShape[k] : 0)}
+					{@const set = (k: 'x' | 'y' | 'w' | 'h') => (v: number, save: boolean) => save && setRect(r, { [k]: v })}
+					<div class="fld">
+						<span class="k" id="pos-l">Position <span class="kn">(from the top-left corner of the floor)</span></span>
+						<div class="numf" role="group" aria-labelledby="pos-l">
+							{@render num('rx', `Left edge, ${unitWord}`, `x${unitMark}`, get('x'), set('x'))}
+							{@render num('ry', `Top edge, ${unitWord}`, `y${unitMark}`, get('y'), set('y'))}
+						</div>
+					</div>
+					<div class="fld">
+						<span class="k" id="size-l">Size</span>
+						<div class="numf" role="group" aria-labelledby="size-l">
+							{@render num('rw', `Width, ${unitWord}`, `w${unitMark}`, get('w'), set('w'), MIN)}
+							{@render num('rh', `Depth, ${unitWord}`, `d${unitMark}`, get('h'), set('h'), MIN)}
+						</div>
+						<span class="fh">{upf ? 'Rectangle · steps of 6″. Without a scale these count grid steps.' : 'Set a scale to use feet'}</span>
+					</div>
+				{:else}
+					{@const pts = selShape.points}
+					{@const after = cornerAt ?? pts.length - 1}
+					<div
+						class="fld"
+						onfocusin={() => (cornersFocused = true)}
+						onfocusout={(e) => {
+							if (!e.currentTarget.contains(e.relatedTarget as Node | null)) cornersFocused = false;
+						}}
+					>
+						<span class="k" id="cn-l">Corners</span>
+						<div class="clist" role="group" aria-labelledby="cn-l">
+							<div class="crow chead" aria-hidden="true"><span>#</span><span>x{unitMark}</span><span>y{unitMark}</span><span></span></div>
+							{#each pts as p, n (n)}
+								<div class="crow" class:is-on={cornerAt === n} onfocusin={() => (cornerAt = n)}>
+									<span class="mono cn" class:dimn={cornerAt !== n}>{n + 1}</span>
+									{#each [0, 1] as const as axis (axis)}
+										<input
+											id="c{axis ? 'y' : 'x'}-{n}"
+											class="inp ci"
+											type="number"
+											step={upf ? 0.5 : 1}
+											aria-label="Corner {n + 1} {axis ? 'down' : 'across'}, {unitWord}"
+											value={toField(p[axis], upf)}
+											onchange={async (e) => {
+												const input = e.currentTarget;
+												const v = input.valueAsNumber;
+												if (Number.isFinite(v)) await setCorner(r, n, axis, fromField(v, upf));
+												const now = shapeOf(r);
+												if (now?.type === 'polygon' && now.points[n]) input.value = String(toField(now.points[n][axis], upf));
+											}}
+										/>
+									{/each}
+									<button
+										type="button"
+										class="ibtn cx"
+										aria-label="Remove corner {n + 1}"
+										disabled={pts.length <= 3}
+										onclick={() => removeCorner(r, n)}>×</button
+									>
+								</div>
+							{/each}
+						</div>
+						<button type="button" class="btn start" onclick={() => addCorner(r, after)}>+ Add a corner after {after + 1}</button>
+						{#if !upf}<span class="fh">Set a scale to use feet</span>{/if}
+					</div>
+				{/if}
 				{#if !upf}
 					<button type="button" class="btn start" onclick={() => setTool('scale')}>Set a scale to see sizes in feet</button>
 				{/if}
@@ -1227,6 +1739,18 @@
 					<span class="rb">{selItemRoom}</span>
 					{#if selItemWas}<span class="was">Was {selItemWas}</span>{/if}
 				</div>
+				{#if selItemPos}
+					{@const get = (axis: 0 | 1) => () => (axis ? i.y : i.x) ?? 0}
+					{@const set = (axis: 0 | 1) => (v: number, save: boolean) => setItemAt(i, axis, v, save)}
+					<div class="fld">
+						<span class="k" id="ipos-l">Position</span>
+						<div class="numf" role="group" aria-labelledby="ipos-l">
+							{@render num('ix', `Across, ${unitWord}`, `x${unitMark}`, get(0), set(0))}
+							{@render num('iy', `Down, ${unitWord}`, `y${unitMark}`, get(1), set(1))}
+						</div>
+						{#if !upf}<span class="fh">Set a scale to use feet</span>{/if}
+					</div>
+				{/if}
 				{#if i.breakerIds.length}
 					<div class="fld"><span class="k">{i.breakerIds.length > 1 ? 'Breakers' : 'Breaker'}</span><span class="mono ro">{slotsText(ix, ix.breakersOf(i))}</span></div>
 				{:else}
@@ -1238,7 +1762,7 @@
 						</select>
 					</div>
 				{/if}
-				<span class="hint">Drag it, or use the arrow keys. Its room updates from the position; breakers don’t change.</span>
+				<span class="hint">Drag it, use the arrow keys, or type a position. Its room updates from the position; breakers don’t change.</span>
 				<button type="button" class="btn start" onclick={() => unplace(i)}>Remove from map</button>
 			</div>
 		{:else if planSel}
@@ -1314,12 +1838,49 @@
 		{/if}
 	</div>
 </aside>
+</div>
+
+{#snippet num(id: string, label: string, mark: string, get: () => number, apply: (units: number, save: boolean) => unknown, min?: number)}
+	<div class="unit">
+		<label class="sr" for={id}>{label}</label>
+		<input
+			{id}
+			class="inp"
+			type="number"
+			step={upf ? 0.5 : 1}
+			min={min !== undefined ? Math.ceil(toField(min, upf) / (upf ? 0.5 : 1)) * (upf ? 0.5 : 1) : undefined}
+			value={toField(get(), upf)}
+			oninput={(e) => {
+				const v = e.currentTarget.valueAsNumber;
+				if (Number.isFinite(v)) apply(fromField(v, upf), false);
+			}}
+			onchange={async (e) => {
+				const input = e.currentTarget;
+				const v = input.valueAsNumber;
+				if (Number.isFinite(v)) await apply(fromField(v, upf), true);
+				// Show what was kept: a size under the minimum, or a value that wasn't a number.
+				input.value = String(toField(get(), upf));
+			}}
+		/>
+		<span class="um" aria-hidden="true">{mark}</span>
+	</div>
+{/snippet}
 
 <style>
+	/* The editor: left panel, toolbar over the canvas, inspector */
+	.ed {
+		flex: 1 1 0;
+		min-width: 0;
+		min-height: 0;
+		display: grid;
+		grid-template-columns: 300px minmax(0, 1fr) 320px;
+		grid-template-rows: 60px minmax(0, 1fr);
+	}
+
 	/* Left: rooms and unplaced items */
 	.layout {
-		width: 300px;
-		flex-shrink: 0;
+		grid-column: 1;
+		grid-row: 1 / 3;
 		background: var(--raised);
 		border-right: 1px solid var(--line-2);
 		display: flex;
@@ -1435,18 +1996,24 @@
 
 	/* Middle: toolbar and canvas */
 	.edcol {
-		flex: 1 1 0;
+		grid-column: 2;
+		grid-row: 2;
 		min-width: 0;
+		min-height: 0;
+		position: relative;
 		display: flex;
 		flex-direction: column;
 	}
 	.bar {
+		grid-column: 2;
+		grid-row: 1;
+		min-width: 0;
 		height: 60px;
-		flex-shrink: 0;
 		padding: 0 12px;
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		/* 8px, not 10: the toolbar gained the shortcuts button and has to fit 820px at 1440 wide. */
+		gap: 8px;
 		background: var(--raised);
 		border-bottom: 1px solid var(--line-2);
 	}
@@ -1470,9 +2037,12 @@
 	.grow {
 		flex-grow: 1;
 	}
-	.undo {
+	.tbtn {
 		width: 38px;
 		height: 38px;
+	}
+	.push {
+		margin-left: auto;
 	}
 	.done {
 		height: 38px;
@@ -1486,6 +2056,13 @@
 		user-select: none;
 		background-color: var(--grid-bg);
 		background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+	}
+	.grid:focus {
+		outline: none;
+	}
+	.grid:focus-visible {
+		outline: 3px solid var(--focus);
+		outline-offset: -3px;
 	}
 	.plan {
 		position: absolute;
@@ -1628,8 +2205,12 @@
 		z-index: 3;
 		touch-action: none;
 	}
-	.hd:hover {
+	.hd:hover,
+	.hd.is-hi {
 		background: var(--amber);
+	}
+	.hd.is-hi {
+		box-shadow: 0 0 0 3px var(--amber-soft);
 	}
 	.dim {
 		position: absolute;
@@ -1755,23 +2336,111 @@
 	.bb {
 		height: 34px;
 	}
-	.hints {
+	/* The drawing cursor (§5.21) */
+	.kx {
 		position: absolute;
-		left: 14px;
-		bottom: 12px;
-		font-size: 12px;
-		color: var(--muted);
-		display: flex;
-		gap: 14px;
+		pointer-events: none;
+		z-index: 9;
+		opacity: 0.7;
+	}
+	.kx.h {
+		left: 0;
+		right: 0;
+		height: 0;
+		border-top: 1px dashed var(--amber);
+	}
+	.kx.v {
+		top: 0;
+		bottom: 0;
+		width: 0;
+		border-left: 1px dashed var(--amber);
+	}
+	.kring {
+		position: absolute;
+		width: 22px;
+		height: 22px;
+		margin: -11px 0 0 -11px;
+		border: 2.5px solid var(--amber);
+		border-radius: 50%;
+		background: color-mix(in srgb, var(--amber) 18%, transparent);
+		pointer-events: none;
+		z-index: 10;
+	}
+	.kdot {
+		position: absolute;
+		width: 10px;
+		height: 10px;
+		margin: -5px 0 0 -5px;
+		border-radius: 50%;
+		background: var(--amber);
+		pointer-events: none;
+		z-index: 10;
+	}
+	.kfirst {
+		fill: var(--surface);
+		stroke: var(--amber);
+		stroke-width: 2.5;
+	}
+	.klab {
+		position: absolute;
+		z-index: 10;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		font-weight: 600;
+		background: var(--amber);
+		color: var(--on-amber);
+		padding: 3px 7px;
+		border-radius: var(--r-sm);
+		white-space: nowrap;
 		pointer-events: none;
 	}
-	.k {
-		color: var(--soft);
+	.dim.kdim {
+		z-index: 10;
+	}
+	.drafts {
+		z-index: 8;
+	}
+
+	/* The status line replaces the old hint row */
+	.kbar {
+		position: absolute;
+		left: 12px;
+		right: 12px;
+		bottom: 10px;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 8px 8px 8px 14px;
+		border: 1px solid var(--line-2);
+		border-radius: var(--r-xl);
+		background: var(--surface);
+		box-shadow: var(--shadow-pop);
+		z-index: 11;
+		cursor: default;
+	}
+	.kt {
+		flex-grow: 1;
+		font-size: 13px;
+		line-height: 1.4;
+		min-width: 0;
+	}
+	.khint {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 12px;
+		color: var(--muted);
+		white-space: nowrap;
+	}
+	.kbtn {
+		height: 34px;
+		padding: 0 10px;
+		font-size: 13px;
 	}
 	.zoom {
 		position: absolute;
 		right: 16px;
-		bottom: 14px;
+		bottom: 72px;
 		display: flex;
 		align-items: center;
 		background: var(--surface);
@@ -1812,8 +2481,8 @@
 
 	/* Right: inspector */
 	.insp {
-		width: 320px;
-		flex-shrink: 0;
+		grid-column: 3;
+		grid-row: 1 / 3;
 		background: var(--surface);
 		border-left: 1px solid var(--line-2);
 		display: flex;
@@ -1953,5 +2622,77 @@
 	.row {
 		display: flex;
 		gap: 8px;
+	}
+
+	/* Number fields (§5.21) */
+	.kn {
+		font-weight: 500;
+	}
+	.numf {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 10px;
+	}
+	.unit {
+		position: relative;
+	}
+	.unit .inp {
+		padding-right: 28px;
+		font-family: var(--font-mono);
+		font-size: 13px;
+	}
+	.um {
+		position: absolute;
+		right: 10px;
+		top: 50%;
+		transform: translateY(-50%);
+		font-family: var(--font-mono);
+		font-size: 12px;
+		color: var(--muted);
+		pointer-events: none;
+	}
+	.fh {
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.clist {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.crow {
+		display: grid;
+		grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 36px;
+		gap: 8px;
+		align-items: center;
+		padding: 2px 4px;
+		border-radius: var(--r-md);
+	}
+	.crow.is-on {
+		background: var(--amber-soft);
+	}
+	.chead {
+		min-height: 24px;
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.cn {
+		font-size: 13px;
+	}
+	.cn.dimn {
+		color: var(--muted);
+	}
+	.ci {
+		height: 36px;
+		font-family: var(--font-mono);
+		font-size: 13px;
+	}
+	.cx {
+		width: 36px;
+		height: 36px;
+		font-size: 16px;
 	}
 </style>
