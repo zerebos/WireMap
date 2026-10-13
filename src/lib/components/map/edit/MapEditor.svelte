@@ -197,10 +197,12 @@
 	}
 	function fit() {
 		const pad = 20;
-		const nz = Math.min(4, Math.max(0.25, Math.min((cw - pad * 2) / floor.planWidth, (ch - pad * 2) / floor.planHeight)));
+		// The status line covers the bottom of the canvas, so the floor fits above it.
+		const bar = 60;
+		const nz = Math.min(4, Math.max(0.25, Math.min((cw - pad * 2) / floor.planWidth, (ch - bar - pad * 2) / floor.planHeight)));
 		z = nz;
 		px = (cw - floor.planWidth * nz) / 2;
-		py = (ch - floor.planHeight * nz) / 2;
+		py = (ch - bar - floor.planHeight * nz) / 2;
 	}
 	$effect(() => {
 		if (!grid) return;
@@ -559,6 +561,7 @@
 	let nameInput: HTMLInputElement | undefined = $state();
 	let layoutEl: HTMLElement | undefined = $state();
 	async function addRoom(shape: Shape) {
+		kbCorner = null;
 		const name = newRoomName();
 		const id = await commit(() => createRoom({ floorId, name, kind: 'interior', shape }));
 		tool = 'select';
@@ -641,6 +644,7 @@
 	/** The last thing to move the cursor was a key, not the pointer. */
 	let kbShow = $state(false);
 	let focusByKey = false;
+	let kbBusy = false;
 	const kbTool = $derived(tool === 'rect' || tool === 'poly' || tool === 'item' || placing !== null);
 	const kbOn = $derived(canvasFocused && kbShow && kbTool);
 	const rectOf = (a: Point, b: Point): Rect => ({
@@ -743,9 +747,13 @@
 		}
 		if (e.key === 'Enter') {
 			e.preventDefault();
-			// After the pointer, the first Enter only brings the cursor back.
+			// After the pointer, the first Enter only brings the cursor back. A held key or a press
+			// while the last one is still saving never creates a second room or item.
 			if (!kbOn) kbShow = true;
-			else kbEnter();
+			else if (!e.repeat && !kbBusy) {
+				kbBusy = true;
+				kbEnter().finally(() => (kbBusy = false));
+			}
 		} else if (e.key === 'Backspace' && tool === 'poly' && kbOn) {
 			e.preventDefault();
 			if (!polyPts.length) return;
@@ -918,7 +926,7 @@
 				drag = null;
 				draft = null;
 			} else if (helpOpen) closeHelp(false);
-			else if (kbCorner) {
+			else if (kbCorner && tool === 'rect') {
 				kbCorner = null;
 				announce('First corner cleared.');
 			} else if (placing !== null) {
@@ -931,6 +939,8 @@
 			else sel = null;
 			return;
 		}
+		// Alt+arrows resize a focused room; anywhere else in the editor they mustn't go Back a page.
+		if (e.altKey && e.key.startsWith('Arrow') && !inField) e.preventDefault();
 		if (inField || e.metaKey || e.ctrlKey || e.altKey) {
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !inField) {
 				e.preventDefault();
@@ -943,6 +953,7 @@
 			toggleHelp(document.activeElement);
 			return;
 		}
+		if ((e.target as Element).closest?.('.khelp')) return;
 		const k = e.key.toLowerCase();
 		const t: ETool | null = k === 'v' ? 'select' : k === 'r' ? 'rect' : k === 'p' ? 'poly' : k === 'i' ? 'item' : null;
 		if (!t) return;
@@ -976,6 +987,7 @@
 	});
 	function togglePlan() {
 		placing = null;
+		kbCorner = null;
 		tool = 'select';
 		sel = planSel ? null : { k: 'plan' };
 	}
@@ -1813,7 +1825,7 @@
 			class="inp"
 			type="number"
 			step={upf ? 0.5 : 1}
-			min={min !== undefined ? toField(min, upf) : undefined}
+			min={min !== undefined ? Math.ceil(toField(min, upf) / (upf ? 0.5 : 1)) * (upf ? 0.5 : 1) : undefined}
 			value={toField(get(), upf)}
 			oninput={(e) => {
 				const v = e.currentTarget.valueAsNumber;
