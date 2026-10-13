@@ -122,7 +122,6 @@ long-term direction.
 
 Not designed yet, so ask the owner before building:
 
-- Keyboard access on the map: drawing rooms and placing items without a pointer.
 - Change history.
 - A 3D view (exploratory).
 
